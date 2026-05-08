@@ -1,0 +1,114 @@
+[
+  {
+    "agent": "manual_qa",
+    "input_text": "Aha requirements with auth and playback gates",
+    "output_text": "Two smoke tests only",
+    "label": 0,
+    "fix_instruction": "Create professional test pack with TC IDs, preconditions, steps, expected results and priority"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "Aha requirements with uploaded baseline",
+    "output_text": "Aha app-specific test cases for Home, Continue, Play, Pause, Seek and login",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ requirements including live",
+    "output_text": "Generic cases without live validation",
+    "label": 0,
+    "fix_instruction": "Add TVNZ live stream launch, channel switch, and playback recovery test cases"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ requirements including live",
+    "output_text": "TVNZ-specific manual cases with live channel and catchup coverage",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "Gray OTT requirements",
+    "output_text": "Gray-specific case suite with gate, card drilldown, player control checks",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "Gray OTT requirements with assertions",
+    "output_text": "Only generic regression tests",
+    "label": 0,
+    "fix_instruction": "Map each assertion to a dedicated Gray manual test case with deterministic expected result"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ covenant movie page requirement",
+    "output_text": "TC: verify PLAY MOVIE button launch, MY LIST add/remove, SHARE visibility, recommendation rail present",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ covenant movie page requirement",
+    "output_text": "Smoke open page only",
+    "label": 0,
+    "fix_instruction": "Write complete professional TC set with detailed preconditions, steps, expected results for movie detail and playback"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Authentication -> OTP login",
+    "output_text": "TC has precondition (valid email), step for 6-digit OTP entry, and expected session creation",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Profiles -> create/update/delete",
+    "output_text": "Manual cases validate max 5 profiles, no delete for primary, and warning modal before delete",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Search min 2 chars and zero results",
+    "output_text": "Search test covers keyword threshold, relevant categories, and no-results alternative suggestions",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Playback controls and resume",
+    "output_text": "Generic playback case with no seek intervals or resume validation",
+    "label": 0,
+    "fix_instruction": "Add checks for 6-second thumbnail scrub, continue watching resume point, skip intro/recap visibility and action"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: EPG and channel playback",
+    "output_text": "TC validates week schedule visibility, 50+ channels, channel logos, and launch into live stream",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Ads SSAI + Ad on Pause",
+    "output_text": "TC verifies ad pod behavior and ensures FF/scrubbing blocked during ad playback",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Live event watch from start and jump to live",
+    "output_text": "Manual case misses DVR mode and pre-event coming soon state",
+    "label": 0,
+    "fix_instruction": "Add 3 separate live-event cases: watch from start, jump to live from DVR delay, and pre-event slate message"
+  },
+  {
+    "agent": "manual_qa",
+    "input_text": "TVNZ sanity: Recommendations",
+    "output_text": "Case validates Recommended For [Profile], Because You Watched, Related Shows, and Popular/Trending belts",
+    "label": 1,
+    "fix_instruction": ""
+  }
+]

@@ -1,0 +1,47 @@
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.stage {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stage h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.chip.pending {
+  color: var(--text-muted);
+  background: var(--bg);
+}
+
+.chip.running {
+  color: #1a1a00;
+  background: var(--amber);
+}
+
+.chip.done {
+  color: #0d1f0d;
+  background: var(--accent);
+}
+
+.chip.failed {
+  color: #2a0a0a;
+  background: var(--red);
+}

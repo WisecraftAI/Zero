@@ -1,0 +1,100 @@
+[
+  {
+    "agent": "automation_qa",
+    "input_text": "Aha manual cases and assertions",
+    "output_text": "Hardcoded single selector script",
+    "label": 0,
+    "fix_instruction": "Use adaptive selectors, login handling, retries, and screenshot evidence"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "Aha manual cases and assertions",
+    "output_text": "Playwright suite with adaptive locators and evidence links",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ live and VOD cases",
+    "output_text": "Script ignores live module and only opens home",
+    "label": 0,
+    "fix_instruction": "Add separate TVNZ checks for live stream entry and playback control validation"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ live and VOD cases",
+    "output_text": "Automation covers live launch, card open, play and control validation",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "Gray OTT playback test pack",
+    "output_text": "Adaptive automation with login step and selector fallbacks",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "Gray OTT playback test pack",
+    "output_text": "No retry/no screenshot script",
+    "label": 0,
+    "fix_instruction": "Add retry strategy, screenshot on each attempt, and selector memory updates"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ covenant manual cases",
+    "output_text": "Playwright script validating PLAY MOVIE and MY LIST with screenshot evidence",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ covenant manual cases",
+    "output_text": "Only page.goto and body visible check",
+    "label": 0,
+    "fix_instruction": "Add element checks for title, PLAY MOVIE CTA, MY LIST CTA, and rerun-safe locators"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation pack for Authentication and Profiles",
+    "output_text": "Playwright flow validates splash transition, OTP form visibility, and profile type restrictions for Kids/Preschool",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation for playback",
+    "output_text": "Script validates play/pause only",
+    "label": 0,
+    "fix_instruction": "Add scrub seek interval checks, resume point assertion, skip intro interaction, caption/audio track toggling"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation for EPG and Live",
+    "output_text": "Suite verifies EPG week range, channel selection, watch from start, jump to live, and pre-event slate",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation for ads",
+    "output_text": "Automation validates pre-roll presence and ad on pause overlay while controls are restricted",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation for recommendations and search",
+    "output_text": "No assertions for personalized belts or no-result suggestions",
+    "label": 0,
+    "fix_instruction": "Add assertions for Recommended For profile, Because You Watched, Popular Search grid, and zero-result alternatives"
+  },
+  {
+    "agent": "automation_qa",
+    "input_text": "TVNZ sanity automation for device features",
+    "output_text": "Suite checks Chromecast receiver discovery and PiP entry on background",
+    "label": 1,
+    "fix_instruction": ""
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "agent": "ba",
+    "input_text": "Aha URL with subscription gate notes and assertions",
+    "output_text": "Generic OTT requirements with no channel mapping",
+    "label": 0,
+    "fix_instruction": "Map Aha modules, include subscription/login gates, playback and language risks"
+  },
+  {
+    "agent": "ba",
+    "input_text": "Aha URL with uploaded test case sheet",
+    "output_text": "Aha-specific requirements with Telugu/Tamil modules and auth assumptions",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ URL with live stream requirement",
+    "output_text": "Generic requirements only",
+    "label": 0,
+    "fix_instruction": "Include TVNZ live stream journey, profile auth gate, and catchup flow requirements"
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ URL with notes and assertions",
+    "output_text": "TVNZ requirements with Live TV and catchup constraints",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "ba",
+    "input_text": "Gray OTT URL and release notes",
+    "output_text": "Gray-specific requirements with login gate and originals rail",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "ba",
+    "input_text": "Gray OTT URL + tc file",
+    "output_text": "No channel context, missing gate requirements",
+    "label": 0,
+    "fix_instruction": "Add Gray modules, gate progression, and player resilience requirements"
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ URL https://tvnz-web-ui-cdn.edge-stag.tvnz.co.nz/movie/guy-ritchies-the-covenant with movie detail page context",
+    "output_text": "TVNZ requirement list with modules Home/Movies/My List, journey includes PLAY MOVIE CTA and share action",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ URL https://tvnz-web-ui-cdn.edge-stag.tvnz.co.nz/movie/guy-ritchies-the-covenant",
+    "output_text": "Generic OTT requirement statement without TVNZ specific CTA mapping",
+    "label": 0,
+    "fix_instruction": "Add TVNZ page-specific controls: PLAY MOVIE, MY LIST, SHARE, and recommendation rail"
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ sanity suite features Authentication, Profiles, Navigation, Discovery, Playback, EPG, Ads, Payments, Chromecast, PiP, Recommendations, Maintenance",
+    "output_text": "Requirement baseline includes OTP login, profile constraints, search min chars, playback controls, EPG depth, ad restrictions, casting, and forced update behavior",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "ba",
+    "input_text": "TVNZ sanity suite full matrix",
+    "output_text": "Only generic regression goals without feature-level acceptance criteria",
+    "label": 0,
+    "fix_instruction": "Break down feature-wise acceptance criteria for Authentication, Profiles, Playback, EPG, Ads, Recommendations, Live events, and App update"
+  }
+]

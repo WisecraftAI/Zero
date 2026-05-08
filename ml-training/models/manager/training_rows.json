@@ -1,0 +1,79 @@
+[
+  {
+    "agent": "manager",
+    "input_text": "Aha BA+manual+automation+execution artifacts",
+    "output_text": "Short summary with no diagnosis",
+    "label": 0,
+    "fix_instruction": "Provide root causes, impact, risk score, and action plan with go/no-go"
+  },
+  {
+    "agent": "manager",
+    "input_text": "Aha BA+manual+automation+execution artifacts",
+    "output_text": "Executive review with failure clusters, risks and release recommendation",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ run artifacts with live failures",
+    "output_text": "TVNZ manager review with root cause on live launch and mitigation plan",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ run artifacts",
+    "output_text": "Generic pass/fail count only",
+    "label": 0,
+    "fix_instruction": "Add module-wise coverage, top blockers and clear remediation priorities"
+  },
+  {
+    "agent": "manager",
+    "input_text": "Gray run artifacts",
+    "output_text": "Architect review with run health, traceability and executive decision",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manager",
+    "input_text": "Gray run artifacts",
+    "output_text": "No action points and no ownership",
+    "label": 0,
+    "fix_instruction": "Add owner-wise action items, ETA, and release risk posture"
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ covenant run artifacts",
+    "output_text": "Manager review includes risk if PLAY MOVIE fails, impact on conversion, and clear remediation sequence",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ covenant run artifacts",
+    "output_text": "Pass count report without business impact",
+    "label": 0,
+    "fix_instruction": "Include business impact, release recommendation, and ownership action plan"
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ sanity release run with mixed pass/fail across playback and live event",
+    "output_text": "Manager review includes feature heatmap, top failing clusters (live DVR, ad controls), risk severity, and release decision",
+    "label": 1,
+    "fix_instruction": ""
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ sanity run summary",
+    "output_text": "Manager report only lists pass/fail numbers with no remediation owner",
+    "label": 0,
+    "fix_instruction": "Add owner, ETA, user impact, and retest plan for each failed feature cluster"
+  },
+  {
+    "agent": "manager",
+    "input_text": "TVNZ sanity run with payment + lock icon failure",
+    "output_text": "Executive review highlights revenue-impacting blocker for paid content lock and Buy Now redirect path",
+    "label": 1,
+    "fix_instruction": ""
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "name": "ai-qa-orchestrator",
+  "version": "1.0.0",
+  "description": "Web tool to orchestrate BA, Manual QA, Automation QA, and Manager agents.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "cd client && npm install && npm run build",
+    "client": "cd client && npm run dev",
+    "set-db": "node scripts/set-database.js"
+  },
+  "keywords": [
+    "qa",
+    "playwright",
+    "orchestration",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.13.1",
+    "playwright": "^1.52.0",
+    "xlsx": "^0.18.5"
+  }
+}
