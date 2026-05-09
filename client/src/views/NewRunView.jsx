@@ -24,6 +24,7 @@ export default function NewRunView({ onSubmit }) {
   const [enablePerformance, setEnablePerformance] = useState(false);
 
   useEffect(() => {
+a    console.log('[NewRunView] MOUNTED');
     const handler = (e) => {
       if (e.data?.type === 'recording-saved' && e.data.recordingId) {
         setRecordingId(e.data.recordingId);
@@ -31,8 +32,13 @@ export default function NewRunView({ onSubmit }) {
       }
     };
     window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
+    return () => {
+      console.log('[NewRunView] UNMOUNTED');
+      window.removeEventListener('message', handler);
+    };
   }, []);
+
+  console.log('[NewRunView] render — step:', step, 'ottUrl:', ottUrl, 'runHeaded:', runHeaded);
 
   const handleStartRecording = async () => {
     const url = ottUrl.trim();
@@ -122,7 +128,7 @@ export default function NewRunView({ onSubmit }) {
                     required
                     className="form-input"
                     value={ottUrl}
-                    onChange={e => { setOttUrl(e.target.value); if (error) setError(''); }}
+                    onChange={e => { console.log('[NewRunView] URL onChange:', e.target.value); setOttUrl(e.target.value); if (error) setError(''); }}
                   />
                   <button
                     type="button"
@@ -293,7 +299,7 @@ export default function NewRunView({ onSubmit }) {
               </button>
             )}
             {step < STEPS.length - 1 ? (
-              <button type="button" className="btn btn-primary" onClick={() => { setError(''); setStep(s => s + 1); }}>
+              <button type="button" className="btn btn-primary" onClick={() => { console.log('[NewRunView] NEXT clicked. ottUrl=', ottUrl); setError(''); setStep(s => s + 1); }}>
                 Next →
               </button>
             ) : (
