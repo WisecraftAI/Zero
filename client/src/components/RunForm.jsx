@@ -61,8 +61,8 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
     <form ref={formRef} className="form" onSubmit={handleSubmit} encType="multipart/form-data">
       <div className="form-row">
         <label className="field full">
-          <span className="field-label">OTT URL <em>required</em></span>
-          <input name="ottUrl" type="url" placeholder="https://your-ott-app.com" required />
+          <span className="field-label">URL <em>required</em></span>
+          <input name="ottUrl" type="url" placeholder="https://example.com" required />
         </label>
       </div>
       <div className="form-row two">
@@ -118,6 +118,24 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
           </label>
           <span className="field-hint">A browser window will open on your machine so you can watch navigation and validate each step.</span>
         </label>
+      </div>
+      <div className="form-row">
+        <div className="field full optional-agents">
+          <span className="field-label">Optional Agents</span>
+          <p className="field-hint">Select additional agents to run in the pipeline. These are optional and can be enabled based on your testing needs.</p>
+          <div className="agents-checkboxes">
+            <label className="checkbox-label">
+              <input name="enableAccessibility" type="checkbox" value="true" />
+              <span>Accessibility Agent</span>
+              <span className="agent-desc">Checks WCAG compliance, color contrast, alt text, ARIA labels</span>
+            </label>
+            <label className="checkbox-label">
+              <input name="enablePerformance" type="checkbox" value="true" />
+              <span>Performance Agent</span>
+              <span className="agent-desc">Measures page load time, Core Web Vitals, resource analysis</span>
+            </label>
+          </div>
+        </div>
       </div>
       <div className="form-row record-section">
         <div className="field full">

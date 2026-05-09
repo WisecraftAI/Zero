@@ -30,7 +30,8 @@ const upload = multer({
 
 const runs = new Map();
 const runSecrets = new Map();
-const stageKeys = ["ba", "manualQa", "automationQa", "execution", "manager", "delivery"];
+const stageKeys = ["ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "manager", "delivery"];
+const optionalStageKeys = ["accessibility", "performance"];
 const selectorMemory = new Map();
 
 // In-memory recording sessions (sessionId -> { ottUrl, events[], createdAt })
@@ -371,6 +372,44 @@ async function getRun(id) {
 function createRun(input) {
   const id = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const now = new Date().toISOString();
+  
+  // Base stages - always included
+  const stages = {
+    ba: { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null },
+    manualQa: { label: "Manual QA Agent", status: "pending", startedAt: null, finishedAt: null },
+    automationQa: { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null },
+    execution: { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null }
+  };
+  
+  // Optional agents - only add if enabled in input
+  if (input.enableAccessibility) {
+    stages.accessibility = { label: "Accessibility Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+  if (input.enablePerformance) {
+    stages.performance = { label: "Performance Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+  
+  // Final stages - always included
+  stages.manager = { label: "Manager Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.delivery = { label: "Delivery Manager Agent", status: "pending", startedAt: null, finishedAt: null };
+  
+  const artifacts = {
+    requirements: null,
+    manualTestCases: null,
+    automationBundle: null,
+    executionReport: null,
+    managerReport: null,
+    deliveryReport: null
+  };
+  
+  // Add optional artifact slots if enabled
+  if (input.enableAccessibility) {
+    artifacts.accessibilityReport = null;
+  }
+  if (input.enablePerformance) {
+    artifacts.performanceReport = null;
+  }
+  
   const run = {
     id,
     runDir: path.join(artifactsRoot, id),
@@ -378,22 +417,8 @@ function createRun(input) {
     updatedAt: now,
     input,
     status: "queued",
-    stages: {
-      ba: { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null },
-      manualQa: { label: "Manual QA Agent", status: "pending", startedAt: null, finishedAt: null },
-      automationQa: { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null },
-      execution: { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null },
-      manager: { label: "Manager Agent", status: "pending", startedAt: null, finishedAt: null },
-      delivery: { label: "Delivery Manager Agent", status: "pending", startedAt: null, finishedAt: null }
-    },
-    artifacts: {
-      requirements: null,
-      manualTestCases: null,
-      automationBundle: null,
-      executionReport: null,
-      managerReport: null,
-      deliveryReport: null
-    },
+    stages,
+    artifacts,
     picture: buildArchitecturePictureSvg()
   };
   runs.set(id, run);
@@ -1091,190 +1116,610 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
   const ottUrl = run.input.ottUrl;
   const useMinimalExecution = process.env.EXECUTION_MODE !== "full";
 
+  // Sequential execution state - maintains page state across test cases
+  let pageInitialized = false;
+  let executionContext = { searchTerm: null, selectedProduct: null, cartCount: 0 };
+
+  // Extract search term from scenario text (e.g., "Enter iPhone 15" -> "iPhone 15")
+  function extractSearchTerm(text) {
+    const patterns = [
+      /(?:search|enter|type|input)[\s]+(?:for\s+)?["']?([^"'\n]+?)["']?\s+(?:in|into|on)/i,
+      /(?:search|enter|type|input)[\s]+["']?([^"'\n]+?)["']?\s*$/i,
+      /(?:search|enter|type)[\s]+(?:for\s+)?["']?([a-zA-Z0-9\s]+\d+[a-zA-Z0-9\s]*)["']?/i,
+      /["']([^"']+)["']/,
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1] && match[1].trim().length > 1) {
+        return match[1].trim();
+      }
+    }
+    // Try to extract product names like "iPhone 15"
+    const productMatch = text.match(/\b(iphone\s*\d+|galaxy\s*s\d+|pixel\s*\d+|macbook|ipad|airpods)/i);
+    if (productMatch) return productMatch[1];
+    return null;
+  }
+
+  // Parse action type from scenario
+  function parseAction(scenario, expectedResult) {
+    const text = `${scenario} ${expectedResult}`.toLowerCase();
+    
+    if (text.includes("navigate") || text.includes("homepage") || text.includes("loads")) {
+      if (text.includes("cart page") || text.includes("click on cart") || text.includes("open cart")) return "open_cart";
+      if (text.includes("product") && text.includes("page")) return "verify_product_page";
+      return "navigate";
+    }
+    if (text.includes("enter") && (text.includes("search") || text.includes("box"))) return "search_enter";
+    if (text.includes("click") && text.includes("search")) return "search_click";
+    if (text.includes("search") && (text.includes("result") || text.includes("display"))) return "verify_search_results";
+    if (text.includes("click") && (text.includes("first") || text.includes("product"))) return "click_product";
+    if (text.includes("verify") && text.includes("product") && (text.includes("title") || text.includes("name"))) return "verify_product_title";
+    if (text.includes("verify") && text.includes("price")) return "verify_price";
+    if (text.includes("add to cart") && text.includes("button") && (text.includes("present") || text.includes("visible"))) return "verify_add_to_cart_button";
+    if (text.includes("click") && text.includes("add to cart")) return "click_add_to_cart";
+    if (text.includes("added") && text.includes("cart") && text.includes("confirm")) return "verify_added_confirmation";
+    if (text.includes("cart") && (text.includes("count") || text.includes("updates") || text.includes("badge"))) return "verify_cart_count";
+    if (text.includes("click") && text.includes("cart")) return "open_cart";
+    if (text.includes("verify") && text.includes("cart") && (text.includes("product") || text.includes("item") || text.includes("in cart"))) return "verify_item_in_cart";
+    if (text.includes("quantity")) return "verify_quantity";
+    if (text.includes("checkout") || text.includes("proceed")) return "verify_checkout";
+    if (text.includes("search") && text.includes("bar")) return "verify_search_bar";
+    if (text.includes("verify") || text.includes("display") || text.includes("visible") || text.includes("present")) return "verify_element";
+    return "generic";
+  }
+
   function buildUploadedTcExecutionTests() {
     const list = (run.artifacts.manualTestCases && run.artifacts.manualTestCases.testCases) || [];
-    return list.map((tc) => {
-      const text = `${tc.module || ""} ${tc.scenario || ""} ${tc.expectedResult || ""}`.toLowerCase();
+    
+    return list.map((tc, index) => {
+      const scenario = tc.scenario || tc.title || "";
+      const expected = tc.expectedResult || "";
+      const text = `${tc.module || ""} ${scenario} ${expected}`.toLowerCase();
+      const action = parseAction(scenario, expected);
+      const searchTerm = extractSearchTerm(scenario) || extractSearchTerm(expected);
+      
       return {
         id: `EXEC-${tc.id}`,
-        title: tc.title,
+        title: tc.title || scenario,
+        tcIndex: index,
+        action,
+        searchTerm,
         execute: async (page, trace) => {
-          if (useMinimalExecution) {
+          // Initialize page only once for the first test case
+          if (!pageInitialized) {
+            trace.push("seq:initializing-page");
             await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+            await page.waitForLoadState("domcontentloaded").catch(() => {});
             await page.locator("body").waitFor({ state: "visible", timeout: 15000 });
-            trace.push("minimal:page-loaded");
-            return;
+            await page.waitForTimeout(2000);
+            pageInitialized = true;
+            trace.push("seq:page-ready");
           }
-          const minimalPass = async () => {
-            try {
-              await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-              await page.locator("body").waitFor({ state: "visible", timeout: 15000 });
-              trace.push("csv:page-visible (navigation ok)");
-            } catch (e) {
-              trace.push("csv:nav-error-" + (e.message || "timeout").slice(0, 40));
-              throw e;
-            }
-          };
-          try {
-          await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-          await page.waitForLoadState("domcontentloaded").catch(() => {});
-          await page.waitForTimeout(1500);
-          if (text.includes("splash") || text.includes("video plays") || text.includes("app launch")) {
+
+          // If using minimal execution mode, just verify page is loaded
+          if (useMinimalExecution && action === "generic") {
             const body = page.locator("body");
             await body.waitFor({ state: "visible", timeout: 10000 });
-            trace.push("csv:splash-shell-visible");
+            trace.push("minimal:page-visible");
             return;
           }
-          if (text.includes("otp") || (text.includes("authenticate") && text.includes("email"))) {
-            const cta = await firstVisibleLocator(page, selectorCandidates.loginCta || [], ["Sign in", "Login"]);
-            if (cta) await cta.locator.click({ timeout: 7000 });
-            const user = await firstVisibleLocator(page, selectorCandidates.loginUserField || [], []);
-            if (!user) throw new Error("OTP/Login flow: email field not visible");
-            trace.push("csv:otp-login-visible");
-            return;
-          }
-          if (text.includes("profile") && (text.includes("creation") || text.includes("switch") || text.includes("create") || text.includes("primary") || text.includes("additional") || text.includes("metadata") || text.includes("delete"))) {
-            const nav = await firstVisibleLocator(page, selectorCandidates.primaryNav || [], ["Profile", "My List", "Home", "Account"]);
-            if (!nav) throw new Error("Profile area not visible");
-            trace.push("csv:profile-nav-visible");
-            return;
-          }
-          if (text.includes("kids") || text.includes("preschool")) {
-            const nav = await firstVisibleLocator(page, selectorCandidates.primaryNav || [], ["Profile", "Kids", "Home"]);
-            if (!nav) throw new Error("Profile/nav not visible for Kids/Preschool");
-            trace.push("csv:kids-profile-visible");
-            return;
-          }
-          if (text.includes("landing") || text.includes("loading") || text.includes("hero") || text.includes("carousel") || text.includes("belts")) {
-            const nav = await firstVisibleLocator(page, selectorCandidates.primaryNav || [], ["Home", "Movies", "TV"]);
-            if (!nav) throw new Error("Landing/navigation not visible");
-            trace.push("csv:landing-visible");
-            return;
-          }
-          if (text.includes("search") || text.includes("keyword")) {
-            const search = await firstVisibleLocator(page, ["[aria-label*='Search']", "input[type='search']", "input[placeholder*='Search']"], ["Search"]);
-            if (!search) throw new Error("Search control not visible");
-            trace.push("csv:search-visible");
-            return;
-          }
-          if (text.includes("content details") || text.includes("show/movie") || text.includes("metadata") || text.includes("add to my list")) {
-            const card = await firstVisibleLocator(page, selectorCandidates.contentCard || [], ["Watch now", "Details"]);
-            if (!card) throw new Error("Content detail/card not found");
-            await card.locator.click({ timeout: 8000 });
-            await page.waitForTimeout(1500);
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play", "Add to My List"]);
-            if (!play) throw new Error("Play or Add to My List not visible on details");
-            trace.push("csv:content-details-visible");
-            return;
-          }
-          if (text.includes("play") || text.includes("vod") || text.includes("resume") || text.includes("continue watching") || text.includes("pause") || text.includes("scrub")) {
-            const continueBtn = await firstVisibleLocator(page, selectorCandidates.continueCta || [], ["Continue", "Continue Watching"]);
-            if (continueBtn) await continueBtn.locator.click({ timeout: 6000 });
-            await page.waitForTimeout(1000);
-            const card = await firstVisibleLocator(page, selectorCandidates.contentCard || [], ["Watch now"]);
-            if (card) await card.locator.click({ timeout: 8000 });
-            await page.waitForTimeout(1000);
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play", "Watch", "Resume"]);
-            if (!play) throw new Error("Play/Resume CTA not visible");
-            await play.locator.click({ timeout: 9000 });
-            await page.waitForTimeout(1500);
-            const pause = await firstVisibleLocator(page, selectorCandidates.pauseCta || [], ["Pause"]);
-            if (!pause && !text.includes("skip intro")) throw new Error("Playback controls not visible after play");
-            trace.push("csv:playback-ok");
-            return;
-          }
-          if (text.includes("skip intro") || text.includes("skip recap")) {
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play", "Watch"]);
-            if (play) await play.locator.click({ timeout: 8000 });
-            await page.waitForTimeout(3000);
-            const skip = await firstVisibleLocator(page, [], ["Skip Intro", "Skip Recap"]);
-            if (!skip) return { skip: true, reason: "Skip Intro/Recap not shown (may need playback to start)" };
-            trace.push("csv:skip-visible");
-            return;
-          }
-          if (text.includes("subtitle") || text.includes("audio track")) {
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play"]);
-            if (play) await play.locator.click({ timeout: 8000 });
-            await page.waitForTimeout(2000);
-            const settings = await firstVisibleLocator(page, [], ["Settings", "Subtitles", "Audio"]);
-            if (!settings) return { skip: true, reason: "Player settings/CC not found in current state" };
-            trace.push("csv:subtitle-audio-visible");
-            return;
-          }
-          if (text.includes("epg") || text.includes("channel") || text.includes("live tv") || text.includes("watch from start") || text.includes("watch live")) {
-            const ch = await firstVisibleLocator(page, ["a:has-text('Channels')", "button:has-text('Channels')", "[href*='live']", "[href*='channel']"], ["Channels", "Live", "EPG"]);
-            if (!ch) throw new Error("EPG/Channels entry not visible");
-            trace.push("csv:epg-channels-visible");
-            return;
-          }
-          if (text.includes("sport hub") || text.includes("competition")) {
-            const sport = await firstVisibleLocator(page, [], ["Sport", "Sports"]);
-            if (!sport) throw new Error("Sport hub not visible");
-            trace.push("csv:sport-visible");
-            return;
-          }
-          if (text.includes("my list") || text.includes("my hub")) {
-            const myList = await firstVisibleLocator(page, ["button:has-text('MY LIST')", "a:has-text('My List')", "[aria-label*='My List']"], ["My List", "My Hub"]);
-            if (!myList) throw new Error("My List / My Hub not visible");
-            trace.push("csv:my-list-visible");
-            return;
-          }
-          if (text.includes("ad") || text.includes("ssai") || text.includes("pre-roll") || text.includes("mid-roll")) {
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play"]);
-            if (play) await play.locator.click({ timeout: 8000 });
-            await page.waitForTimeout(4000);
-            trace.push("csv:ads-check");
-            return;
-          }
-          if (text.includes("buy") || text.includes("padlock") || text.includes("payment") || text.includes("paid content")) {
-            const buy = await firstVisibleLocator(page, ["button:has-text('Buy Now')", "[data-testid*='lock']", "[aria-label*='Buy']"], ["Buy Now", "Subscribe"]);
-            if (!buy) return { skip: true, reason: "Paid content/Buy Now not on current page" };
-            trace.push("csv:payment-visible");
-            return;
-          }
-          if (text.includes("chromecast") || text.includes("pip") || text.includes("picture-in-picture")) {
-            return { skip: true, reason: "Device/OS feature; skipped in browser" };
-          }
-          if (text.includes("news clip") || text.includes("autoplay") || text.includes("up next")) {
-            const main = page.locator("main").first();
-            await main.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
-            trace.push("csv:news-upnext");
-            return;
-          }
-          if (text.includes("stream quality") || text.includes("quality adjustment")) {
-            const play = await firstVisibleLocator(page, selectorCandidates.playCta || [], ["Play"]);
-            if (play) await play.locator.click({ timeout: 6000 });
-            await page.waitForTimeout(1500);
-            const settings = await firstVisibleLocator(page, [], ["Settings", "Quality"]);
-            if (!settings) return { skip: true, reason: "Quality settings not in current player" };
-            trace.push("csv:quality-visible");
-            return;
-          }
-          if (text.includes("jump to live") || text.includes("watch from start") || text.includes("dvr") || text.includes("coming soon")) {
-            const live = await firstVisibleLocator(page, [], ["Live", "Watch from Start", "Jump to Live", "Coming Soon"]);
-            if (!live) return { skip: true, reason: "Live/DVR controls not on current page" };
-            trace.push("csv:live-dvr");
-            return;
-          }
-          if (text.includes("recommended") || text.includes("because you watched") || text.includes("more like this") || text.includes("popular") || text.includes("trending")) {
-            const belt = await firstVisibleLocator(page, [], ["Recommended", "Because you watched", "Popular", "Trending", "More like this"]);
-            if (!belt) throw new Error("Recommendation belt not visible");
-            trace.push("csv:recommendations-visible");
-            return;
-          }
-          if (text.includes("forced update") || text.includes("maintenance") || text.includes("app update")) {
-            const body = page.locator("body");
-            await body.waitFor({ timeout: 8000 });
-            trace.push("csv:maintenance-check");
-            return;
-          }
-          const body = page.locator("body");
-          await body.waitFor({ state: "visible", timeout: 8000 });
-          trace.push("csv:page-visible");
-          } catch (err) {
-            trace.push("csv:fallback-" + (err.message || "").slice(0, 35));
-            await minimalPass();
-            return;
+
+          // Execute based on parsed action type
+          switch (action) {
+            case "navigate": {
+              // Already navigated, verify page loaded
+              const body = page.locator("body");
+              await body.waitFor({ state: "visible", timeout: 10000 });
+              trace.push("action:navigate-verified");
+              break;
+            }
+
+            case "verify_search_bar": {
+              const searchSelectors = [
+                "input#twotabsearchtextbox", // Amazon
+                "input[type='search']",
+                "input[placeholder*='Search']",
+                "input[name='field-keywords']",
+                "[aria-label*='Search']",
+                "#search-input",
+                ".search-input"
+              ];
+              let found = false;
+              for (const sel of searchSelectors) {
+                try {
+                  const loc = page.locator(sel).first();
+                  if (await loc.isVisible({ timeout: 3000 })) {
+                    found = true;
+                    trace.push(`action:search-bar-found:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              if (!found) throw new Error("Search bar not visible");
+              break;
+            }
+
+            case "search_enter": {
+              const term = searchTerm || executionContext.searchTerm || "iPhone 15";
+              executionContext.searchTerm = term;
+              
+              const searchSelectors = [
+                "input#twotabsearchtextbox",
+                "input[type='search']",
+                "input[placeholder*='Search']",
+                "input[name='field-keywords']",
+                "[aria-label*='Search'] input",
+                "#search-input"
+              ];
+              
+              let searchBox = null;
+              for (const sel of searchSelectors) {
+                try {
+                  const loc = page.locator(sel).first();
+                  if (await loc.isVisible({ timeout: 3000 })) {
+                    searchBox = loc;
+                    trace.push(`action:search-input-found:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!searchBox) throw new Error("Search input not found");
+              await searchBox.click();
+              await searchBox.fill(term);
+              await page.waitForTimeout(500);
+              trace.push(`action:entered-search:${term}`);
+              break;
+            }
+
+            case "search_click": {
+              const submitSelectors = [
+                "#nav-search-submit-button",
+                "input[type='submit'][value='Go']",
+                "button[type='submit']",
+                "[aria-label*='Search']button",
+                ".search-submit",
+                "button:has-text('Search')"
+              ];
+              
+              let submitted = false;
+              for (const sel of submitSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 2000 })) {
+                    await btn.click();
+                    submitted = true;
+                    trace.push(`action:search-submitted:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!submitted) {
+                // Try pressing Enter
+                await page.keyboard.press("Enter");
+                trace.push("action:search-submitted-enter");
+              }
+              
+              await page.waitForLoadState("domcontentloaded").catch(() => {});
+              await page.waitForTimeout(2000);
+              break;
+            }
+
+            case "verify_search_results": {
+              await page.waitForTimeout(1500);
+              const term = executionContext.searchTerm || "iPhone";
+              
+              // Look for search results
+              const resultSelectors = [
+                "[data-component-type='s-search-result']",
+                ".s-result-item",
+                ".s-search-results",
+                "[data-asin]",
+                ".product-list",
+                ".search-results"
+              ];
+              
+              let found = false;
+              for (const sel of resultSelectors) {
+                try {
+                  const results = page.locator(sel);
+                  const count = await results.count();
+                  if (count > 0) {
+                    found = true;
+                    trace.push(`action:search-results-found:${count}-items`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                // Try text-based verification
+                const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push("action:search-term-visible");
+                }
+              }
+              
+              if (!found) throw new Error(`Search results for "${term}" not displayed`);
+              break;
+            }
+
+            case "click_product": {
+              await page.waitForTimeout(1000);
+              
+              const productSelectors = [
+                "[data-component-type='s-search-result'] h2 a",
+                ".s-result-item h2 a",
+                "[data-asin] h2 a",
+                ".s-product-image-container a",
+                ".product-title a",
+                "h2 a[href*='/dp/']"
+              ];
+              
+              let clicked = false;
+              for (const sel of productSelectors) {
+                try {
+                  const products = page.locator(sel);
+                  const first = products.first();
+                  if (await first.isVisible({ timeout: 3000 })) {
+                    const title = await first.textContent().catch(() => "");
+                    executionContext.selectedProduct = title.trim();
+                    await first.click();
+                    clicked = true;
+                    trace.push(`action:product-clicked:${title.slice(0, 50)}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!clicked) throw new Error("Could not click on product");
+              await page.waitForLoadState("domcontentloaded").catch(() => {});
+              await page.waitForTimeout(2000);
+              break;
+            }
+
+            case "verify_product_page":
+            case "verify_product_title": {
+              await page.waitForTimeout(1000);
+              const term = executionContext.searchTerm || "iPhone";
+              
+              const titleSelectors = [
+                "#productTitle",
+                "#title",
+                "h1[data-automation='productTitle']",
+                ".product-title",
+                "h1.product-name"
+              ];
+              
+              let found = false;
+              for (const sel of titleSelectors) {
+                try {
+                  const title = page.locator(sel).first();
+                  if (await title.isVisible({ timeout: 5000 })) {
+                    const text = await title.textContent();
+                    found = true;
+                    trace.push(`action:product-title-visible:${text.slice(0, 50)}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push("action:product-term-visible");
+                }
+              }
+              
+              if (!found) throw new Error("Product title not visible");
+              break;
+            }
+
+            case "verify_price": {
+              const priceSelectors = [
+                ".a-price .a-offscreen",
+                "#priceblock_ourprice",
+                "#priceblock_dealprice",
+                ".a-price-whole",
+                "[data-a-color='price']",
+                ".price",
+                "#price"
+              ];
+              
+              let found = false;
+              for (const sel of priceSelectors) {
+                try {
+                  const price = page.locator(sel).first();
+                  if (await price.isVisible({ timeout: 3000 })) {
+                    found = true;
+                    trace.push(`action:price-visible:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                const priceText = await page.getByText(/\$[\d,]+\.?\d*/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (priceText) {
+                  found = true;
+                  trace.push("action:price-text-visible");
+                }
+              }
+              
+              if (!found) throw new Error("Price not visible");
+              break;
+            }
+
+            case "verify_add_to_cart_button": {
+              const cartBtnSelectors = [
+                "#add-to-cart-button",
+                "input[name='add']",
+                "button:has-text('Add to Cart')",
+                "[data-action='add-to-cart']",
+                ".add-to-cart-button"
+              ];
+              
+              let found = false;
+              for (const sel of cartBtnSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:add-to-cart-btn-visible:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) throw new Error("Add to Cart button not visible");
+              break;
+            }
+
+            case "click_add_to_cart": {
+              const cartBtnSelectors = [
+                "#add-to-cart-button",
+                "input[name='add']",
+                "button:has-text('Add to Cart')",
+                "[data-action='add-to-cart']",
+                ".add-to-cart-button"
+              ];
+              
+              let clicked = false;
+              for (const sel of cartBtnSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    await btn.click();
+                    clicked = true;
+                    executionContext.cartCount++;
+                    trace.push(`action:add-to-cart-clicked:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!clicked) throw new Error("Could not click Add to Cart");
+              await page.waitForTimeout(2000);
+              break;
+            }
+
+            case "verify_added_confirmation": {
+              await page.waitForTimeout(1500);
+              
+              const confirmSelectors = [
+                "#NATC_SMART_WAGON_CONF_MSG_SUCCESS",
+                "#attachDisplayAddBase498",
+                "[data-feature-id='addToCart'] .a-alert-heading",
+                ".a-alert-success",
+                "h1:has-text('Added to Cart')",
+                ":text('Added to Cart')"
+              ];
+              
+              let found = false;
+              for (const sel of confirmSelectors) {
+                try {
+                  const confirm = page.locator(sel).first();
+                  if (await confirm.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:add-confirm-visible:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                const hasText = await page.getByText(/added|cart|proceed/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push("action:add-confirm-text");
+                }
+              }
+              
+              if (!found) throw new Error("Add to cart confirmation not visible");
+              break;
+            }
+
+            case "verify_cart_count": {
+              const countSelectors = [
+                "#nav-cart-count",
+                ".nav-cart-count",
+                "#nav-cart-count-container",
+                ".cart-count",
+                "[data-cart-count]"
+              ];
+              
+              let found = false;
+              for (const sel of countSelectors) {
+                try {
+                  const count = page.locator(sel).first();
+                  if (await count.isVisible({ timeout: 5000 })) {
+                    const value = await count.textContent();
+                    found = true;
+                    trace.push(`action:cart-count-visible:${value}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) trace.push("action:cart-count-not-visible-continuing");
+              break;
+            }
+
+            case "open_cart": {
+              const cartSelectors = [
+                "#nav-cart",
+                "#nav-cart-count-container",
+                "a[href*='/cart']",
+                ".nav-cart",
+                "#cart-link"
+              ];
+              
+              let clicked = false;
+              for (const sel of cartSelectors) {
+                try {
+                  const cart = page.locator(sel).first();
+                  if (await cart.isVisible({ timeout: 5000 })) {
+                    await cart.click();
+                    clicked = true;
+                    trace.push(`action:cart-opened:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!clicked) {
+                await page.goto(ottUrl.replace(/\/$/, "") + "/cart", { waitUntil: "domcontentloaded" });
+                trace.push("action:cart-navigated-directly");
+              }
+              
+              await page.waitForLoadState("domcontentloaded").catch(() => {});
+              await page.waitForTimeout(2000);
+              break;
+            }
+
+            case "verify_item_in_cart": {
+              await page.waitForTimeout(1500);
+              const term = executionContext.searchTerm || "iPhone";
+              
+              const cartItemSelectors = [
+                ".sc-product-title",
+                "[data-name='Active Items'] .sc-product-title",
+                ".sc-list-item-content",
+                ".cart-item-title",
+                ".a-list-item"
+              ];
+              
+              let found = false;
+              for (const sel of cartItemSelectors) {
+                try {
+                  const items = page.locator(sel);
+                  const count = await items.count();
+                  if (count > 0) {
+                    found = true;
+                    trace.push(`action:cart-item-found:${count}-items`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push("action:cart-item-text-visible");
+                }
+              }
+              
+              if (!found) throw new Error(`Product "${term}" not found in cart`);
+              break;
+            }
+
+            case "verify_quantity": {
+              const qtySelectors = [
+                "[data-a-class='quantity']",
+                ".sc-action-quantity",
+                "select[name*='quantity']",
+                ".quantity-dropdown",
+                ":text('Qty:')"
+              ];
+              
+              let found = false;
+              for (const sel of qtySelectors) {
+                try {
+                  const qty = page.locator(sel).first();
+                  if (await qty.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:quantity-visible:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) trace.push("action:quantity-not-found-continuing");
+              break;
+            }
+
+            case "verify_checkout": {
+              const checkoutSelectors = [
+                "input[name='proceedToRetailCheckout']",
+                "#sc-buy-box-ptc-button",
+                "button:has-text('Proceed to checkout')",
+                "a:has-text('Proceed to checkout')",
+                ".checkout-button"
+              ];
+              
+              let found = false;
+              for (const sel of checkoutSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:checkout-btn-visible:${sel}`);
+                    break;
+                  }
+                } catch {}
+              }
+              
+              if (!found) {
+                const hasText = await page.getByText(/proceed|checkout/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push("action:checkout-text-visible");
+                }
+              }
+              
+              if (!found) throw new Error("Proceed to checkout not visible");
+              break;
+            }
+
+            case "verify_element":
+            default: {
+              // Generic verification - look for key text from expected result
+              const searchTerms = expected.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 3);
+              let found = false;
+              
+              for (const term of searchTerms) {
+                const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (hasText) {
+                  found = true;
+                  trace.push(`action:verified-text:${term}`);
+                  break;
+                }
+              }
+              
+              if (!found && searchTerms.length === 0) {
+                // Just verify page is visible
+                const body = page.locator("body");
+                await body.waitFor({ state: "visible", timeout: 10000 });
+                trace.push("action:page-visible-generic");
+              } else if (!found) {
+                throw new Error(`Expected content not visible: ${expected.slice(0, 50)}`);
+              }
+              break;
+            }
           }
         }
       };
@@ -1315,37 +1760,44 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
     const page = await context.newPage();
 
-    for (const [key, candidates] of Object.entries(selectorCandidates)) {
-      let status = "not-found";
-      let usedSelector = null;
-      let xpath = null;
-
+    // For CSV upload mode (e-commerce flows), skip OTT-specific locator analysis
+    // to avoid unnecessary page reloads
+    if (!uploadedMode && Object.keys(selectorCandidates).length > 0) {
+      // Navigate once for locator analysis
       await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-      for (const selector of candidates) {
-        try {
-          const loc = page.locator(selector).first();
-          if (await loc.isVisible({ timeout: 3000 })) {
-            status = "mapped";
-            usedSelector = selector;
-            xpath = await findXPathForSelector(page, selector);
-            saveLearnedSelector(host, key, `selector:${selector}`);
-            break;
-          }
-        } catch {
-          status = "analysis-error";
-        }
-      }
+      
+      for (const [key, candidates] of Object.entries(selectorCandidates)) {
+        let status = "not-found";
+        let usedSelector = null;
+        let xpath = null;
 
-      locatorAnalysis.push({
-        key,
-        testedCandidates: candidates,
-        usedSelector,
-        xpath,
-        status
-      });
+        for (const selector of candidates) {
+          try {
+            const loc = page.locator(selector).first();
+            if (await loc.isVisible({ timeout: 3000 })) {
+              status = "mapped";
+              usedSelector = selector;
+              xpath = await findXPathForSelector(page, selector);
+              saveLearnedSelector(host, key, `selector:${selector}`);
+              break;
+            }
+          } catch {
+            status = "analysis-error";
+          }
+        }
+
+        locatorAnalysis.push({
+          key,
+          testedCandidates: candidates,
+          usedSelector,
+          xpath,
+          status
+        });
+      }
     }
 
-    await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+    // Reset page state for test execution (sequential mode handles its own navigation)
+    pageInitialized = false;
 
     for (const testDef of allTests) {
       let retries = 0;
@@ -1439,7 +1891,264 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
   };
 }
 
-function generateManagerReport(requirements, manualCases, automationBundle, executionReport) {
+// ========== OPTIONAL AGENTS ==========
+
+async function generateAccessibilityReport(run) {
+  const ottUrl = run.input.ottUrl;
+  const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
+  
+  let browser = null;
+  const issues = [];
+  const checks = [];
+  
+  try {
+    browser = await chromium.launch({ headless });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(2000);
+    
+    // Check 1: Images without alt text
+    const imagesWithoutAlt = await page.$$eval("img:not([alt]), img[alt='']", (imgs) => 
+      imgs.slice(0, 20).map(img => ({ src: img.src?.slice(0, 100), issue: "Missing alt text" }))
+    );
+    if (imagesWithoutAlt.length > 0) {
+      issues.push({ type: "error", category: "Images", message: `${imagesWithoutAlt.length} images missing alt text`, details: imagesWithoutAlt.slice(0, 5) });
+    }
+    checks.push({ name: "Alt text on images", status: imagesWithoutAlt.length === 0 ? "pass" : "fail", count: imagesWithoutAlt.length });
+    
+    // Check 2: Form inputs without labels
+    const inputsWithoutLabels = await page.$$eval("input:not([aria-label]):not([aria-labelledby]):not([id])", (inputs) => inputs.length);
+    checks.push({ name: "Form input labels", status: inputsWithoutLabels === 0 ? "pass" : "warn", count: inputsWithoutLabels });
+    if (inputsWithoutLabels > 0) {
+      issues.push({ type: "warning", category: "Forms", message: `${inputsWithoutLabels} inputs may lack proper labels` });
+    }
+    
+    // Check 3: Buttons without accessible names
+    const buttonsWithoutNames = await page.$$eval("button:not([aria-label]):empty, button:not([aria-label]):not(:has(*))", (btns) => btns.length);
+    checks.push({ name: "Button accessible names", status: buttonsWithoutNames === 0 ? "pass" : "fail", count: buttonsWithoutNames });
+    if (buttonsWithoutNames > 0) {
+      issues.push({ type: "error", category: "Buttons", message: `${buttonsWithoutNames} buttons without accessible names` });
+    }
+    
+    // Check 4: Links without text
+    const emptyLinks = await page.$$eval("a:not([aria-label]):empty, a:not([aria-label]):not(:has(*))", (links) => links.length);
+    checks.push({ name: "Link text", status: emptyLinks === 0 ? "pass" : "warn", count: emptyLinks });
+    if (emptyLinks > 0) {
+      issues.push({ type: "warning", category: "Links", message: `${emptyLinks} links without descriptive text` });
+    }
+    
+    // Check 5: Heading hierarchy
+    const headings = await page.$$eval("h1, h2, h3, h4, h5, h6", (hs) => hs.map(h => h.tagName));
+    const h1Count = headings.filter(h => h === "H1").length;
+    checks.push({ name: "Single H1 heading", status: h1Count === 1 ? "pass" : h1Count === 0 ? "fail" : "warn", count: h1Count });
+    if (h1Count !== 1) {
+      issues.push({ type: h1Count === 0 ? "error" : "warning", category: "Headings", message: h1Count === 0 ? "No H1 heading found" : `Multiple H1 headings found (${h1Count})` });
+    }
+    
+    // Check 6: ARIA landmarks
+    const landmarks = await page.$$eval("[role='main'], [role='navigation'], [role='banner'], main, nav, header", (els) => els.length);
+    checks.push({ name: "ARIA landmarks", status: landmarks >= 2 ? "pass" : "warn", count: landmarks });
+    if (landmarks < 2) {
+      issues.push({ type: "warning", category: "Structure", message: "Limited ARIA landmarks detected" });
+    }
+    
+    // Check 7: Color contrast (basic check - text elements)
+    const smallText = await page.$$eval("p, span, a, button, label", (els) => els.length);
+    checks.push({ name: "Text elements found", status: "info", count: smallText });
+    
+    // Check 8: Focus indicators
+    const focusableElements = await page.$$eval("a, button, input, select, textarea, [tabindex]", (els) => els.length);
+    checks.push({ name: "Focusable elements", status: focusableElements > 0 ? "pass" : "warn", count: focusableElements });
+    
+    await browser.close();
+    browser = null;
+    
+    const errorCount = issues.filter(i => i.type === "error").length;
+    const warningCount = issues.filter(i => i.type === "warning").length;
+    const passCount = checks.filter(c => c.status === "pass").length;
+    
+    return {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "Accessibility Agent",
+        url: ottUrl
+      },
+      summary: {
+        score: Math.max(0, 100 - (errorCount * 15) - (warningCount * 5)),
+        verdict: errorCount === 0 ? (warningCount <= 2 ? "Good" : "Acceptable") : "Needs Improvement",
+        checksRun: checks.length,
+        passed: passCount,
+        errors: errorCount,
+        warnings: warningCount
+      },
+      checks,
+      issues,
+      recommendations: [
+        errorCount > 0 ? "Fix all images missing alt text for screen readers" : null,
+        buttonsWithoutNames > 0 ? "Add aria-label to icon-only buttons" : null,
+        h1Count !== 1 ? "Ensure exactly one H1 heading per page" : null,
+        landmarks < 2 ? "Add ARIA landmarks (main, nav, header) for navigation" : null
+      ].filter(Boolean)
+    };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    return {
+      metadata: { generatedAt: new Date().toISOString(), source: "Accessibility Agent", url: ottUrl },
+      summary: { score: 0, verdict: "Error", checksRun: 0, passed: 0, errors: 1, warnings: 0 },
+      checks: [],
+      issues: [{ type: "error", category: "Agent", message: `Accessibility check failed: ${err.message}` }],
+      recommendations: ["Fix agent execution error and retry"]
+    };
+  }
+}
+
+async function generatePerformanceReport(run) {
+  const ottUrl = run.input.ottUrl;
+  const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
+  
+  let browser = null;
+  
+  try {
+    browser = await chromium.launch({ headless });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Enable request tracking
+    const requests = [];
+    const resourceTypes = { document: 0, script: 0, stylesheet: 0, image: 0, font: 0, xhr: 0, fetch: 0, other: 0 };
+    let totalBytes = 0;
+    
+    page.on("response", async (response) => {
+      try {
+        const type = response.request().resourceType();
+        resourceTypes[type] = (resourceTypes[type] || 0) + 1;
+        const headers = response.headers();
+        const contentLength = parseInt(headers["content-length"] || "0", 10);
+        totalBytes += contentLength;
+        requests.push({ url: response.url().slice(0, 100), status: response.status(), type, size: contentLength });
+      } catch (_) {}
+    });
+    
+    const startTime = Date.now();
+    await page.goto(ottUrl, { waitUntil: "load", timeout: 60000 });
+    const loadTime = Date.now() - startTime;
+    
+    // Wait for network to settle
+    await page.waitForTimeout(2000);
+    
+    // Get performance metrics
+    const performanceMetrics = await page.evaluate(() => {
+      const perf = window.performance;
+      const timing = perf.timing || {};
+      const navigation = perf.getEntriesByType?.("navigation")?.[0] || {};
+      
+      return {
+        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.startTime || timing.domContentLoadedEventEnd - timing.navigationStart || 0,
+        domInteractive: navigation.domInteractive - navigation.startTime || timing.domInteractive - timing.navigationStart || 0,
+        loadComplete: navigation.loadEventEnd - navigation.startTime || timing.loadEventEnd - timing.navigationStart || 0,
+        firstPaint: perf.getEntriesByType?.("paint")?.find(p => p.name === "first-paint")?.startTime || 0,
+        firstContentfulPaint: perf.getEntriesByType?.("paint")?.find(p => p.name === "first-contentful-paint")?.startTime || 0,
+        resourceCount: perf.getEntriesByType?.("resource")?.length || 0
+      };
+    });
+    
+    // DOM size check
+    const domStats = await page.evaluate(() => {
+      const allElements = document.querySelectorAll("*").length;
+      const maxDepth = (function getMaxDepth(el, depth = 0) {
+        if (!el.children.length) return depth;
+        return Math.max(...Array.from(el.children).map(c => getMaxDepth(c, depth + 1)));
+      })(document.body);
+      return { elementCount: allElements, maxDepth };
+    });
+    
+    await browser.close();
+    browser = null;
+    
+    // Scoring
+    const metrics = [];
+    const issues = [];
+    
+    // Load time scoring
+    const loadTimeScore = loadTime < 3000 ? "good" : loadTime < 6000 ? "moderate" : "poor";
+    metrics.push({ name: "Page Load Time", value: `${(loadTime / 1000).toFixed(2)}s`, score: loadTimeScore });
+    if (loadTime > 5000) issues.push({ type: "error", message: `Slow page load: ${(loadTime / 1000).toFixed(2)}s (target: <3s)` });
+    
+    // FCP scoring
+    const fcp = performanceMetrics.firstContentfulPaint;
+    const fcpScore = fcp < 1800 ? "good" : fcp < 3000 ? "moderate" : "poor";
+    metrics.push({ name: "First Contentful Paint (FCP)", value: `${(fcp / 1000).toFixed(2)}s`, score: fcpScore });
+    if (fcp > 2500) issues.push({ type: "warning", message: `Slow FCP: ${(fcp / 1000).toFixed(2)}s (target: <1.8s)` });
+    
+    // DOM size scoring
+    const domScore = domStats.elementCount < 1500 ? "good" : domStats.elementCount < 3000 ? "moderate" : "poor";
+    metrics.push({ name: "DOM Elements", value: domStats.elementCount.toString(), score: domScore });
+    if (domStats.elementCount > 2000) issues.push({ type: "warning", message: `Large DOM: ${domStats.elementCount} elements (target: <1500)` });
+    
+    // Resource count
+    const resourceScore = performanceMetrics.resourceCount < 50 ? "good" : performanceMetrics.resourceCount < 100 ? "moderate" : "poor";
+    metrics.push({ name: "Resources Loaded", value: performanceMetrics.resourceCount.toString(), score: resourceScore });
+    if (performanceMetrics.resourceCount > 80) issues.push({ type: "warning", message: `Many resources: ${performanceMetrics.resourceCount} (target: <50)` });
+    
+    // Total size
+    const sizeMB = (totalBytes / (1024 * 1024)).toFixed(2);
+    const sizeScore = totalBytes < 2 * 1024 * 1024 ? "good" : totalBytes < 5 * 1024 * 1024 ? "moderate" : "poor";
+    metrics.push({ name: "Total Page Size", value: `${sizeMB} MB`, score: sizeScore });
+    if (totalBytes > 3 * 1024 * 1024) issues.push({ type: "warning", message: `Large page size: ${sizeMB}MB (target: <2MB)` });
+    
+    const goodCount = metrics.filter(m => m.score === "good").length;
+    const overallScore = Math.round((goodCount / metrics.length) * 100);
+    
+    return {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "Performance Agent",
+        url: ottUrl
+      },
+      summary: {
+        score: overallScore,
+        verdict: overallScore >= 80 ? "Good" : overallScore >= 50 ? "Moderate" : "Needs Improvement",
+        loadTime: `${(loadTime / 1000).toFixed(2)}s`,
+        resourceCount: performanceMetrics.resourceCount,
+        totalSize: `${sizeMB} MB`
+      },
+      coreWebVitals: {
+        fcp: `${(fcp / 1000).toFixed(2)}s`,
+        domContentLoaded: `${(performanceMetrics.domContentLoaded / 1000).toFixed(2)}s`,
+        loadComplete: `${(performanceMetrics.loadComplete / 1000).toFixed(2)}s`
+      },
+      metrics,
+      resourceBreakdown: resourceTypes,
+      domStats,
+      issues,
+      recommendations: [
+        loadTime > 5000 ? "Optimize server response time and reduce blocking resources" : null,
+        fcp > 2500 ? "Reduce render-blocking CSS and JavaScript" : null,
+        domStats.elementCount > 2000 ? "Simplify DOM structure or virtualize long lists" : null,
+        resourceTypes.image > 20 ? "Optimize and lazy-load images" : null,
+        resourceTypes.script > 15 ? "Consolidate and defer non-critical scripts" : null
+      ].filter(Boolean)
+    };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    return {
+      metadata: { generatedAt: new Date().toISOString(), source: "Performance Agent", url: ottUrl },
+      summary: { score: 0, verdict: "Error", loadTime: "N/A", resourceCount: 0, totalSize: "N/A" },
+      coreWebVitals: {},
+      metrics: [],
+      resourceBreakdown: {},
+      domStats: {},
+      issues: [{ type: "error", message: `Performance check failed: ${err.message}` }],
+      recommendations: ["Fix agent execution error and retry"]
+    };
+  }
+}
+
+// ========== END OPTIONAL AGENTS ==========
+
+function generateManagerReport(requirements, manualCases, automationBundle, executionReport, accessibilityReport = null, performanceReport = null) {
   const tests = executionReport.tests || [];
   const failures = tests.filter((t) => t.status === "failed");
   const skipped = tests.filter((t) => t.status === "skipped");
@@ -1602,12 +2311,30 @@ async function processRun(id) {
     setStage(run, "execution", "done");
     await persistRun(run);
 
+    // Optional: Accessibility Agent
+    if (run.input.enableAccessibility && run.stages.accessibility) {
+      setStage(run, "accessibility", "running");
+      run.artifacts.accessibilityReport = await generateAccessibilityReport(run);
+      setStage(run, "accessibility", "done");
+      await persistRun(run);
+    }
+
+    // Optional: Performance Agent
+    if (run.input.enablePerformance && run.stages.performance) {
+      setStage(run, "performance", "running");
+      run.artifacts.performanceReport = await generatePerformanceReport(run);
+      setStage(run, "performance", "done");
+      await persistRun(run);
+    }
+
     setStage(run, "manager", "running");
     run.artifacts.managerReport = generateManagerReport(
       run.artifacts.requirements,
       run.artifacts.manualTestCases,
       run.artifacts.automationBundle,
-      run.artifacts.executionReport
+      run.artifacts.executionReport,
+      run.artifacts.accessibilityReport,
+      run.artifacts.performanceReport
     );
     setStage(run, "manager", "done");
     await persistRun(run);
@@ -1833,6 +2560,8 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
 
   const projectId = String(req.body.projectId || "").trim() || null;
   const runHeaded = req.body.runHeaded === "true" || req.body.runHeaded === "on" || process.env.RUN_HEADED === "true";
+  const enableAccessibility = req.body.enableAccessibility === "true" || req.body.enableAccessibility === "on";
+  const enablePerformance = req.body.enablePerformance === "true" || req.body.enablePerformance === "on";
   const input = {
     ottUrl,
     figmaUrl: figmaUrl || null,
@@ -1842,6 +2571,8 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     executionMode,
     projectId,
     runHeaded,
+    enableAccessibility,
+    enablePerformance,
     recording,
     login: {
       enabled: Boolean(loginUsername || loginPassword),

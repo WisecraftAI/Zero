@@ -1,14 +1,39 @@
 import './PipelineStatus.css';
 
-const STAGES = ['ba', 'manualQa', 'automationQa', 'execution', 'manager'];
+const BASE_STAGES = ['ba', 'manualQa', 'automationQa', 'execution'];
+const OPTIONAL_STAGES = ['accessibility', 'performance'];
+const FINAL_STAGES = ['manager'];
+
+const STAGE_LABELS = {
+  ba: 'BA Agent',
+  manualQa: 'Manual QA Agent',
+  automationQa: 'Automation QA Agent',
+  execution: 'Execution Service',
+  accessibility: 'Accessibility Agent',
+  performance: 'Performance Agent',
+  manager: 'Manager Agent',
+  delivery: 'Delivery Manager Agent'
+};
 
 export default function PipelineStatus({ run }) {
+  // Determine which stages to show
+  const getVisibleStages = () => {
+    if (!run?.stages) {
+      // Default view when no run started
+      return [...BASE_STAGES, ...FINAL_STAGES];
+    }
+    // Show stages that exist in the run
+    return Object.keys(run.stages).filter(key => key !== 'delivery');
+  };
+
+  const visibleStages = getVisibleStages();
+
   if (!run?.stages) {
     return (
       <div className="pipeline-grid">
-        {STAGES.map((key, i) => (
+        {visibleStages.map((key) => (
           <div key={key} className="stage">
-            <h3>{['BA Agent', 'Manual QA Agent', 'Automation QA Agent', 'Execution Service', 'Manager Agent'][i]}</h3>
+            <h3>{STAGE_LABELS[key] || key}</h3>
             <span className="chip pending">PENDING</span>
           </div>
         ))}
@@ -18,12 +43,16 @@ export default function PipelineStatus({ run }) {
 
   return (
     <div className="pipeline-grid">
-      {STAGES.map((key) => {
+      {visibleStages.map((key) => {
         const s = run.stages[key];
         if (!s) return null;
+        const isOptional = OPTIONAL_STAGES.includes(key);
         return (
-          <div key={key} className="stage">
-            <h3>{s.label}</h3>
+          <div key={key} className={`stage ${isOptional ? 'stage-optional' : ''}`}>
+            <h3>
+              {s.label || STAGE_LABELS[key]}
+              {isOptional && <span className="optional-badge">optional</span>}
+            </h3>
             <span className={`chip ${s.status}`}>{String(s.status || 'pending').toUpperCase()}</span>
           </div>
         );

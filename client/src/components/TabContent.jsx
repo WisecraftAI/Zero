@@ -119,6 +119,133 @@ export default function TabContent({ run, activeTab, placeholder }) {
     );
   }
 
+  if (activeTab === 'accessibility') {
+    const data = run.artifacts?.accessibilityReport;
+    if (!data) return <div className="tab-content-inner"><p className="empty">Accessibility Agent not enabled or awaiting…</p></div>;
+    const summary = data.summary || {};
+    const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
+    return (
+      <div className="tab-content-inner">
+        <div className="manager-section">
+          <h3>Accessibility Score</h3>
+          <p>
+            <span className={`score-badge ${scoreClass}`}>{summary.score}/100</span>
+            <span className="verdict-text">{summary.verdict || '—'}</span>
+          </p>
+          <p>{summary.checksRun || 0} checks run · {summary.passed || 0} passed · {summary.errors || 0} errors · {summary.warnings || 0} warnings</p>
+        </div>
+        {data.checks?.length > 0 && (
+          <div className="manager-section">
+            <h3>Checks</h3>
+            <table className="exec-table">
+              <thead><tr><th>Check</th><th>Status</th><th>Count</th></tr></thead>
+              <tbody>
+                {data.checks.map((c, i) => (
+                  <tr key={i}>
+                    <td>{c.name}</td>
+                    <td className={`status-${c.status === 'pass' ? 'passed' : c.status === 'fail' ? 'failed' : 'skipped'}`}>{c.status}</td>
+                    <td>{c.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data.issues?.length > 0 && (
+          <div className="manager-section">
+            <h3>Issues</h3>
+            <ul className="issues-list">
+              {data.issues.map((issue, i) => (
+                <li key={i} className={`issue-${issue.type}`}>
+                  <strong>[{issue.category}]</strong> {issue.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {data.recommendations?.length > 0 && (
+          <div className="manager-section">
+            <h3>Recommendations</h3>
+            <ol>{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
+          </div>
+        )}
+        <details className="mt"><summary className="details-summary">Full JSON</summary><pre className="mt">{JSON.stringify(data, null, 2)}</pre></details>
+      </div>
+    );
+  }
+
+  if (activeTab === 'performance') {
+    const data = run.artifacts?.performanceReport;
+    if (!data) return <div className="tab-content-inner"><p className="empty">Performance Agent not enabled or awaiting…</p></div>;
+    const summary = data.summary || {};
+    const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
+    return (
+      <div className="tab-content-inner">
+        <div className="manager-section">
+          <h3>Performance Score</h3>
+          <p>
+            <span className={`score-badge ${scoreClass}`}>{summary.score}/100</span>
+            <span className="verdict-text">{summary.verdict || '—'}</span>
+          </p>
+          <p>Load time: <strong>{summary.loadTime}</strong> · Resources: {summary.resourceCount} · Size: {summary.totalSize}</p>
+        </div>
+        {data.coreWebVitals && (
+          <div className="manager-section">
+            <h3>Core Web Vitals</h3>
+            <div className="metrics-grid">
+              <div className="metric-card">
+                <span className="metric-label">First Contentful Paint</span>
+                <span className="metric-value">{data.coreWebVitals.fcp || '—'}</span>
+              </div>
+              <div className="metric-card">
+                <span className="metric-label">DOM Content Loaded</span>
+                <span className="metric-value">{data.coreWebVitals.domContentLoaded || '—'}</span>
+              </div>
+              <div className="metric-card">
+                <span className="metric-label">Load Complete</span>
+                <span className="metric-value">{data.coreWebVitals.loadComplete || '—'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {data.metrics?.length > 0 && (
+          <div className="manager-section">
+            <h3>Metrics</h3>
+            <table className="exec-table">
+              <thead><tr><th>Metric</th><th>Value</th><th>Score</th></tr></thead>
+              <tbody>
+                {data.metrics.map((m, i) => (
+                  <tr key={i}>
+                    <td>{m.name}</td>
+                    <td>{m.value}</td>
+                    <td className={`score-${m.score}`}>{m.score}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data.issues?.length > 0 && (
+          <div className="manager-section">
+            <h3>Issues</h3>
+            <ul className="issues-list">
+              {data.issues.map((issue, i) => (
+                <li key={i} className={`issue-${issue.type}`}>{issue.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {data.recommendations?.length > 0 && (
+          <div className="manager-section">
+            <h3>Recommendations</h3>
+            <ol>{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
+          </div>
+        )}
+        <details className="mt"><summary className="details-summary">Full JSON</summary><pre className="mt">{JSON.stringify(data, null, 2)}</pre></details>
+      </div>
+    );
+  }
+
   if (activeTab === 'manager') {
     const data = run.artifacts?.managerReport;
     if (!data) return <div className="tab-content-inner"><p className="empty">Awaiting…</p></div>;

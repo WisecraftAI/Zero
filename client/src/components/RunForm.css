@@ -179,3 +179,57 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Optional Agents Section */
+.optional-agents {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+}
+
+.optional-agents .field-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.optional-agents .field-hint {
+  margin-bottom: 0.75rem;
+}
+
+.agents-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agents-checkboxes .checkbox-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.agents-checkboxes .checkbox-label:hover {
+  border-color: var(--accent);
+  background: rgba(46, 160, 67, 0.05);
+}
+
+.agents-checkboxes .checkbox-label input[type="checkbox"]:checked + span {
+  color: var(--accent);
+}
+
+.agent-desc {
+  width: 100%;
+  margin-left: 1.6rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}

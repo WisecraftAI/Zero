@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
-import CmsScreenshotCapture from './components/CmsScreenshotCapture';
 import RunForm from './components/RunForm';
 import PipelineStatus from './components/PipelineStatus';
 import TabContent from './components/TabContent';
@@ -67,7 +66,6 @@ export default function App() {
     <div className="app">
       <Header />
       <main className="main">
-        <CmsScreenshotCapture />
         <section className="card card-form">
           <h2 className="card-title">New run</h2>
           <p className="card-desc">Upload a CSV with columns <strong>Feature</strong>, <strong>Scenario</strong>, <strong>Expected Result</strong>.</p>
@@ -81,9 +79,19 @@ export default function App() {
 
         <section className="card card-tabs">
           <div className="tabs">
-            {['requirements', 'manual', 'automation', 'execution', 'manager', 'recording', 'element-log', 'picture'].map((tab) => (
+            {['requirements', 'manual', 'automation', 'execution', 
+              ...(run?.stages?.accessibility ? ['accessibility'] : []),
+              ...(run?.stages?.performance ? ['performance'] : []),
+              'manager', 'recording', 'element-log', 'picture'].map((tab) => (
               <button key={tab} type="button" className={`tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-                {tab === 'element-log' ? 'Element log' : tab === 'picture' ? 'Flow' : tab === 'manual' ? 'Manual TC' : tab === 'manager' ? 'Manager review' : tab === 'recording' ? 'Recording' : tab}
+                {tab === 'element-log' ? 'Element log' : 
+                 tab === 'picture' ? 'Flow' : 
+                 tab === 'manual' ? 'Manual TC' : 
+                 tab === 'manager' ? 'Manager review' : 
+                 tab === 'recording' ? 'Recording' : 
+                 tab === 'accessibility' ? 'Accessibility' :
+                 tab === 'performance' ? 'Performance' :
+                 tab}
               </button>
             ))}
           </div>

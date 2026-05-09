@@ -1,0 +1,30 @@
+Feature,Scenario,Expected Result
+Home Page,Verify homepage loads successfully,Homepage displays with navigation bar and content sections visible
+Home Page,Verify search bar is present,Search bar is visible and accessible at the top of the page
+Home Page,Verify main navigation menu,Navigation menu displays all main categories
+Home Page,Verify promotional banners display,Hero banner and promotional content load correctly
+Search,Verify search functionality with valid input,Search results display relevant products/content
+Search,Verify search with empty input,Search prompts user or shows default suggestions
+Search,Verify search suggestions appear,Auto-complete suggestions appear while typing
+Search,Verify search filters are available,Filter options display after search results load
+Sign In,Verify Sign In button is visible,Sign In/Login button is displayed in header
+Sign In,Verify Sign In page loads,Sign In form displays with email and password fields
+Sign In,Verify Sign In with valid credentials,User successfully logs in and redirected to account
+Sign In,Verify Sign In with invalid credentials,Error message displays for invalid login
+Account,Verify account menu is accessible,Account dropdown/menu opens on click
+Account,Verify orders section is accessible,Orders page loads showing order history
+Account,Verify account settings page,Account settings page displays user information
+Cart,Verify cart icon is visible,Shopping cart icon displays in header
+Cart,Verify empty cart message,Empty cart shows appropriate message
+Cart,Verify add item to cart,Item successfully added with confirmation
+Cart,Verify cart item count updates,Cart badge updates with correct item count
+Product Page,Verify product details display,Product title price and description are visible
+Product Page,Verify product images load,Product images display correctly
+Product Page,Verify Add to Cart button,Add to Cart button is visible and clickable
+Product Page,Verify product reviews section,Customer reviews section is displayed
+Navigation,Verify category navigation,Category pages load with relevant products
+Navigation,Verify footer links,Footer contains all required links
+Navigation,Verify breadcrumb navigation,Breadcrumbs display correct page hierarchy
+Accessibility,Verify page title is descriptive,Page title reflects current page content
+Accessibility,Verify images have alt text,Images contain appropriate alt attributes
+Performance,Verify page load time,Page loads within acceptable time limit

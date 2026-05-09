@@ -1,0 +1,16 @@
+Feature,Scenario,Expected Result
+Search,Navigate to Amazon homepage,Amazon homepage loads successfully with search bar visible
+Search,Enter iPhone 15 in search box,Search box accepts text input iPhone 15
+Search,Click search button to submit,Search is submitted successfully
+Search,Verify search results display iPhone 15 products,Search results show relevant iPhone 15 products with images and prices
+Product Selection,Click on first iPhone 15 product in results,Product detail page opens for iPhone 15
+Product Selection,Verify product title contains iPhone 15,Product page displays iPhone 15 in the title
+Product Selection,Verify product price is displayed,Product price is visible on the page
+Product Selection,Verify Add to Cart button is present,Add to Cart button is visible and enabled
+Add to Cart,Click Add to Cart button,Product is added to cart
+Add to Cart,Verify added to cart confirmation message,Added to Cart confirmation popup or message appears
+Add to Cart,Verify cart count increases in header,Cart icon shows updated item count
+Cart Verification,Click on Cart icon to open cart,Cart page opens showing cart contents
+Cart Verification,Verify iPhone 15 is in cart,Cart displays iPhone 15 product with correct name
+Cart Verification,Verify product quantity is 1,Quantity shows 1 for the added iPhone 15
+Cart Verification,Verify Proceed to Checkout button is visible,Proceed to Checkout button is visible and enabled
