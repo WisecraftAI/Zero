@@ -1,103 +1,128 @@
 import { useState, useEffect, useCallback } from 'react';
-import Header from './components/Header';
-import RunForm from './components/RunForm';
-import PipelineStatus from './components/PipelineStatus';
-import TabContent from './components/TabContent';
+import AppShell from './layouts/AppShell';
+import DashboardView from './views/DashboardView';
+import RunsListView from './views/RunsListView';
+import NewRunView from './views/NewRunView';
+import RunDetailView from './views/RunDetailView';
+import LocatorsView from './views/LocatorsView';
 import './App.css';
 
+/* Topbar config per view */
+function getTopbarProps(view, run) {
+  switch (view) {
+    case 'dashboard':
+      return { title: 'Dashboard', statusBadge: 'System Live' };
+    case 'runs':
+      return { breadcrumb: ['ZERO', 'Runs'], statusBadge: 'System Stable' };
+    case 'new-run':
+      return { breadcrumb: ['ZERO', 'Create New Run', 'Step 01'] };
+    case 'run-detail': {
+      const name = run?.input?.ottUrl
+        ? run.input.ottUrl.replace(/^https?:\/\//, '').slice(0, 40)
+        : 'Loading…';
+      return {
+        breadcrumb: ['Runs', name],
+        statusBadge: run?.status === 'running' ? 'Running' : undefined,
+      };
+    }
+    case 'locators':
+      return { breadcrumb: ['ZERO', 'Locator Intelligence'] };
+    default:
+      return { title: 'ZERO' };
+  }
+}
+
 export default function App() {
-  const [runId, setRunId] = useState(null);
-  const [run, setRun] = useState(null);
-  const [activeTab, setActiveTab] = useState('requirements');
-  const [placeholder, setPlaceholder] = useState('Upload a CSV (Feature, Scenario, Expected Result) and run the pipeline.');
+  const [view, setView] = useState('dashboard');
+  const [activeRunId, setActiveRunId] = useState(null);
+  const [activeRun, setActiveRun] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+
+  const navigate = useCallback((to, runId = null) => {
+    setView(to);
+    if (runId !== null) { setActiveRunId(runId); setActiveRun(null); }
+  }, []);
 
   const fetchRun = useCallback(async () => {
-    if (!runId) return;
+    if (!activeRunId) return;
     try {
-      const res = await fetch(`/api/runs/${runId}`);
-      if (!res.ok) throw new Error('Fetch failed');
-      const data = await res.json();
-      setRun(data);
-    } catch (e) {
-      setPlaceholder(`Polling failed: ${e.message}`);
-    }
-  }, [runId]);
+      const res = await fetch(`/api/runs/${activeRunId}`);
+      if (!res.ok) return;
+      setActiveRun(await res.json());
+    } catch {}
+  }, [activeRunId]);
 
   useEffect(() => {
-    if (!runId) return;
-    if (run?.status === 'completed' || run?.status === 'failed') return;
-    const t = setInterval(fetchRun, 1200);
+    if (!activeRunId) return;
+    if (activeRun?.status === 'completed' || activeRun?.status === 'failed') return;
+    const t = setInterval(fetchRun, 1500);
+    fetchRun();
     return () => clearInterval(t);
-  }, [runId, run?.status, fetchRun]);
+  }, [activeRunId, activeRun?.status, fetchRun]);
 
-  const handleSubmit = async (formData) => {
-    setRunId(null);
-    setRun(null);
-    setPlaceholder('Pipeline started…');
+  const fetchRuns = useCallback(async () => {
+    setRunsLoading(true);
     try {
-      const res = await fetch('/api/runs', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to start');
-      }
-      const { runId: id } = await res.json();
-      setRunId(id);
-    } catch (e) {
-      setPlaceholder(`Error: ${e.message}`);
+      const res = await fetch('/api/runs');
+      if (!res.ok) return;
+      const d = await res.json();
+      setRuns(Array.isArray(d) ? d : d.runs || []);
+    } catch {} finally { setRunsLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchRuns(); }, [fetchRuns]);
+
+  const handleStartRun = async (formData) => {
+    const res = await fetch('/api/runs', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || 'Failed to start pipeline');
     }
+    const { runId: id } = await res.json();
+    setActiveRunId(id);
+    setActiveRun(null);
+    navigate('run-detail', id);
+    fetchRuns();
   };
 
   const handleRerunFailed = async () => {
-    if (!runId) return;
-    try {
-      const res = await fetch(`/api/runs/${runId}/rerun-failed`, { method: 'POST' });
-      if (!res.ok) throw new Error('Rerun failed');
-      setRun(null);
-      fetchRun();
-    } catch (e) {
-      setPlaceholder(`Error: ${e.message}`);
+    if (!activeRunId) return;
+    await fetch(`/api/runs/${activeRunId}/rerun-failed`, { method: 'POST' });
+    setActiveRun(null);
+    fetchRun();
+  };
+
+  const openRun = useCallback((runId) => {
+    setActiveRunId(runId);
+    setActiveRun(null);
+    setView('run-detail');
+  }, []);
+
+  const renderView = () => {
+    switch (view) {
+      case 'dashboard':
+        return <DashboardView runs={runs} loading={runsLoading} onOpenRun={openRun} onNewRun={() => navigate('new-run')} />;
+      case 'runs':
+        return <RunsListView runs={runs} loading={runsLoading} onOpenRun={openRun} onRefresh={fetchRuns} onNewRun={() => navigate('new-run')} />;
+      case 'new-run':
+        return <NewRunView onSubmit={handleStartRun} />;
+      case 'run-detail':
+        return <RunDetailView run={activeRun} runId={activeRunId} onRerunFailed={handleRerunFailed} onBack={() => navigate('runs')} />;
+      case 'locators':
+        return <LocatorsView />;
+      default:
+        return null;
     }
   };
 
-  const hasFailures = run?.artifacts?.executionReport?.totals?.failed > 0;
-  const canDownload = run?.status === 'completed';
-
   return (
-    <div className="app">
-      <Header />
-      <main className="main">
-        <section className="card card-form">
-          <h2 className="card-title">New run</h2>
-          <p className="card-desc">Upload a CSV with columns <strong>Feature</strong>, <strong>Scenario</strong>, <strong>Expected Result</strong>.</p>
-          <RunForm onSubmit={handleSubmit} onRerunFailed={handleRerunFailed} onDownload={() => window.open(`/api/runs/${runId}/download`, '_blank')} runId={runId} run={run} hasFailures={hasFailures} canDownload={canDownload} />
-        </section>
-
-        <section className="card">
-          <h2 className="card-title">Pipeline status</h2>
-          <PipelineStatus run={run} />
-        </section>
-
-        <section className="card card-tabs">
-          <div className="tabs">
-            {['requirements', 'manual', 'automation', 'execution', 
-              ...(run?.stages?.accessibility ? ['accessibility'] : []),
-              ...(run?.stages?.performance ? ['performance'] : []),
-              'manager', 'recording', 'element-log', 'picture'].map((tab) => (
-              <button key={tab} type="button" className={`tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-                {tab === 'element-log' ? 'Element log' : 
-                 tab === 'picture' ? 'Flow' : 
-                 tab === 'manual' ? 'Manual TC' : 
-                 tab === 'manager' ? 'Manager review' : 
-                 tab === 'recording' ? 'Recording' : 
-                 tab === 'accessibility' ? 'Accessibility' :
-                 tab === 'performance' ? 'Performance' :
-                 tab}
-              </button>
-            ))}
-          </div>
-          <TabContent run={run} activeTab={activeTab} placeholder={placeholder} />
-        </section>
-      </main>
-    </div>
+    <AppShell
+      activeView={view}
+      onNavigate={navigate}
+      topbarProps={getTopbarProps(view, activeRun)}
+    >
+      {renderView()}
+    </AppShell>
   );
 }

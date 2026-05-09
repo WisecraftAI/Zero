@@ -1,0 +1,103 @@
+.locators-view { max-width: 1000px; }
+
+.locators-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 720px) { .locators-grid { grid-template-columns: 1fr; } }
+
+/* Panel */
+.locator-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.locator-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.panel-icon-wrap {
+  width: 32px;
+  height: 32px;
+  background: var(--accent-bg);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-light);
+  flex-shrink: 0;
+}
+.locator-panel-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.locator-panel-desc  { font-size: 0.78rem; color: var(--text-3); line-height: 1.4; }
+
+.locator-panel-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Fields */
+.lfield { display: flex; flex-direction: column; gap: 5px; }
+.lfield-label { font-size: 0.78rem; font-weight: 600; color: var(--text-2); }
+.lfield-input, .lfield-textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+.lfield-input:focus, .lfield-textarea:focus { border-color: var(--accent); }
+.lfield-input::placeholder, .lfield-textarea::placeholder { color: var(--text-3); }
+.lfield-textarea { font-family: var(--font-mono); font-size: 0.78rem; resize: vertical; line-height: 1.5; }
+.lfield-hint { font-size: 0.74rem; color: var(--text-3); }
+.lfield-hint code { font-family: var(--font-mono); background: var(--surface-3); padding: 1px 4px; border-radius: 3px; }
+
+.lfield-row { display: flex; gap: 8px; }
+.lfield-row .lfield-input { flex: 1; }
+
+/* Results */
+.log-result {
+  font-size: 0.84rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+.log-result--ok  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.log-result--err { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border); }
+
+/* Locator table */
+.loc-table { font-size: 0.82rem; }
+.loc-key, .loc-selector {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-2);
+}
+.loc-selector { color: var(--accent-light); }
+
+.empty-msg { font-size: 0.875rem; color: var(--text-3); padding: 12px 0; }
+
+/* Info card */
+.locator-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+}
+.locator-info-icon { color: var(--accent-light); margin-top: 1px; flex-shrink: 0; }
+.locator-info-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.locator-info-body  { font-size: 0.82rem; color: var(--text-3); line-height: 1.6; }
