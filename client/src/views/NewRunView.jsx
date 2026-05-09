@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './NewRunView.css';
 
 const STEPS = [
@@ -19,8 +19,11 @@ export default function NewRunView({ onSubmit }) {
   const [ottUrl, setOttUrl] = useState('');
   const [hasFile, setHasFile]   = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
+  const [runHeaded, setRunHeaded] = useState(false);
+  const [enableAccessibility, setEnableAccessibility] = useState(false);
+  const [enablePerformance, setEnablePerformance] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'recording-saved' && e.data.recordingId) {
         setRecordingId(e.data.recordingId);
@@ -29,7 +32,7 @@ export default function NewRunView({ onSubmit }) {
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  });
+  }, []);
 
   const handleStartRecording = async () => {
     const url = ottUrl.trim();
@@ -61,8 +64,8 @@ export default function NewRunView({ onSubmit }) {
     const form = formRef.current;
     if (!form) return;
 
-    const url = form.ottUrl?.value?.trim();
-    if (!url) { setError('Target URL is required.'); return; }
+    const url = ottUrl.trim();
+    if (!url) { setError('Target URL is required.'); setStep(0); return; }
     const file  = form.tcFile?.files?.[0];
     const notes = form.notes?.value?.trim();
     if (!file && !notes) { setError('Provide test cases (CSV) or release notes.'); return; }
@@ -93,7 +96,7 @@ export default function NewRunView({ onSubmit }) {
           <button
             key={s.id}
             className={`nrv-step${i === step ? ' nrv-step--active' : ''}${i < step ? ' nrv-step--done' : ''}`}
-            onClick={() => setStep(i)}
+            onClick={() => { setError(''); setStep(i); }}
             type="button"
           >
             <span className="nrv-step-num">
@@ -108,7 +111,7 @@ export default function NewRunView({ onSubmit }) {
         <div className="nrv-content">
 
           {/* Step 0 — Input Sources */}
-          {step === 0 && (
+          <div style={{ display: step === 0 ? 'block' : 'none' }}>
             <StepPanel title="Input Sources" eyebrow="Step 01 / 05" desc="Enter the target URL for QA execution">
               <Field label="Target URL" hint="Required" required>
                 <div className="nrv-url-row">
@@ -119,7 +122,7 @@ export default function NewRunView({ onSubmit }) {
                     required
                     className="form-input"
                     value={ottUrl}
-                    onChange={e => setOttUrl(e.target.value)}
+                    onChange={e => { setOttUrl(e.target.value); if (error) setError(''); }}
                   />
                   <button
                     type="button"
@@ -161,10 +164,10 @@ export default function NewRunView({ onSubmit }) {
                 </div>
               </div>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 1 — Test Assets */}
-          {step === 1 && (
+          <div style={{ display: step === 1 ? 'block' : 'none' }}>
             <StepPanel title="Test Assets" eyebrow="Step 02 / 05" desc="Provide test cases or context for the AI agents">
               <Field label="Test Cases CSV" hint="Columns: Feature, Scenario, Expected Result">
                 <div className="file-drop-zone">
@@ -195,10 +198,10 @@ export default function NewRunView({ onSubmit }) {
                 />
               </Field>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 2 — Credentials */}
-          {step === 2 && (
+          <div style={{ display: step === 2 ? 'block' : 'none' }}>
             <StepPanel title="Credentials" eyebrow="Step 03 / 05" desc="Used at runtime only — never persisted">
               <div className="nrv-2col">
                 <Field label="Email / Username">
@@ -213,14 +216,16 @@ export default function NewRunView({ onSubmit }) {
                 Credentials are passed directly to the test runner and are never stored.
               </div>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 3 — Execution Options */}
-          {step === 3 && (
+          <div style={{ display: step === 3 ? 'block' : 'none' }}>
             <StepPanel title="Execution Options" eyebrow="Step 04 / 05" desc="Configure how the pipeline runs">
               <CheckOption
                 name="runHeaded"
                 value="true"
+                checked={runHeaded}
+                onChange={setRunHeaded}
                 label="Show browser"
                 desc="Opens a visible browser window so you can watch execution live"
               />
@@ -232,6 +237,8 @@ export default function NewRunView({ onSubmit }) {
               <CheckOption
                 name="enableAccessibility"
                 value="true"
+                checked={enableAccessibility}
+                onChange={setEnableAccessibility}
                 label="Accessibility Agent"
                 badge="WCAG"
                 desc="WCAG checks, color contrast, alt text, ARIA labels"
@@ -239,15 +246,17 @@ export default function NewRunView({ onSubmit }) {
               <CheckOption
                 name="enablePerformance"
                 value="true"
+                checked={enablePerformance}
+                onChange={setEnablePerformance}
                 label="Performance Agent"
                 badge="CWV"
                 desc="Core Web Vitals, load time, resource analysis"
               />
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 4 — Recording */}
-          {step === 4 && (
+          <div style={{ display: step === 4 ? 'block' : 'none' }}>
             <StepPanel title="Session Recording" eyebrow="Step 05 / 05" desc="Improve locator quality by recording your flow">
               <div className="nrv-recording-row">
                 <div className="file-drop-zone">
@@ -268,7 +277,7 @@ export default function NewRunView({ onSubmit }) {
                 </div>
               )}
             </StepPanel>
-          )}
+          </div>
 
         </div>
 
@@ -279,7 +288,7 @@ export default function NewRunView({ onSubmit }) {
           </div>
           <div className="nrv-footer-right">
             {step > 0 && (
-              <button type="button" className="btn btn-secondary" onClick={() => setStep(s => s - 1)}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setError(''); setStep(s => s - 1); }}>
                 ← Back
               </button>
             )}
@@ -328,10 +337,17 @@ function Field({ label, hint, required, children }) {
   );
 }
 
-function CheckOption({ name, value, label, desc, badge }) {
+function CheckOption({ name, value, label, desc, badge, checked, onChange }) {
   return (
     <label className="check-option">
-      <input type="checkbox" name={name} value={value} className="check-option-input" />
+      <input
+        type="checkbox"
+        name={name}
+        value={value}
+        className="check-option-input"
+        checked={checked}
+        onChange={e => onChange?.(e.target.checked)}
+      />
       <div className="check-option-box" />
       <div className="check-option-body">
         <span className="check-option-label">
