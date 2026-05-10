@@ -30,6 +30,15 @@ app.use(express.static(path.join(__dirname, "public")));
 const artifactsRoot = process.env.VERCEL
   ? path.join("/tmp", "artifacts")
   : path.join(__dirname, "artifacts");
+
+// Ensure artifactsRoot exists on Vercel
+if (process.env.VERCEL) {
+  const fsSync = require("fs");
+  if (!fsSync.existsSync(artifactsRoot)) {
+    fsSync.mkdirSync(artifactsRoot, { recursive: true });
+  }
+}
+
 app.use("/artifacts", express.static(artifactsRoot));
 
 const upload = multer({
@@ -191,142 +200,16 @@ const profileScenarioCatalog = {
   ]
 };
 
-function databaseConfigured() {
-  return Boolean(process.env.DATABASE_URL || process.env.PGHOST);
-}
+// Database disabled by user request
+let dbPool = null;
+let dbEnabled = false;
 
-function maskLogin(value) {
-  if (!value) return null;
-  const text = String(value);
-  if (text.length <= 2) return "**";
-  return `${text.slice(0, 2)}***`;
-}
-
-function setRunSecret(runId, secret) {
-  if (!secret || (!secret.username && !secret.password)) {
-    runSecrets.delete(runId);
-    return;
-  }
-  runSecrets.set(runId, secret);
-}
-
-function getRunSecret(runId) {
-  return runSecrets.get(runId) || { username: "", password: "" };
-}
-
-async function initDatabase() {
-  if (!databaseConfigured()) return;
-
-  try {
-    dbPool = new Pool({
-      connectionString: process.env.DATABASE_URL || undefined,
-      host: process.env.PGHOST || undefined,
-      port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-      user: process.env.PGUSER || undefined,
-      password: process.env.PGPASSWORD || undefined,
-      database: process.env.PGDATABASE || undefined,
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
-      connectionTimeoutMillis: 5000,
-      query_timeout: 10000
-    });
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS qa_runs (
-        id TEXT PRIMARY KEY,
-        status TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL,
-        updated_at TIMESTAMPTZ NOT NULL,
-        input_json JSONB NOT NULL,
-        stages_json JSONB NOT NULL,
-        requirements_json JSONB,
-        manual_tc_json JSONB,
-        automation_bundle_json JSONB,
-        execution_report_json JSONB,
-        manager_report_json JSONB
-      )
-    `);
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS qa_assets (
-        id BIGSERIAL PRIMARY KEY,
-        run_id TEXT NOT NULL REFERENCES qa_runs(id) ON DELETE CASCADE,
-        asset_type TEXT NOT NULL,
-        asset_name TEXT NOT NULL,
-        content_text TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    await dbHelpers.initElementTables(dbPool);
-    await dbHelpers.initProjectsTables(dbPool);
-    await dbHelpers.initProviderTables(dbPool);
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN delivery_report_json JSONB").catch(() => { });
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN project_id TEXT").catch(() => { });
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN cms_signal_json JSONB").catch(() => { });
-    dbEnabled = true;
-  } catch (err) {
-    dbPool = null;
-    dbEnabled = false;
-    console.warn("Postgres connection failed (running with memory-only):", err.message);
-  }
-}
-
-// On Serverless environments, insert initialization logic BEFORE route declarations
-if (process.env.VERCEL) {
-  app.use((req, res, next) => {
-    if (!dbPool && typeof databaseConfigured === "function" && databaseConfigured()) {
-      initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
-    }
-    next();
-  });
-}
+function databaseConfigured() { return false; }
+async function initDatabase() { return; }
 
 async function persistRun(run) {
-  if (!dbEnabled || !dbPool) return;
-
-  const storageInput = {
-    ...run.input,
-    tcFileBuffer: undefined,
-    tcFileContent: run.input.tcFileContent ? "[stored-in-artifacts]" : null
-  };
-
-  await dbPool.query(
-    `
-    INSERT INTO qa_runs (
-      id, status, created_at, updated_at, input_json, stages_json,
-      requirements_json, manual_tc_json, automation_bundle_json, execution_report_json, manager_report_json, delivery_report_json, project_id
-    )
-    VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12::jsonb,$13)
-    ON CONFLICT (id)
-    DO UPDATE SET
-      status = EXCLUDED.status,
-      updated_at = EXCLUDED.updated_at,
-      input_json = EXCLUDED.input_json,
-      stages_json = EXCLUDED.stages_json,
-      requirements_json = EXCLUDED.requirements_json,
-      manual_tc_json = EXCLUDED.manual_tc_json,
-      automation_bundle_json = EXCLUDED.automation_bundle_json,
-      execution_report_json = EXCLUDED.execution_report_json,
-      manager_report_json = EXCLUDED.manager_report_json,
-      delivery_report_json = EXCLUDED.delivery_report_json,
-      project_id = EXCLUDED.project_id
-  `,
-    [
-      run.id,
-      run.status,
-      run.createdAt,
-      run.updatedAt,
-      JSON.stringify(storageInput),
-      JSON.stringify(run.stages),
-      JSON.stringify(run.artifacts.requirements),
-      JSON.stringify(run.artifacts.manualTestCases),
-      JSON.stringify(run.artifacts.automationBundle),
-      JSON.stringify(run.artifacts.executionReport),
-      JSON.stringify(run.artifacts.managerReport),
-      JSON.stringify(run.artifacts.deliveryReport),
-      run.input.projectId || null
-    ]
-  );
+  // Persistence disabled - using in-memory 'runs' Map only
+  return;
 }
 
 async function persistAssets(run) {
@@ -383,14 +266,7 @@ function toRunShape(row) {
 }
 
 async function getRun(id) {
-  if (runs.has(id)) return runs.get(id);
-  if (!dbEnabled || !dbPool) return null;
-
-  const result = await dbPool.query("SELECT * FROM qa_runs WHERE id = $1", [id]);
-  if (!result.rows.length) return null;
-  const run = toRunShape(result.rows[0]);
-  runs.set(id, run);
-  return run;
+  return runs.get(id) || null;
 }
 
 function createRun(input) {
@@ -2618,23 +2494,28 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     }
     setRunSecret(run.id, { username: loginUsername, password: loginPassword });
 
-    await persistRun(run);
+    await persistRun(run).catch(e => console.error("Initial run persistence failed:", e));
 
-    processRun(run.id);
+    // Fire and forget
+    setTimeout(() => processRun(run.id).catch(e => console.error("Background processRun failed:", e)), 0);
+    
     return res.status(202).json({ runId: run.id });
   } catch (err) {
     console.error("CRITICAL ENDPOINT FAILURE:", err);
-    return res.status(500).json({ error: err.message || "Internal runtime error starting pipeline" });
+    return res.status(500).json({ 
+      error: err.message || "Internal runtime error starting pipeline",
+      stack: process.env.NODE_ENV === "development" || process.env.VERCEL ? err.stack : undefined,
+      diagnostics: {
+        hasFiles: !!req.files,
+        hasBody: !!req.body,
+        dbEnabled
+      }
+    });
   }
 });
 
 app.get("/api/runs", async (_req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
-  }
-
-  const rows = await dbPool.query("SELECT * FROM qa_runs ORDER BY created_at DESC LIMIT 50");
-  return res.json({ source: "postgres", runs: rows.rows.map(toRunShape) });
+  return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
 });
 
 app.get("/api/runs/:id", async (req, res) => {
@@ -3312,49 +3193,33 @@ function tryListen(port) {
 
 const publicDir = path.join(__dirname, "public");
 
-if (process.env.VERCEL) {
-  // (Moved upstream to ensure dynamic routes are wrapped correctly)
-} else {
-  // Local/Dedicated environments: setup dirs and start server listener
-  fs.mkdir(artifactsRoot, { recursive: true })
-    .then(() => fs.mkdir(publicDir, { recursive: true }))
-    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
-    .then(async () => {
+// Local/Dedicated environments: start server listener
+fs.mkdir(artifactsRoot, { recursive: true })
+  .then(() => fs.mkdir(publicDir, { recursive: true }))
+  .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
+  .then(async () => {
+    let server = null;
+    let port = PORT;
+    for (let attempt = 0; attempt <= 5; attempt++) {
       try {
-        await initDatabase();
-        if (dbEnabled) {
-          console.log("Postgres persistence enabled");
+        server = await tryListen(port);
+        const uiUrl = `http://localhost:${port}`;
+        console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
+        break;
+      } catch (err) {
+        if (err.code === "EADDRINUSE" && attempt < 5) {
+          port = PORT + attempt + 1;
+          console.warn(`Port ${port - 1} in use, trying ${port}...`);
         } else {
-          console.log("Postgres not configured. Running with memory-only persistence");
+          console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
+          process.exit(1);
         }
-
-        let server = null;
-        let port = PORT;
-        for (let attempt = 0; attempt <= 5; attempt++) {
-          try {
-            server = await tryListen(port);
-            const uiUrl = `http://localhost:${port}`;
-            console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
-            break;
-          } catch (err) {
-            if (err.code === "EADDRINUSE" && attempt < 5) {
-              port = PORT + attempt + 1;
-              console.warn(`Port ${port - 1} in use, trying ${port}...`);
-            } else {
-              console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
-              process.exit(1);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Startup failed", error);
-        process.exit(1);
       }
-    }).catch((error) => {
-      console.error("Unable to initialize artifacts directory", error);
-      process.exit(1);
-    });
-}
+    }
+  }).catch((error) => {
+    console.error("Unable to initialize artifacts directory", error);
+    process.exit(1);
+  });
 
 function buildArchitecturePictureSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">
