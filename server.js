@@ -5,7 +5,13 @@ const fs = require("fs/promises");
 const path = require("path");
 const multer = require("multer");
 const { Pool } = require("pg");
-const { chromium } = require("playwright");
+// Lazy-load Playwright to prevent cold-start serverless crash
+const chromium = {
+  launch: (options) => {
+    const { chromium: pChromium } = require("playwright");
+    return pChromium.launch(options);
+  }
+};
 const XLSX = require("xlsx");
 const PDFDocument = require("pdfkit");
 const dbHelpers = require("./lib/db");
@@ -259,6 +265,16 @@ async function initDatabase() {
     dbEnabled = false;
     console.warn("Postgres connection failed (running with memory-only):", err.message);
   }
+}
+
+// On Serverless environments, insert initialization logic BEFORE route declarations
+if (process.env.VERCEL) {
+  app.use(async (req, res, next) => {
+    if (!dbPool && typeof databaseConfigured === "function" && databaseConfigured()) {
+      try { await initDatabase(); } catch (e) { console.error("Lazy DB init failed:", e); }
+    }
+    next();
+  });
 }
 
 async function persistRun(run) {
@@ -2516,91 +2532,96 @@ app.get("/record", (req, res) => {
 });
 
 app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }]), async (req, res) => {
-  const ottUrl = String(req.body.ottUrl || "").trim();
-  const figmaUrl = String(req.body.figmaUrl || "").trim();
-  const assertions = String(req.body.assertions || "").trim();
-  const notes = String(req.body.notes || "").trim();
-  const loginUsername = String(req.body.loginUsername || "").trim();
-  const loginPassword = String(req.body.loginPassword || "").trim();
-  const channelProfile = String(req.body.channelProfile || "").trim().toLowerCase();
-  const recordingSessionId = String(req.body.recordingSessionId || "").trim() || null;
-  const recordingId = String(req.body.recordingId || "").trim() || null;
+  try {
+    const ottUrl = String(req.body.ottUrl || "").trim();
+    const figmaUrl = String(req.body.figmaUrl || "").trim();
+    const assertions = String(req.body.assertions || "").trim();
+    const notes = String(req.body.notes || "").trim();
+    const loginUsername = String(req.body.loginUsername || "").trim();
+    const loginPassword = String(req.body.loginPassword || "").trim();
+    const channelProfile = String(req.body.channelProfile || "").trim().toLowerCase();
+    const recordingSessionId = String(req.body.recordingSessionId || "").trim() || null;
+    const recordingId = String(req.body.recordingId || "").trim() || null;
 
-  const tcFile = req.files && req.files.tcFile ? req.files.tcFile[0] : null;
-  const recordingFile = req.files && req.files.recordingFile ? req.files.recordingFile[0] : null;
-  const tcExt = tcFile ? path.extname(tcFile.originalname).toLowerCase() : "";
-  const executionMode = tcExt === ".csv" ? "uploaded_tc_only" : "standard";
+    const tcFile = req.files && req.files.tcFile ? req.files.tcFile[0] : null;
+    const recordingFile = req.files && req.files.recordingFile ? req.files.recordingFile[0] : null;
+    const tcExt = tcFile ? path.extname(tcFile.originalname).toLowerCase() : "";
+    const executionMode = tcExt === ".csv" ? "uploaded_tc_only" : "standard";
 
-  if (!ottUrl) return res.status(400).json({ error: "OTT URL is required" });
-  const hasCsv = tcFile && tcExt === ".csv";
-  if (!figmaUrl && !tcFile && !notes) {
-    return res.status(400).json({ error: "Upload a CSV (Feature, Scenario, Expected Result) or provide Figma link or notes" });
-  }
-  if (hasCsv) {
-    // CSV is primary: run only uploaded test cases, no built-in manual TC
-  }
-
-  let recording = null;
-  if (recordingSessionId) {
-    const session = recordingSessions.get(recordingSessionId);
-    if (session) {
-      recording = { ottUrl: session.ottUrl, events: session.events, createdAt: session.createdAt, source: "session" };
-      recordingSessions.delete(recordingSessionId);
+    if (!ottUrl) return res.status(400).json({ error: "OTT URL is required" });
+    const hasCsv = tcFile && tcExt === ".csv";
+    if (!figmaUrl && !tcFile && !notes) {
+      return res.status(400).json({ error: "Upload a CSV (Feature, Scenario, Expected Result) or provide Figma link or notes" });
     }
-  }
-  if (!recording && recordingId && recordingsById.has(recordingId)) {
-    const rec = recordingsById.get(recordingId);
-    recording = { id: rec.id, ottUrl: rec.ottUrl, events: rec.events, createdAt: rec.createdAt, source: "id" };
-  }
-  if (!recording && recordingFile) {
-    try {
-      const raw = recordingFile.buffer.toString("utf8");
-      recording = JSON.parse(raw);
-      recording.source = "upload";
-    } catch (_) {
-      // ignore invalid JSON
+    if (hasCsv) {
+      // CSV is primary: run only uploaded test cases, no built-in manual TC
     }
+
+    let recording = null;
+    if (recordingSessionId) {
+      const session = recordingSessions.get(recordingSessionId);
+      if (session) {
+        recording = { ottUrl: session.ottUrl, events: session.events, createdAt: session.createdAt, source: "session" };
+        recordingSessions.delete(recordingSessionId);
+      }
+    }
+    if (!recording && recordingId && recordingsById.has(recordingId)) {
+      const rec = recordingsById.get(recordingId);
+      recording = { id: rec.id, ottUrl: rec.ottUrl, events: rec.events, createdAt: rec.createdAt, source: "id" };
+    }
+    if (!recording && recordingFile) {
+      try {
+        const raw = recordingFile.buffer.toString("utf8");
+        recording = JSON.parse(raw);
+        recording.source = "upload";
+      } catch (_) {
+        // ignore invalid JSON
+      }
+    }
+
+    const projectId = String(req.body.projectId || "").trim() || null;
+    const runHeaded = req.body.runHeaded === "true" || req.body.runHeaded === "on" || process.env.RUN_HEADED === "true";
+    const enableAccessibility = req.body.enableAccessibility === "true" || req.body.enableAccessibility === "on";
+    const enablePerformance = req.body.enablePerformance === "true" || req.body.enablePerformance === "on";
+    const input = {
+      ottUrl,
+      figmaUrl: figmaUrl || null,
+      assertions,
+      notes,
+      channelProfile: channelProfile || null,
+      executionMode,
+      projectId,
+      runHeaded,
+      enableAccessibility,
+      enablePerformance,
+      recording,
+      login: {
+        enabled: Boolean(loginUsername || loginPassword),
+        usernameMasked: maskLogin(loginUsername)
+      },
+      tcFileName: tcFile ? tcFile.originalname : null,
+      tcFileContent: tcFile ? tcFile.buffer.toString("utf8") : null,
+      tcFileBuffer: tcFile ? tcFile.buffer : null
+    };
+
+    const run = createRun(input);
+    await fs.mkdir(run.runDir, { recursive: true });
+    if (tcFile) {
+      await fs.writeFile(path.join(run.runDir, tcFile.originalname), tcFile.buffer);
+    }
+    if (recording) {
+      run.artifacts.recording = recording;
+    }
+    setRunSecret(run.id, { username: loginUsername, password: loginPassword });
+
+    await persistRun(run);
+
+    processRun(run.id);
+    return res.status(202).json({ runId: run.id });
+  } catch (err) {
+    console.error("CRITICAL ENDPOINT FAILURE:", err);
+    return res.status(500).json({ error: err.message || "Internal runtime error starting pipeline" });
   }
-
-  const projectId = String(req.body.projectId || "").trim() || null;
-  const runHeaded = req.body.runHeaded === "true" || req.body.runHeaded === "on" || process.env.RUN_HEADED === "true";
-  const enableAccessibility = req.body.enableAccessibility === "true" || req.body.enableAccessibility === "on";
-  const enablePerformance = req.body.enablePerformance === "true" || req.body.enablePerformance === "on";
-  const input = {
-    ottUrl,
-    figmaUrl: figmaUrl || null,
-    assertions,
-    notes,
-    channelProfile: channelProfile || null,
-    executionMode,
-    projectId,
-    runHeaded,
-    enableAccessibility,
-    enablePerformance,
-    recording,
-    login: {
-      enabled: Boolean(loginUsername || loginPassword),
-      usernameMasked: maskLogin(loginUsername)
-    },
-    tcFileName: tcFile ? tcFile.originalname : null,
-    tcFileContent: tcFile ? tcFile.buffer.toString("utf8") : null,
-    tcFileBuffer: tcFile ? tcFile.buffer : null
-  };
-
-  const run = createRun(input);
-  await fs.mkdir(run.runDir, { recursive: true });
-  if (tcFile) {
-    await fs.writeFile(path.join(run.runDir, tcFile.originalname), tcFile.buffer);
-  }
-  if (recording) {
-    run.artifacts.recording = recording;
-  }
-  setRunSecret(run.id, { username: loginUsername, password: loginPassword });
-
-  await persistRun(run);
-
-  processRun(run.id);
-  return res.status(202).json({ runId: run.id });
 });
 
 app.get("/api/runs", async (_req, res) => {
@@ -3286,44 +3307,50 @@ function tryListen(port) {
 }
 
 const publicDir = path.join(__dirname, "public");
-fs.mkdir(artifactsRoot, { recursive: true })
-  .then(() => fs.mkdir(publicDir, { recursive: true }))
-  .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => {}))
-  .then(async () => {
-  try {
-    await initDatabase();
-    if (dbEnabled) {
-      console.log("Postgres persistence enabled");
-    } else {
-      console.log("Postgres not configured. Running with memory-only persistence");
-    }
 
-    let server = null;
-    let port = PORT;
-    for (let attempt = 0; attempt <= 5; attempt++) {
+if (process.env.VERCEL) {
+  // (Moved upstream to ensure dynamic routes are wrapped correctly)
+} else {
+  // Local/Dedicated environments: setup dirs and start server listener
+  fs.mkdir(artifactsRoot, { recursive: true })
+    .then(() => fs.mkdir(publicDir, { recursive: true }))
+    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => {}))
+    .then(async () => {
       try {
-        server = await tryListen(port);
-        const uiUrl = `http://localhost:${port}`;
-        console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
-        break;
-      } catch (err) {
-        if (err.code === "EADDRINUSE" && attempt < 5) {
-          port = PORT + attempt + 1;
-          console.warn(`Port ${port - 1} in use, trying ${port}...`);
+        await initDatabase();
+        if (dbEnabled) {
+          console.log("Postgres persistence enabled");
         } else {
-          console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
-          process.exit(1);
+          console.log("Postgres not configured. Running with memory-only persistence");
         }
+
+        let server = null;
+        let port = PORT;
+        for (let attempt = 0; attempt <= 5; attempt++) {
+          try {
+            server = await tryListen(port);
+            const uiUrl = `http://localhost:${port}`;
+            console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
+            break;
+          } catch (err) {
+            if (err.code === "EADDRINUSE" && attempt < 5) {
+              port = PORT + attempt + 1;
+              console.warn(`Port ${port - 1} in use, trying ${port}...`);
+            } else {
+              console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
+              process.exit(1);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Startup failed", error);
+        process.exit(1);
       }
-    }
-  } catch (error) {
-    console.error("Startup failed", error);
-    process.exit(1);
-  }
-}).catch((error) => {
-  console.error("Unable to initialize artifacts directory", error);
-  process.exit(1);
-});
+    }).catch((error) => {
+      console.error("Unable to initialize artifacts directory", error);
+      process.exit(1);
+    });
+}
 
 function buildArchitecturePictureSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">
@@ -3373,5 +3400,15 @@ function buildArchitecturePictureSvg() {
   <text x="66" y="496" class="small">requirements + manual_tc + automation_bundle + execution + manager_report</text>
 </svg>`;
 }
+
+// Diagnostic handler to convert unhandled service-level crash stacktraces into friendly UI JSON responses
+app.use((err, req, res, next) => {
+  console.error("UNHANDLED API ERROR CAPTURED:", err);
+  res.status(500).json({
+    error: "API execution trace collapsed",
+    message: err.message || "Unknown fault",
+    diagnostic: err.stack ? err.stack.split("\n")[0] : "Unavailable"
+  });
+});
 
 module.exports = app;
