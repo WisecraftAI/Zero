@@ -27,7 +27,9 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const artifactsRoot = path.join(__dirname, "artifacts");
+const artifactsRoot = process.env.VERCEL
+  ? path.join("/tmp", "artifacts")
+  : path.join(__dirname, "artifacts");
 app.use("/artifacts", express.static(artifactsRoot));
 
 const upload = multer({
@@ -256,9 +258,9 @@ async function initDatabase() {
     await dbHelpers.initElementTables(dbPool);
     await dbHelpers.initProjectsTables(dbPool);
     await dbHelpers.initProviderTables(dbPool);
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN delivery_report_json JSONB").catch(() => {});
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN project_id TEXT").catch(() => {});
-    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN cms_signal_json JSONB").catch(() => {});
+    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN delivery_report_json JSONB").catch(() => { });
+    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN project_id TEXT").catch(() => { });
+    await dbPool.query("ALTER TABLE qa_runs ADD COLUMN cms_signal_json JSONB").catch(() => { });
     dbEnabled = true;
   } catch (err) {
     dbPool = null;
@@ -392,7 +394,7 @@ async function getRun(id) {
 function createRun(input) {
   const id = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const now = new Date().toISOString();
-  
+
   // Base stages - always included
   const stages = {
     ba: { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null },
@@ -400,7 +402,7 @@ function createRun(input) {
     automationQa: { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null },
     execution: { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null }
   };
-  
+
   // Optional agents - only add if enabled in input
   if (input.enableAccessibility) {
     stages.accessibility = { label: "Accessibility Agent", status: "pending", startedAt: null, finishedAt: null };
@@ -408,11 +410,11 @@ function createRun(input) {
   if (input.enablePerformance) {
     stages.performance = { label: "Performance Agent", status: "pending", startedAt: null, finishedAt: null };
   }
-  
+
   // Final stages - always included
   stages.manager = { label: "Manager Agent", status: "pending", startedAt: null, finishedAt: null };
   stages.delivery = { label: "Delivery Manager Agent", status: "pending", startedAt: null, finishedAt: null };
-  
+
   const artifacts = {
     requirements: null,
     manualTestCases: null,
@@ -421,7 +423,7 @@ function createRun(input) {
     managerReport: null,
     deliveryReport: null
   };
-  
+
   // Add optional artifact slots if enabled
   if (input.enableAccessibility) {
     artifacts.accessibilityReport = null;
@@ -429,7 +431,7 @@ function createRun(input) {
   if (input.enablePerformance) {
     artifacts.performanceReport = null;
   }
-  
+
   const run = {
     id,
     runDir: path.join(artifactsRoot, id),
@@ -1007,7 +1009,7 @@ function saveLearnedSelector(host, key, strategy) {
       role: null,
       label: null,
       runId: null
-    }).catch(() => {});
+    }).catch(() => { });
   }
 }
 
@@ -1163,7 +1165,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
   // Parse action type from scenario
   function parseAction(scenario, expectedResult) {
     const text = `${scenario} ${expectedResult}`.toLowerCase();
-    
+
     if (text.includes("navigate") || text.includes("homepage") || text.includes("loads")) {
       if (text.includes("cart page") || text.includes("click on cart") || text.includes("open cart")) return "open_cart";
       if (text.includes("product") && text.includes("page")) return "verify_product_page";
@@ -1190,14 +1192,14 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
   function buildUploadedTcExecutionTests() {
     const list = (run.artifacts.manualTestCases && run.artifacts.manualTestCases.testCases) || [];
-    
+
     return list.map((tc, index) => {
       const scenario = tc.scenario || tc.title || "";
       const expected = tc.expectedResult || "";
       const text = `${tc.module || ""} ${scenario} ${expected}`.toLowerCase();
       const action = parseAction(scenario, expected);
       const searchTerm = extractSearchTerm(scenario) || extractSearchTerm(expected);
-      
+
       return {
         id: `EXEC-${tc.id}`,
         title: tc.title || scenario,
@@ -1209,7 +1211,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
           if (!pageInitialized) {
             trace.push("seq:initializing-page");
             await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-            await page.waitForLoadState("domcontentloaded").catch(() => {});
+            await page.waitForLoadState("domcontentloaded").catch(() => { });
             await page.locator("body").waitFor({ state: "visible", timeout: 15000 });
             await page.waitForTimeout(2000);
             pageInitialized = true;
@@ -1253,7 +1255,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:search-bar-found:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
               if (!found) throw new Error("Search bar not visible");
               break;
@@ -1262,7 +1264,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "search_enter": {
               const term = searchTerm || executionContext.searchTerm || "iPhone 15";
               executionContext.searchTerm = term;
-              
+
               const searchSelectors = [
                 "input#twotabsearchtextbox",
                 "input[type='search']",
@@ -1271,7 +1273,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 "[aria-label*='Search'] input",
                 "#search-input"
               ];
-              
+
               let searchBox = null;
               for (const sel of searchSelectors) {
                 try {
@@ -1281,9 +1283,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:search-input-found:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!searchBox) throw new Error("Search input not found");
               await searchBox.click();
               await searchBox.fill(term);
@@ -1301,7 +1303,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".search-submit",
                 "button:has-text('Search')"
               ];
-              
+
               let submitted = false;
               for (const sel of submitSelectors) {
                 try {
@@ -1312,16 +1314,16 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:search-submitted:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!submitted) {
                 // Try pressing Enter
                 await page.keyboard.press("Enter");
                 trace.push("action:search-submitted-enter");
               }
-              
-              await page.waitForLoadState("domcontentloaded").catch(() => {});
+
+              await page.waitForLoadState("domcontentloaded").catch(() => { });
               await page.waitForTimeout(2000);
               break;
             }
@@ -1329,7 +1331,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "verify_search_results": {
               await page.waitForTimeout(1500);
               const term = executionContext.searchTerm || "iPhone";
-              
+
               // Look for search results
               const resultSelectors = [
                 "[data-component-type='s-search-result']",
@@ -1339,7 +1341,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".product-list",
                 ".search-results"
               ];
-              
+
               let found = false;
               for (const sel of resultSelectors) {
                 try {
@@ -1350,9 +1352,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:search-results-found:${count}-items`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 // Try text-based verification
                 const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
@@ -1361,14 +1363,14 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:search-term-visible");
                 }
               }
-              
+
               if (!found) throw new Error(`Search results for "${term}" not displayed`);
               break;
             }
 
             case "click_product": {
               await page.waitForTimeout(1000);
-              
+
               const productSelectors = [
                 "[data-component-type='s-search-result'] h2 a",
                 ".s-result-item h2 a",
@@ -1377,7 +1379,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".product-title a",
                 "h2 a[href*='/dp/']"
               ];
-              
+
               let clicked = false;
               for (const sel of productSelectors) {
                 try {
@@ -1391,11 +1393,11 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:product-clicked:${title.slice(0, 50)}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!clicked) throw new Error("Could not click on product");
-              await page.waitForLoadState("domcontentloaded").catch(() => {});
+              await page.waitForLoadState("domcontentloaded").catch(() => { });
               await page.waitForTimeout(2000);
               break;
             }
@@ -1404,7 +1406,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "verify_product_title": {
               await page.waitForTimeout(1000);
               const term = executionContext.searchTerm || "iPhone";
-              
+
               const titleSelectors = [
                 "#productTitle",
                 "#title",
@@ -1412,7 +1414,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".product-title",
                 "h1.product-name"
               ];
-              
+
               let found = false;
               for (const sel of titleSelectors) {
                 try {
@@ -1423,9 +1425,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:product-title-visible:${text.slice(0, 50)}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 3000 }).catch(() => false);
                 if (hasText) {
@@ -1433,7 +1435,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:product-term-visible");
                 }
               }
-              
+
               if (!found) throw new Error("Product title not visible");
               break;
             }
@@ -1448,7 +1450,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".price",
                 "#price"
               ];
-              
+
               let found = false;
               for (const sel of priceSelectors) {
                 try {
@@ -1458,9 +1460,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:price-visible:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 const priceText = await page.getByText(/\$[\d,]+\.?\d*/i).first().isVisible({ timeout: 3000 }).catch(() => false);
                 if (priceText) {
@@ -1468,7 +1470,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:price-text-visible");
                 }
               }
-              
+
               if (!found) throw new Error("Price not visible");
               break;
             }
@@ -1481,7 +1483,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 "[data-action='add-to-cart']",
                 ".add-to-cart-button"
               ];
-              
+
               let found = false;
               for (const sel of cartBtnSelectors) {
                 try {
@@ -1491,9 +1493,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:add-to-cart-btn-visible:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) throw new Error("Add to Cart button not visible");
               break;
             }
@@ -1506,7 +1508,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 "[data-action='add-to-cart']",
                 ".add-to-cart-button"
               ];
-              
+
               let clicked = false;
               for (const sel of cartBtnSelectors) {
                 try {
@@ -1518,9 +1520,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:add-to-cart-clicked:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!clicked) throw new Error("Could not click Add to Cart");
               await page.waitForTimeout(2000);
               break;
@@ -1528,7 +1530,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
             case "verify_added_confirmation": {
               await page.waitForTimeout(1500);
-              
+
               const confirmSelectors = [
                 "#NATC_SMART_WAGON_CONF_MSG_SUCCESS",
                 "#attachDisplayAddBase498",
@@ -1537,7 +1539,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 "h1:has-text('Added to Cart')",
                 ":text('Added to Cart')"
               ];
-              
+
               let found = false;
               for (const sel of confirmSelectors) {
                 try {
@@ -1547,9 +1549,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:add-confirm-visible:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 const hasText = await page.getByText(/added|cart|proceed/i).first().isVisible({ timeout: 3000 }).catch(() => false);
                 if (hasText) {
@@ -1557,7 +1559,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:add-confirm-text");
                 }
               }
-              
+
               if (!found) throw new Error("Add to cart confirmation not visible");
               break;
             }
@@ -1570,7 +1572,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".cart-count",
                 "[data-cart-count]"
               ];
-              
+
               let found = false;
               for (const sel of countSelectors) {
                 try {
@@ -1581,9 +1583,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:cart-count-visible:${value}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) trace.push("action:cart-count-not-visible-continuing");
               break;
             }
@@ -1596,7 +1598,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".nav-cart",
                 "#cart-link"
               ];
-              
+
               let clicked = false;
               for (const sel of cartSelectors) {
                 try {
@@ -1607,15 +1609,15 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:cart-opened:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!clicked) {
                 await page.goto(ottUrl.replace(/\/$/, "") + "/cart", { waitUntil: "domcontentloaded" });
                 trace.push("action:cart-navigated-directly");
               }
-              
-              await page.waitForLoadState("domcontentloaded").catch(() => {});
+
+              await page.waitForLoadState("domcontentloaded").catch(() => { });
               await page.waitForTimeout(2000);
               break;
             }
@@ -1623,7 +1625,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "verify_item_in_cart": {
               await page.waitForTimeout(1500);
               const term = executionContext.searchTerm || "iPhone";
-              
+
               const cartItemSelectors = [
                 ".sc-product-title",
                 "[data-name='Active Items'] .sc-product-title",
@@ -1631,7 +1633,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".cart-item-title",
                 ".a-list-item"
               ];
-              
+
               let found = false;
               for (const sel of cartItemSelectors) {
                 try {
@@ -1642,9 +1644,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:cart-item-found:${count}-items`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
                 if (hasText) {
@@ -1652,7 +1654,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:cart-item-text-visible");
                 }
               }
-              
+
               if (!found) throw new Error(`Product "${term}" not found in cart`);
               break;
             }
@@ -1665,7 +1667,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 ".quantity-dropdown",
                 ":text('Qty:')"
               ];
-              
+
               let found = false;
               for (const sel of qtySelectors) {
                 try {
@@ -1675,9 +1677,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:quantity-visible:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) trace.push("action:quantity-not-found-continuing");
               break;
             }
@@ -1690,7 +1692,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 "a:has-text('Proceed to checkout')",
                 ".checkout-button"
               ];
-              
+
               let found = false;
               for (const sel of checkoutSelectors) {
                 try {
@@ -1700,9 +1702,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                     trace.push(`action:checkout-btn-visible:${sel}`);
                     break;
                   }
-                } catch {}
+                } catch { }
               }
-              
+
               if (!found) {
                 const hasText = await page.getByText(/proceed|checkout/i).first().isVisible({ timeout: 3000 }).catch(() => false);
                 if (hasText) {
@@ -1710,7 +1712,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   trace.push("action:checkout-text-visible");
                 }
               }
-              
+
               if (!found) throw new Error("Proceed to checkout not visible");
               break;
             }
@@ -1720,7 +1722,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               // Generic verification - look for key text from expected result
               const searchTerms = expected.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 3);
               let found = false;
-              
+
               for (const term of searchTerms) {
                 const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 3000 }).catch(() => false);
                 if (hasText) {
@@ -1729,7 +1731,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   break;
                 }
               }
-              
+
               if (!found && searchTerms.length === 0) {
                 // Just verify page is visible
                 const body = page.locator("body");
@@ -1785,7 +1787,7 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
     if (!uploadedMode && Object.keys(selectorCandidates).length > 0) {
       // Navigate once for locator analysis
       await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-      
+
       for (const [key, candidates] of Object.entries(selectorCandidates)) {
         let status = "not-found";
         let usedSelector = null;
@@ -1916,49 +1918,49 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 async function generateAccessibilityReport(run) {
   const ottUrl = run.input.ottUrl;
   const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
-  
+
   let browser = null;
   const issues = [];
   const checks = [];
-  
+
   try {
     browser = await chromium.launch({ headless });
     const context = await browser.newContext();
     const page = await context.newPage();
-    
+
     await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(2000);
-    
+
     // Check 1: Images without alt text
-    const imagesWithoutAlt = await page.$$eval("img:not([alt]), img[alt='']", (imgs) => 
+    const imagesWithoutAlt = await page.$$eval("img:not([alt]), img[alt='']", (imgs) =>
       imgs.slice(0, 20).map(img => ({ src: img.src?.slice(0, 100), issue: "Missing alt text" }))
     );
     if (imagesWithoutAlt.length > 0) {
       issues.push({ type: "error", category: "Images", message: `${imagesWithoutAlt.length} images missing alt text`, details: imagesWithoutAlt.slice(0, 5) });
     }
     checks.push({ name: "Alt text on images", status: imagesWithoutAlt.length === 0 ? "pass" : "fail", count: imagesWithoutAlt.length });
-    
+
     // Check 2: Form inputs without labels
     const inputsWithoutLabels = await page.$$eval("input:not([aria-label]):not([aria-labelledby]):not([id])", (inputs) => inputs.length);
     checks.push({ name: "Form input labels", status: inputsWithoutLabels === 0 ? "pass" : "warn", count: inputsWithoutLabels });
     if (inputsWithoutLabels > 0) {
       issues.push({ type: "warning", category: "Forms", message: `${inputsWithoutLabels} inputs may lack proper labels` });
     }
-    
+
     // Check 3: Buttons without accessible names
     const buttonsWithoutNames = await page.$$eval("button:not([aria-label]):empty, button:not([aria-label]):not(:has(*))", (btns) => btns.length);
     checks.push({ name: "Button accessible names", status: buttonsWithoutNames === 0 ? "pass" : "fail", count: buttonsWithoutNames });
     if (buttonsWithoutNames > 0) {
       issues.push({ type: "error", category: "Buttons", message: `${buttonsWithoutNames} buttons without accessible names` });
     }
-    
+
     // Check 4: Links without text
     const emptyLinks = await page.$$eval("a:not([aria-label]):empty, a:not([aria-label]):not(:has(*))", (links) => links.length);
     checks.push({ name: "Link text", status: emptyLinks === 0 ? "pass" : "warn", count: emptyLinks });
     if (emptyLinks > 0) {
       issues.push({ type: "warning", category: "Links", message: `${emptyLinks} links without descriptive text` });
     }
-    
+
     // Check 5: Heading hierarchy
     const headings = await page.$$eval("h1, h2, h3, h4, h5, h6", (hs) => hs.map(h => h.tagName));
     const h1Count = headings.filter(h => h === "H1").length;
@@ -1966,29 +1968,29 @@ async function generateAccessibilityReport(run) {
     if (h1Count !== 1) {
       issues.push({ type: h1Count === 0 ? "error" : "warning", category: "Headings", message: h1Count === 0 ? "No H1 heading found" : `Multiple H1 headings found (${h1Count})` });
     }
-    
+
     // Check 6: ARIA landmarks
     const landmarks = await page.$$eval("[role='main'], [role='navigation'], [role='banner'], main, nav, header", (els) => els.length);
     checks.push({ name: "ARIA landmarks", status: landmarks >= 2 ? "pass" : "warn", count: landmarks });
     if (landmarks < 2) {
       issues.push({ type: "warning", category: "Structure", message: "Limited ARIA landmarks detected" });
     }
-    
+
     // Check 7: Color contrast (basic check - text elements)
     const smallText = await page.$$eval("p, span, a, button, label", (els) => els.length);
     checks.push({ name: "Text elements found", status: "info", count: smallText });
-    
+
     // Check 8: Focus indicators
     const focusableElements = await page.$$eval("a, button, input, select, textarea, [tabindex]", (els) => els.length);
     checks.push({ name: "Focusable elements", status: focusableElements > 0 ? "pass" : "warn", count: focusableElements });
-    
+
     await browser.close();
     browser = null;
-    
+
     const errorCount = issues.filter(i => i.type === "error").length;
     const warningCount = issues.filter(i => i.type === "warning").length;
     const passCount = checks.filter(c => c.status === "pass").length;
-    
+
     return {
       metadata: {
         generatedAt: new Date().toISOString(),
@@ -2013,7 +2015,7 @@ async function generateAccessibilityReport(run) {
       ].filter(Boolean)
     };
   } catch (err) {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => { });
     return {
       metadata: { generatedAt: new Date().toISOString(), source: "Accessibility Agent", url: ottUrl },
       summary: { score: 0, verdict: "Error", checksRun: 0, passed: 0, errors: 1, warnings: 0 },
@@ -2027,19 +2029,19 @@ async function generateAccessibilityReport(run) {
 async function generatePerformanceReport(run) {
   const ottUrl = run.input.ottUrl;
   const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
-  
+
   let browser = null;
-  
+
   try {
     browser = await chromium.launch({ headless });
     const context = await browser.newContext();
     const page = await context.newPage();
-    
+
     // Enable request tracking
     const requests = [];
     const resourceTypes = { document: 0, script: 0, stylesheet: 0, image: 0, font: 0, xhr: 0, fetch: 0, other: 0 };
     let totalBytes = 0;
-    
+
     page.on("response", async (response) => {
       try {
         const type = response.request().resourceType();
@@ -2048,22 +2050,22 @@ async function generatePerformanceReport(run) {
         const contentLength = parseInt(headers["content-length"] || "0", 10);
         totalBytes += contentLength;
         requests.push({ url: response.url().slice(0, 100), status: response.status(), type, size: contentLength });
-      } catch (_) {}
+      } catch (_) { }
     });
-    
+
     const startTime = Date.now();
     await page.goto(ottUrl, { waitUntil: "load", timeout: 60000 });
     const loadTime = Date.now() - startTime;
-    
+
     // Wait for network to settle
     await page.waitForTimeout(2000);
-    
+
     // Get performance metrics
     const performanceMetrics = await page.evaluate(() => {
       const perf = window.performance;
       const timing = perf.timing || {};
       const navigation = perf.getEntriesByType?.("navigation")?.[0] || {};
-      
+
       return {
         domContentLoaded: navigation.domContentLoadedEventEnd - navigation.startTime || timing.domContentLoadedEventEnd - timing.navigationStart || 0,
         domInteractive: navigation.domInteractive - navigation.startTime || timing.domInteractive - timing.navigationStart || 0,
@@ -2073,7 +2075,7 @@ async function generatePerformanceReport(run) {
         resourceCount: perf.getEntriesByType?.("resource")?.length || 0
       };
     });
-    
+
     // DOM size check
     const domStats = await page.evaluate(() => {
       const allElements = document.querySelectorAll("*").length;
@@ -2083,44 +2085,44 @@ async function generatePerformanceReport(run) {
       })(document.body);
       return { elementCount: allElements, maxDepth };
     });
-    
+
     await browser.close();
     browser = null;
-    
+
     // Scoring
     const metrics = [];
     const issues = [];
-    
+
     // Load time scoring
     const loadTimeScore = loadTime < 3000 ? "good" : loadTime < 6000 ? "moderate" : "poor";
     metrics.push({ name: "Page Load Time", value: `${(loadTime / 1000).toFixed(2)}s`, score: loadTimeScore });
     if (loadTime > 5000) issues.push({ type: "error", message: `Slow page load: ${(loadTime / 1000).toFixed(2)}s (target: <3s)` });
-    
+
     // FCP scoring
     const fcp = performanceMetrics.firstContentfulPaint;
     const fcpScore = fcp < 1800 ? "good" : fcp < 3000 ? "moderate" : "poor";
     metrics.push({ name: "First Contentful Paint (FCP)", value: `${(fcp / 1000).toFixed(2)}s`, score: fcpScore });
     if (fcp > 2500) issues.push({ type: "warning", message: `Slow FCP: ${(fcp / 1000).toFixed(2)}s (target: <1.8s)` });
-    
+
     // DOM size scoring
     const domScore = domStats.elementCount < 1500 ? "good" : domStats.elementCount < 3000 ? "moderate" : "poor";
     metrics.push({ name: "DOM Elements", value: domStats.elementCount.toString(), score: domScore });
     if (domStats.elementCount > 2000) issues.push({ type: "warning", message: `Large DOM: ${domStats.elementCount} elements (target: <1500)` });
-    
+
     // Resource count
     const resourceScore = performanceMetrics.resourceCount < 50 ? "good" : performanceMetrics.resourceCount < 100 ? "moderate" : "poor";
     metrics.push({ name: "Resources Loaded", value: performanceMetrics.resourceCount.toString(), score: resourceScore });
     if (performanceMetrics.resourceCount > 80) issues.push({ type: "warning", message: `Many resources: ${performanceMetrics.resourceCount} (target: <50)` });
-    
+
     // Total size
     const sizeMB = (totalBytes / (1024 * 1024)).toFixed(2);
     const sizeScore = totalBytes < 2 * 1024 * 1024 ? "good" : totalBytes < 5 * 1024 * 1024 ? "moderate" : "poor";
     metrics.push({ name: "Total Page Size", value: `${sizeMB} MB`, score: sizeScore });
     if (totalBytes > 3 * 1024 * 1024) issues.push({ type: "warning", message: `Large page size: ${sizeMB}MB (target: <2MB)` });
-    
+
     const goodCount = metrics.filter(m => m.score === "good").length;
     const overallScore = Math.round((goodCount / metrics.length) * 100);
-    
+
     return {
       metadata: {
         generatedAt: new Date().toISOString(),
@@ -2152,7 +2154,7 @@ async function generatePerformanceReport(run) {
       ].filter(Boolean)
     };
   } catch (err) {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => { });
     return {
       metadata: { generatedAt: new Date().toISOString(), source: "Performance Agent", url: ottUrl },
       summary: { score: 0, verdict: "Error", loadTime: "N/A", resourceCount: 0, totalSize: "N/A" },
@@ -2373,7 +2375,7 @@ async function processRun(id) {
       const tcs = run.artifacts.manualTestCases.testCases || [];
       for (const tc of tcs.slice(0, 50)) {
         const javaContent = javaSeleniumBuilder.buildSeleniumJavaTest(tc, locatorsByKey, run.input.ottUrl);
-        await dbHelpers.insertStoredScript(dbPool, { projectId: run.input.projectId, tcId: tc.id, language: "java", framework: "selenium", contentText: javaContent }).catch(() => {});
+        await dbHelpers.insertStoredScript(dbPool, { projectId: run.input.projectId, tcId: tc.id, language: "java", framework: "selenium", contentText: javaContent }).catch(() => { });
       }
     }
 
@@ -2952,18 +2954,18 @@ app.get("/api/provider-keys", async (req, res) => {
   try {
     const userEmail = getUserEmail(req);
     let rows = [];
-    
+
     if (dbEnabled && dbPool) {
       rows = await dbHelpers.listProviderKeys(dbPool, userEmail);
     } else {
       // Fallback memory lookup
       rows = ALLOWED_PROVIDERS.map(provider => memoryProviderKeys.get(`${userEmail}:${provider}`))
-                              .filter(Boolean);
+        .filter(Boolean);
     }
-    
+
     const byProvider = {};
     for (const r of rows) byProvider[r.provider] = r;
-    
+
     const items = ALLOWED_PROVIDERS.map(provider => {
       const r = byProvider[provider];
       return {
@@ -2989,12 +2991,12 @@ app.put("/api/provider-keys/:provider", async (req, res) => {
   }
   const key = (req.body?.key || "").toString().trim();
   if (!key) return res.status(400).json({ error: "Field 'key' is required." });
-  
+
   try {
     const userEmail = getUserEmail(req);
     const encryptedKey = encryption.encrypt(key);
     const last4 = encryption.lastFour(key);
-    
+
     if (dbEnabled && dbPool) {
       await dbHelpers.upsertProviderKey(dbPool, { userEmail, provider, encryptedKey, last4 });
     } else {
@@ -3008,7 +3010,7 @@ app.put("/api/provider-keys/:provider", async (req, res) => {
         updated_at: new Date().toISOString()
       });
     }
-    
+
     return res.json({ ok: true, provider, masked: `••••••••••••${last4}`, last4 });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -3040,22 +3042,22 @@ app.get("/api/agent-settings", async (req, res) => {
   try {
     const userEmail = getUserEmail(req);
     let rows = [];
-    
+
     if (dbEnabled && dbPool) {
       rows = await dbHelpers.listAgentSettings(dbPool, userEmail);
     } else {
       rows = ALLOWED_AGENTS.map(agent => memoryAgentSettings.get(`${userEmail}:${agent}`))
-                            .filter(Boolean);
+        .filter(Boolean);
     }
-    
+
     const byAgent = {};
     for (const r of rows) byAgent[r.agent] = r;
-    
+
     const items = ALLOWED_AGENTS.map(agent => ({
       agent,
       provider: byAgent[agent]?.provider || null,
-      model:    byAgent[agent]?.model || null,
-      prompt:   byAgent[agent]?.prompt || null,
+      model: byAgent[agent]?.model || null,
+      prompt: byAgent[agent]?.prompt || null,
       updatedAt: byAgent[agent]?.updated_at || null
     }));
     return res.json({ items });
@@ -3073,11 +3075,11 @@ app.put("/api/agent-settings/:agent", async (req, res) => {
   if (provider && !ALLOWED_PROVIDERS.includes(String(provider).toLowerCase())) {
     return res.status(400).json({ error: "Unknown provider for agent." });
   }
-  
+
   try {
     const userEmail = getUserEmail(req);
     const normalizedProvider = provider ? String(provider).toLowerCase() : null;
-    
+
     if (dbEnabled && dbPool) {
       await dbHelpers.upsertAgentSettings(dbPool, {
         userEmail,
@@ -3095,7 +3097,7 @@ app.put("/api/agent-settings/:agent", async (req, res) => {
         updated_at: new Date().toISOString()
       });
     }
-    
+
     return res.json({ ok: true, agent });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -3151,12 +3153,12 @@ async function cmsSwitchToStreamTab(page) {
 
 async function cmsCaptureSignalPage(page, url, waitMs, useStreamTab) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
-  await page.waitForLoadState("networkidle", { timeout: 60000 }).catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: 60000 }).catch(() => { });
   if (useStreamTab !== false) {
     await cmsSwitchToStreamTab(page);
   }
   await page.waitForTimeout(Math.min(45000, Math.max(2000, waitMs)));
-  await page.getByText("Quick Actions", { exact: false }).first().waitFor({ state: "visible", timeout: 15000 }).catch(() => {});
+  await page.getByText("Quick Actions", { exact: false }).first().waitFor({ state: "visible", timeout: 15000 }).catch(() => { });
 }
 
 /** Standalone CMS screenshot (single URL). streamTab true = Stream (signal), false = current view e.g. Playout. */
@@ -3204,7 +3206,7 @@ app.post("/api/capture-cms-screenshot", express.json({ limit: "32kb" }), async (
         : "Captured current view (Playout if that tab was default)."
     });
   } catch (e) {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => { });
     return res.status(500).json({ error: e.message || "Screenshot failed" });
   }
 });
@@ -3278,7 +3280,7 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
         : "Bulk playout/current-tab captures."
     });
   } catch (e) {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => { });
     return res.status(500).json({ error: e.message || "Bulk capture failed" });
   }
 });
@@ -3314,7 +3316,7 @@ if (process.env.VERCEL) {
   // Local/Dedicated environments: setup dirs and start server listener
   fs.mkdir(artifactsRoot, { recursive: true })
     .then(() => fs.mkdir(publicDir, { recursive: true }))
-    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => {}))
+    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
     .then(async () => {
       try {
         await initDatabase();
