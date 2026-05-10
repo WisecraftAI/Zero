@@ -1,0 +1,123 @@
+.agents-view {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1100px;
+}
+
+.agv-error {
+  padding: 10px 14px;
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+
+.agv-loading {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-3);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.agv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agv-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.agv-card-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.agv-card-desc  { font-size: 0.8rem; color: var(--text-3); margin-top: 3px; line-height: 1.45; }
+
+.agv-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.agv-meta--ok { color: var(--accent); }
+
+.agv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.agv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agv-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.agv-select,
+.agv-textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.agv-select:focus, .agv-textarea:focus { border-color: var(--accent); }
+.agv-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.agv-textarea {
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  min-height: 110px;
+}
+
+.agv-hint {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.agv-hint--ok   { color: var(--accent); }
+.agv-hint--warn { color: var(--amber); }
+
+.agv-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .agv-grid { grid-template-columns: 1fr; }
+}

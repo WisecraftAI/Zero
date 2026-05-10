@@ -6,7 +6,7 @@
 .pipeline-seq {
   display: flex;
   align-items: flex-start;
-  min-width: max-content;
+  width: 100%;
   padding: 6px 0 8px;
 }
 
@@ -17,23 +17,24 @@
   gap: 7px;
   flex: 1;
   min-width: 80px;
-}
-
-/* Dot + connector row */
-.pipeline-dot-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
+  position: relative; /* Establish context for absolute line */
 }
 
 .pipeline-line {
-  flex: 1;
+  position: absolute;
+  top: 12px; /* Centers vertically on 24px dot */
+  left: 50%;
+  width: 100%;
   height: 1px;
   background: var(--border-md);
   transition: background 0.3s ease;
+  z-index: 0;
 }
 .pipeline-line--done { background: var(--green); }
 .pipeline-line--idle { background: var(--border-md); }
+
+/* Delete container now rendered obsolete */
+.pipeline-dot-row { display: contents; }
 
 /* Dot */
 .pipeline-dot {
@@ -50,6 +51,8 @@
   font-family: var(--font-mono);
   letter-spacing: 0;
   transition: all var(--transition);
+  position: relative;
+  z-index: 1; /* Renders ON TOP of the absolute line behind it */
 }
 
 .pipeline-dot--pending {

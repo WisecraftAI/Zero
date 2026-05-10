@@ -20,7 +20,12 @@ export default function NewRunView({ onSubmit }) {
   const [hasFile, setHasFile]   = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
 
+<<<<<<< Updated upstream
   useState(() => {
+=======
+  useEffect(() => {
+    console.log('[NewRunView] MOUNTED');
+>>>>>>> Stashed changes
     const handler = (e) => {
       if (e.data?.type === 'recording-saved' && e.data.recordingId) {
         setRecordingId(e.data.recordingId);

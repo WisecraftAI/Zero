@@ -38,24 +38,20 @@ export default function PipelineFlow({ run }) {
 
           return (
             <div key={key} className={`pipeline-seq-stage pipeline-seq--${status}`}>
-              <div className="pipeline-dot-row">
-                {/* Left connector */}
-                {i > 0 && (
-                  <div className={`pipeline-line pipeline-line--${getStatus(visibleKeys[i - 1]) === 'completed' ? 'done' : 'idle'}`} />
-                )}
-                <div className={`pipeline-dot pipeline-dot--${status}`}>
-                  {status === 'completed' && <CheckIcon />}
-                  {status === 'running' && <SpinDot />}
-                  {status === 'failed' && '✕'}
-                  {status === 'pending' && (
-                    <span className="pipeline-dot-label">{meta.short}</span>
-                  )}
-                </div>
-                {/* Right connector */}
-                {!isLast && (
-                  <div className={`pipeline-line pipeline-line--${status === 'completed' ? 'done' : 'idle'}`} />
+              {/* Connecting line to next item */}
+              {!isLast && (
+                <div className={`pipeline-line pipeline-line--${status === 'completed' ? 'done' : 'idle'}`} />
+              )}
+
+              <div className={`pipeline-dot pipeline-dot--${status}`}>
+                {status === 'completed' && <CheckIcon />}
+                {status === 'running' && <SpinDot />}
+                {status === 'failed' && '✕'}
+                {status === 'pending' && (
+                  <span className="pipeline-dot-label">{meta.short}</span>
                 )}
               </div>
+              
               <div className="pipeline-stage-name">
                 {meta.label}
                 {meta.optional && <span className="pipeline-opt">opt</span>}

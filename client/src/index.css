@@ -20,12 +20,13 @@
   --text-2: #888888;
   --text-3: #444444;
 
-  /* ── Accent — neon green ─────────────────────── */
-  --accent:       #00FF41;
-  --accent-dim:   #00cc33;
-  --accent-dark:  #009922;
-  --accent-bg:    rgba(0, 255, 65, 0.08);
-  --accent-glow:  rgba(0, 255, 65, 0.20);
+  /* ── Accent — electric blue ──────────────────── */
+  --accent:        #4D9BFF;
+  --accent-dim:    #2C7FE5;
+  --accent-dark:   #1F5FB3;
+  --accent-bg:     rgba(77, 155, 255, 0.10);
+  --accent-glow:   rgba(77, 155, 255, 0.25);
+  --accent-border: rgba(77, 155, 255, 0.30);
 
   /* ── Semantic ────────────────────────────────── */
   --green:        #00FF41;
@@ -63,6 +64,50 @@
   --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
+/* ── Light theme override ──────────────────────────────── */
+[data-theme="light"] {
+  --bg:           #f0f1f2;
+  --bg-sidebar:   #faf9ff;
+  --bg-topbar:    #ffffff;
+  --surface:      #ffffff;
+  --surface-2:    #f1f3f6;
+  --surface-3:    #e7eaef;
+  --surface-hover:#eef0f4;
+
+  --border:        rgba(15, 23, 42, 0.08);
+  --border-md:     rgba(15, 23, 42, 0.14);
+  --border-strong: rgba(15, 23, 42, 0.24);
+
+  --text:   #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+
+  --accent:        #1F5FB3;
+  --accent-dim:    #1A4F95;
+  --accent-dark:   #133E78;
+  --accent-bg:     rgba(31, 95, 179, 0.08);
+  --accent-glow:   rgba(31, 95, 179, 0.18);
+  --accent-border: rgba(31, 95, 179, 0.28);
+
+  --green:        #16A34A;
+  --green-dim:    #128C3F;
+  --green-bg:     rgba(22, 163, 74, 0.10);
+  --green-border: rgba(22, 163, 74, 0.28);
+  --red:          #DC2626;
+  --red-dim:      #B91C1C;
+  --red-bg:       rgba(220, 38, 38, 0.08);
+  --red-border:   rgba(220, 38, 38, 0.28);
+  --amber:        #D97706;
+  --amber-bg:     rgba(217, 119, 6, 0.10);
+  --amber-border: rgba(217, 119, 6, 0.28);
+  --blue:         #2563EB;
+  --blue-bg:      rgba(37, 99, 235, 0.08);
+  --blue-border:  rgba(37, 99, 235, 0.28);
+
+  --shadow:    0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.16);
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
@@ -74,6 +119,7 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 #root { min-height: 100vh; }

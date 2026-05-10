@@ -1,4 +1,4 @@
-.new-run-view { max-width: 860px; }
+.new-run-view { max-width: 100%; }
 
 /* Step progress header */
 .nrv-steps {

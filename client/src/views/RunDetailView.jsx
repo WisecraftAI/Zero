@@ -51,13 +51,6 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack }) {
   const idStr = String(runId || '').slice(0, 20);
   const runStatus = run?.status;
 
-  /* Compute active stage for the orchestration panel */
-  const stages = run?.stages || {};
-  const currentStage = Object.entries(stages).find(([, v]) => v?.status === 'running')?.[0];
-  const stageLabels = {
-    ba: 'BA Agent', manualQa: 'Manual QA', automationQa: 'Automation QA',
-    execution: 'Execution Engine', accessibility: 'Accessibility', performance: 'Performance', manager: 'Manager',
-  };
 
   return (
     <div className="run-detail-view">
@@ -125,33 +118,16 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack }) {
             <TabContent run={run} tab={currentTabId} runId={runId} />
           </div>
         </div>
-
-        {/* Live orchestration side panel */}
-        {runStatus === 'running' && (
-          <div className="rdt-side-panel">
-            <div className="rdt-side-label">
-              <span className="rdt-side-live-dot" />
-              Live Orchestration
-            </div>
-            {currentStage ? (
-              <div className="rdt-stage-active">
-                <div className="rdt-stage-active-name">{stageLabels[currentStage] || currentStage}</div>
-                <div className="rdt-stage-active-sub">Agent running…</div>
-              </div>
-            ) : (
-              <div className="rdt-stage-active-sub">Initializing…</div>
-            )}
-            <div className="rdt-side-stages">
-              {Object.entries(stages).map(([key, val]) => (
-                <div key={key} className={`rdt-side-stage rdt-side-stage--${val?.status || 'pending'}`}>
-                  <span className="rdt-side-stage-dot" />
-                  <span className="rdt-side-stage-name">{stageLabels[key] || key}</span>
-                  <span className="rdt-side-stage-status">{val?.status || 'pending'}</span>
-                </div>
-              ))}
-            </div>
+        
+        {/* Actual Flow Side Panel */}
+        <div className="rdt-actual-flow-panel">
+          <div className="rdt-side-label">
+            {runStatus === 'running' && <span className="rdt-side-live-dot" />}
+            Actual Flow
           </div>
-        )}
+          <ActualFlowContent run={run} />
+        </div>
+
 
       </div>
     </div>
@@ -304,16 +280,6 @@ function ExecutionTab({ run }) {
           ))}
         </tbody>
       </table>
-      {tests.some(t => t.screenshot) && (
-        <div className="screenshot-grid">
-          {tests.filter(t => t.screenshot).map(t => (
-            <a key={t.id} href={t.screenshot} target="_blank" rel="noreferrer" className="screenshot-thumb">
-              <div className="screenshot-thumb-id">{t.id}</div>
-              <div className={`screenshot-thumb-status status-${t.status}`}>{t.status}</div>
-            </a>
-          ))}
-        </div>
-      )}
       <JsonToggle data={data} />
     </div>
   );
@@ -504,6 +470,159 @@ function ElementLogTab() {
 function FlowTab({ run }) {
   if (!run?.picture) return <Awaiting />;
   return <div className="flow-wrap" dangerouslySetInnerHTML={{ __html: run.picture }} />;
+}
+
+function ActualFlowContent({ run }) {
+  const manual = run?.artifacts?.manualTestCases;
+  const basePlan = manual?.testCases || manual?.cases || (Array.isArray(manual) ? manual : []);
+  const report = run?.artifacts?.executionReport;
+  const execTests = report?.tests || [];
+  const runStatus = run?.status;
+  const isExecuting = runStatus === 'running';
+
+  let finalNodes = [];
+  if (basePlan.length > 0) {
+    // Create lookup map normalized to uppercase keys to prevent mismatch
+    const execMap = {};
+    execTests.forEach(t => {
+      if (t.id) execMap[String(t.id).toUpperCase()] = t;
+    });
+
+    finalNodes = basePlan.map(item => {
+      const match = item.id ? execMap[String(item.id).toUpperCase()] : null;
+      return {
+        id: item.id || '',
+        title: item.scenario || item.title || 'Untitled Step',
+        status: match ? match.status : 'queued',
+        screenshot: match?.screenshot || null,
+        original: match || item
+      };
+    });
+  } else if (execTests.length > 0) {
+    finalNodes = execTests.map(t => ({
+      id: t.id || '',
+      title: t.title || 'Untitled Step',
+      status: t.status,
+      screenshot: t.screenshot,
+      original: t
+    }));
+  }
+
+  // If entire process is executing, let's highlight the current executing task
+  const executionStage = run?.stages?.execution?.status;
+  const isSpecificallyExecuting = executionStage === 'running' || (isExecuting && !executionStage);
+  
+  if (isSpecificallyExecuting && finalNodes.length > 0) {
+    const anyActuallyRunning = finalNodes.some(n => {
+      const s = String(n.status || '').toLowerCase();
+      return s === 'running' || s === 'in-progress';
+    });
+    // If nothing is explicitly marked running, implicitly assume the first queued one is active
+    if (!anyActuallyRunning) {
+      const firstQueued = finalNodes.find(n => {
+        const s = String(n.status || '').toLowerCase();
+        return s !== 'pass' && s !== 'passed' && s !== 'fail' && s !== 'failed' && s !== 'skipped';
+      });
+      if (firstQueued) {
+        firstQueued.status = 'running';
+      }
+    }
+  }
+
+  if (finalNodes.length === 0) {
+    const msg = isExecuting ? 'Preparation step...' : 'No plan or execution flow available yet.';
+    return <div className="af-empty">{msg}</div>;
+  }
+
+  return (
+    <div className="af-sidebar-list">
+      {finalNodes.map((n, i) => {
+        const status = normalizeStatus(n.status);
+        return (
+          <div key={n.id || i} className="af-sidebar-step">
+            <div className={`af-sb-node af-sb-node--${status}`}>
+              <div className="af-sb-node-head">
+                <StatusGlyph status={status} />
+                <span className="af-sb-node-id">{n.id || `ST-${i + 1}`}</span>
+              </div>
+              <div className="af-sb-node-title" title={n.title}>{n.title}</div>
+              {n.screenshot && (
+                <a href={n.screenshot} target="_blank" rel="noreferrer" className="af-sb-thumb">
+                  <img src={n.screenshot} alt="Step Screenshot" loading="lazy" />
+                </a>
+              )}
+            </div>
+            {i < finalNodes.length - 1 && (
+              <div className="af-sb-connector">
+                <div className="af-sb-line" />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function normalizeStatus(s) {
+  const v = String(s || '').toLowerCase();
+  if (v === 'pass' || v === 'passed' || v === 'success') return 'passed';
+  if (v === 'fail' || v === 'failed' || v === 'error')   return 'failed';
+  if (v === 'running' || v === 'in-progress' || v === 'in_progress') return 'running';
+  if (v === 'skipped' || v === 'skip') return 'skipped';
+  return 'queued';
+}
+
+function statusLabel(s) {
+  return { passed: 'Passed', failed: 'Failed', running: 'Running', queued: 'Queued', skipped: 'Skipped' }[s] || s;
+}
+
+function StatusGlyph({ status }) {
+  if (status === 'passed') {
+    return (
+      <span className="af-glyph af-glyph--pass" title="Passed">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 7.2l2.7 2.7L11 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span className="af-glyph af-glyph--fail" title="Failed">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'running') {
+    return (
+      <span className="af-glyph af-glyph--running" title="Running">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: 'nrv-spin 0.9s linear infinite' }}>
+          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="2" strokeDasharray="22 12" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'skipped') {
+    return (
+      <span className="af-glyph af-glyph--skipped" title="Skipped">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className="af-glyph af-glyph--queued" title="Queued">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="3.5" cy="7" r="1.2" fill="currentColor" />
+        <circle cx="7"   cy="7" r="1.2" fill="currentColor" />
+        <circle cx="10.5" cy="7" r="1.2" fill="currentColor" />
+      </svg>
+    </span>
+  );
 }
 
 /* ─── Shared sub-components ─────────────────────────────── */

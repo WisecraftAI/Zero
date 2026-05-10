@@ -1,4 +1,4 @@
-.runs-list-view { max-width: 1100px; }
+.runs-list-view { max-width: 100%; }
 
 /* Stat values */
 .stat-value--green  { color: var(--green) !important; }

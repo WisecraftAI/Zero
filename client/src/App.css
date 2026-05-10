@@ -20,14 +20,18 @@
 .btn:hover { text-decoration: none; }
 .btn:disabled { opacity: 0.35; pointer-events: none; }
 
-/* Primary — solid green, black text */
+/* Primary — solid accent, light text */
 .btn-primary {
   background: var(--accent);
-  color: #000;
+  color: #fcfcfc;
   border-color: var(--accent);
   font-weight: 600;
 }
-.btn-primary:hover { background: #33ff66; border-color: #33ff66; color: #000; }
+.btn-primary:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  color: #fcfcfc;
+}
 
 /* Secondary — dark outlined */
 .btn-secondary {

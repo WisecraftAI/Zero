@@ -1,4 +1,4 @@
-.locators-view { max-width: 1000px; }
+.locators-view { max-width: 100%; }
 
 .locators-grid {
   display: grid;

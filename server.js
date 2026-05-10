@@ -9,6 +9,7 @@ const { chromium } = require("playwright");
 const XLSX = require("xlsx");
 const PDFDocument = require("pdfkit");
 const dbHelpers = require("./lib/db");
+const encryption = require("./lib/encryption");
 const elementLogger = require("./lib/elementLogger");
 const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
@@ -246,6 +247,7 @@ async function initDatabase() {
 
     await dbHelpers.initElementTables(dbPool);
     await dbHelpers.initProjectsTables(dbPool);
+    await dbHelpers.initProviderTables(dbPool);
     await dbPool.query("ALTER TABLE qa_runs ADD COLUMN delivery_report_json JSONB").catch(() => {});
     await dbPool.query("ALTER TABLE qa_runs ADD COLUMN project_id TEXT").catch(() => {});
     await dbPool.query("ALTER TABLE qa_runs ADD COLUMN cms_signal_json JSONB").catch(() => {});
@@ -2910,6 +2912,131 @@ app.post("/api/element-log", async (req, res) => {
     const result = await elementLogger.processElementLog(dbPool, payload, runId);
     if (!result.ok) return res.status(400).json(result);
     return res.status(201).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/* ─── Provider API Keys ──────────────────────────────────── */
+const ALLOWED_PROVIDERS = ["claude", "openai", "gemini"];
+
+function getUserEmail(req) {
+  const h = req.get("X-User-Email") || req.get("x-user-email");
+  return (h && String(h).trim().toLowerCase()) || "default@local";
+}
+
+app.get("/api/provider-keys", async (req, res) => {
+  if (!dbEnabled || !dbPool) {
+    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
+  }
+  try {
+    const userEmail = getUserEmail(req);
+    const rows = await dbHelpers.listProviderKeys(dbPool, userEmail);
+    const byProvider = {};
+    for (const r of rows) byProvider[r.provider] = r;
+    const items = ALLOWED_PROVIDERS.map(provider => {
+      const r = byProvider[provider];
+      return {
+        provider,
+        configured: !!r,
+        last4: r?.last_4 || null,
+        masked: r?.last_4 ? `••••••••••••${r.last_4}` : null,
+        createdAt: r?.created_at || null,
+        updatedAt: r?.updated_at || null,
+        lastUsedAt: r?.last_used_at || null
+      };
+    });
+    return res.json({ items });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/provider-keys/:provider", async (req, res) => {
+  if (!dbEnabled || !dbPool) {
+    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
+  }
+  const provider = String(req.params.provider || "").toLowerCase();
+  if (!ALLOWED_PROVIDERS.includes(provider)) {
+    return res.status(400).json({ error: `Unknown provider. Use one of: ${ALLOWED_PROVIDERS.join(", ")}` });
+  }
+  const key = (req.body?.key || "").toString().trim();
+  if (!key) return res.status(400).json({ error: "Field 'key' is required." });
+  try {
+    const userEmail = getUserEmail(req);
+    const encryptedKey = encryption.encrypt(key);
+    const last4 = encryption.lastFour(key);
+    await dbHelpers.upsertProviderKey(dbPool, { userEmail, provider, encryptedKey, last4 });
+    return res.json({ ok: true, provider, masked: `••••••••••••${last4}`, last4 });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/provider-keys/:provider", async (req, res) => {
+  if (!dbEnabled || !dbPool) {
+    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
+  }
+  const provider = String(req.params.provider || "").toLowerCase();
+  if (!ALLOWED_PROVIDERS.includes(provider)) {
+    return res.status(400).json({ error: "Unknown provider." });
+  }
+  try {
+    const userEmail = getUserEmail(req);
+    await dbHelpers.deleteProviderKey(dbPool, userEmail, provider);
+    return res.json({ ok: true, provider });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/* ─── Agent Settings (model + prompt per LLM-driven agent) ── */
+const ALLOWED_AGENTS = ["ba", "manualQa", "automationQa", "manager"];
+
+app.get("/api/agent-settings", async (req, res) => {
+  if (!dbEnabled || !dbPool) {
+    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
+  }
+  try {
+    const userEmail = getUserEmail(req);
+    const rows = await dbHelpers.listAgentSettings(dbPool, userEmail);
+    const byAgent = {};
+    for (const r of rows) byAgent[r.agent] = r;
+    const items = ALLOWED_AGENTS.map(agent => ({
+      agent,
+      provider: byAgent[agent]?.provider || null,
+      model:    byAgent[agent]?.model || null,
+      prompt:   byAgent[agent]?.prompt || null,
+      updatedAt: byAgent[agent]?.updated_at || null
+    }));
+    return res.json({ items });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/agent-settings/:agent", async (req, res) => {
+  if (!dbEnabled || !dbPool) {
+    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
+  }
+  const agent = String(req.params.agent || "");
+  if (!ALLOWED_AGENTS.includes(agent)) {
+    return res.status(400).json({ error: `Unknown agent. Use one of: ${ALLOWED_AGENTS.join(", ")}` });
+  }
+  const { provider, model, prompt } = req.body || {};
+  if (provider && !ALLOWED_PROVIDERS.includes(String(provider).toLowerCase())) {
+    return res.status(400).json({ error: "Unknown provider for agent." });
+  }
+  try {
+    const userEmail = getUserEmail(req);
+    await dbHelpers.upsertAgentSettings(dbPool, {
+      userEmail,
+      agent,
+      provider: provider ? String(provider).toLowerCase() : null,
+      model: model || null,
+      prompt: prompt || null
+    });
+    return res.json({ ok: true, agent });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

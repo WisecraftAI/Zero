@@ -5,6 +5,9 @@ import RunsListView from './views/RunsListView';
 import NewRunView from './views/NewRunView';
 import RunDetailView from './views/RunDetailView';
 import LocatorsView from './views/LocatorsView';
+import ApiKeysView from './views/ApiKeysView';
+import AgentsView from './views/AgentsView';
+import IntegrationsView from './views/IntegrationsView';
 import './App.css';
 
 /* Topbar config per view */
@@ -27,6 +30,12 @@ function getTopbarProps(view, run) {
     }
     case 'locators':
       return { breadcrumb: ['ZERO', 'Locator Intelligence'] };
+    case 'apikeys':
+      return { breadcrumb: ['ZERO', 'API Keys'] };
+    case 'agents':
+      return { breadcrumb: ['ZERO', 'Agents'] };
+    case 'integrations':
+      return { breadcrumb: ['ZERO', 'Integrations'] };
     default:
       return { title: 'ZERO' };
   }
@@ -111,6 +120,12 @@ export default function App() {
         return <RunDetailView run={activeRun} runId={activeRunId} onRerunFailed={handleRerunFailed} onBack={() => navigate('runs')} />;
       case 'locators':
         return <LocatorsView />;
+      case 'apikeys':
+        return <ApiKeysView />;
+      case 'agents':
+        return <AgentsView />;
+      case 'integrations':
+        return <IntegrationsView />;
       default:
         return null;
     }
