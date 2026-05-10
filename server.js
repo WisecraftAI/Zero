@@ -949,7 +949,7 @@ async function screenshotForCase(page, run, testId, status, attempt) {
   const absolutePath = path.join(run.runDir, fileName);
   await page.screenshot({ path: absolutePath, fullPage: false });
   
-  if (cloudinaryLib.isEnabled()) {
+  if (process.env.VERCEL && cloudinaryLib.isEnabled()) {
     const cldUrl = await cloudinaryLib.uploadImage(absolutePath, { 
       folder: `zero-qa/runs/${run.id}`,
       public_id: path.parse(fileName).name
@@ -3222,7 +3222,7 @@ app.post("/api/capture-cms-screenshot", express.json({ limit: "32kb" }), async (
     browser = null;
     
     let publicPath = `/artifacts/cms-captures/${fileName}`;
-    if (cloudinaryLib.isEnabled()) {
+    if (process.env.VERCEL && cloudinaryLib.isEnabled()) {
       const cldUrl = await cloudinaryLib.uploadImage(absPath, { 
         folder: "zero-qa/cms-captures",
         public_id: path.parse(fileName).name
@@ -3288,7 +3288,7 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
         await page.screenshot({ path: absPath, fullPage: true });
         
         let screenshotUrl = `/artifacts/cms-captures/${fileName}`;
-        if (cloudinaryLib.isEnabled()) {
+        if (process.env.VERCEL && cloudinaryLib.isEnabled()) {
           const cldUrl = await cloudinaryLib.uploadImage(absPath, { 
             folder: "zero-qa/cms-bulk",
             public_id: path.parse(fileName).name
