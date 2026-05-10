@@ -200,10 +200,26 @@ const profileScenarioCatalog = {
   ]
 };
 
-// Database disabled by user request
-let dbPool = null;
-let dbEnabled = false;
+function maskLogin(value) {
+  if (!value) return null;
+  const text = String(value);
+  if (text.length <= 2) return "**";
+  return `${text.slice(0, 2)}***`;
+}
 
+function setRunSecret(runId, secret) {
+  if (!secret || (!secret.username && !secret.password)) {
+    runSecrets.delete(runId);
+    return;
+  }
+  runSecrets.set(runId, secret);
+}
+
+function getRunSecret(runId) {
+  return runSecrets.get(runId) || { username: "", password: "" };
+}
+
+// Database disabled by user request
 function databaseConfigured() { return false; }
 async function initDatabase() { return; }
 
