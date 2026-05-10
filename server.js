@@ -225,7 +225,9 @@ async function initDatabase() {
       user: process.env.PGUSER || undefined,
       password: process.env.PGPASSWORD || undefined,
       database: process.env.PGDATABASE || undefined,
-      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 5000,
+      query_timeout: 10000
     });
 
     await dbPool.query(`
@@ -271,9 +273,9 @@ async function initDatabase() {
 
 // On Serverless environments, insert initialization logic BEFORE route declarations
 if (process.env.VERCEL) {
-  app.use(async (req, res, next) => {
+  app.use((req, res, next) => {
     if (!dbPool && typeof databaseConfigured === "function" && databaseConfigured()) {
-      try { await initDatabase(); } catch (e) { console.error("Lazy DB init failed:", e); }
+      initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
     }
     next();
   });
