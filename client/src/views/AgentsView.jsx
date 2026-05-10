@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import './AgentsView.css';
 
 const AGENTS = [
   {
     id: 'ba',
     name: 'BA Agent',
+    code: 'AG-0091-ALPHA',
+    specialization: 'Requirement Analysis & Gherkin Generation',
     desc: 'Extracts requirements, scope, and constraints from user input and release notes',
     defaultPrompt:
       'You are a Business Analyst agent for OTT/streaming QA. Given a target URL and optional release notes, ' +
@@ -13,6 +15,8 @@ const AGENTS = [
   {
     id: 'manualQa',
     name: 'Manual QA Agent',
+    code: 'AG-0042-BETA',
+    specialization: 'Exploratory Testing & UX Validation',
     desc: 'Drafts manual test cases (feature, scenario, expected) tailored to the channel and requirements',
     defaultPrompt:
       'You are a Manual QA agent. Given the BA requirements and a channel profile, generate granular test cases ' +
@@ -20,7 +24,9 @@ const AGENTS = [
   },
   {
     id: 'automationQa',
-    name: 'Automation QA Agent',
+    name: 'Automation QA',
+    code: 'AG-0128-DELTA',
+    specialization: 'Script Generation & Flakiness Repair',
     desc: 'Converts manual test cases into Selenium/Java + Playwright runnable scripts using the locator registry',
     defaultPrompt:
       'You are an Automation QA agent. Given manual test cases and selector candidates, output runnable ' +
@@ -29,6 +35,8 @@ const AGENTS = [
   {
     id: 'manager',
     name: 'Manager Agent',
+    code: 'AG-MGR-01',
+    specialization: 'Orchestration & Verdict Synthesis',
     desc: 'Reviews execution evidence, produces verdict, traceability matrix, root causes, and action plan',
     defaultPrompt:
       'You are a QA Manager agent. Given the execution report and artifacts, produce an executive summary ' +
@@ -38,20 +46,26 @@ const AGENTS = [
 
 const PROVIDER_MODELS = {
   claude: [
-    { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
-    { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-    { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
+    { id: 'claude-opus-4-7',   name: 'Claude Opus 4.7',   contextWindow: 1_000_000, label: '1M' },
+    { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', contextWindow: 200_000,   label: '200k' },
+    { id: 'claude-haiku-4-5',  name: 'Claude Haiku 4.5',  contextWindow: 200_000,   label: '200k' },
   ],
   openai: [
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
-    { id: 'o1-mini', name: 'o1-mini' },
+    { id: 'gpt-4o',      name: 'GPT-4o',      contextWindow: 128_000, label: '128k' },
+    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128_000, label: '128k' },
+    { id: 'o1-mini',     name: 'o1-mini',     contextWindow: 128_000, label: '128k' },
   ],
   gemini: [
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+    { id: 'gemini-1.5-pro',   name: 'Gemini 1.5 Pro',   contextWindow: 2_000_000, label: '2M' },
+    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1_000_000, label: '1M' },
   ],
 };
+
+const PROVIDER_LABELS = { claude: 'Anthropic Claude', openai: 'OpenAI', gemini: 'Google Gemini' };
+
+function findModel(provider, modelId) {
+  return (PROVIDER_MODELS[provider] || []).find(m => m.id === modelId) || null;
+}
 
 function fmtDate(ts) {
   if (!ts) return '';
@@ -59,13 +73,21 @@ function fmtDate(ts) {
   catch { return ''; }
 }
 
+function statusFor(cfg, hasKey) {
+  if (cfg?.provider && cfg?.model && hasKey) return 'active';
+  if (cfg?.provider || cfg?.model) return 'optimizing';
+  return 'idle';
+}
+
+const STATUS_LABEL = { idle: 'IDLE', active: 'ACTIVE', optimizing: 'CONFIG' };
+
 export default function AgentsView() {
-  const [settings, setSettings] = useState({});       // by agent id
-  const [keys, setKeys] = useState({});                // provider -> configured?
+  const [settings, setSettings] = useState({});
+  const [keys, setKeys] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState({});            // agent -> bool
-  const [savedAt, setSavedAt] = useState({});          // agent -> timestamp string
+  const [selectedId, setSelectedId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -88,148 +110,375 @@ export default function AgentsView() {
 
   useEffect(() => { load(); }, []);
 
-  const updateField = (agentId, field, value) => {
-    setSettings(s => ({
-      ...s,
-      [agentId]: { ...(s[agentId] || { agent: agentId }), [field]: value },
-    }));
-  };
+  // close action menu on outside click
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onClick = () => setOpenMenuId(null);
+    window.addEventListener('click', onClick);
+    return () => window.removeEventListener('click', onClick);
+  }, [openMenuId]);
 
-  const saveAgent = async (agentId) => {
-    const cfg = settings[agentId] || {};
-    setSaving(s => ({ ...s, [agentId]: true }));
-    setError('');
-    try {
-      const res = await fetch(`/api/agent-settings/${agentId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: cfg.provider || null,
-          model: cfg.model || null,
-          prompt: cfg.prompt || null,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save.');
-      setSavedAt(t => ({ ...t, [agentId]: new Date().toISOString() }));
-    } catch (e) {
-      setError(e.message);
-    } finally { setSaving(s => ({ ...s, [agentId]: false })); }
-  };
+  if (selectedId) {
+    return (
+      <AgentDetailView
+        agent={AGENTS.find(a => a.id === selectedId)}
+        cfg={settings[selectedId] || {}}
+        keys={keys}
+        onBack={() => setSelectedId(null)}
+        onSaved={() => load()}
+      />
+    );
+  }
+
+  const activeCount = AGENTS.filter(a => statusFor(settings[a.id], keys[settings[a.id]?.provider]) === 'active').length;
+  const totalContextK = AGENTS.reduce((sum, a) => {
+    const m = findModel(settings[a.id]?.provider, settings[a.id]?.model);
+    return sum + (m?.contextWindow || 0);
+  }, 0);
 
   return (
     <div className="view agents-view">
-      <div className="view-header">
+      {/* Header */}
+      <div className="agv-header">
         <div>
-          <h1 className="view-title">Agents</h1>
+          <div className="agv-status-pill">
+            <span className="agv-status-dot" />
+            CLUSTER STATUS: OPERATIONAL
+          </div>
+          <h1 className="view-title agv-title">Agents Control Room</h1>
           <p className="view-subtitle">
-            Choose the model and tune the system prompt for each LLM-driven agent in the pipeline.
+            Configure the model and prompt for each LLM-driven agent. Status reflects real-time configuration health.
           </p>
+        </div>
+        <div className="agv-header-actions">
+          <button className="btn btn-secondary btn-sm" onClick={load}>↻ Refresh</button>
         </div>
       </div>
 
       {error && <div className="agv-error">{error}</div>}
-      {loading && <div className="agv-loading">Loading agents…</div>}
 
-      {!loading && (
-        <div className="agv-list">
-          {AGENTS.map(a => {
-            const cfg = settings[a.id] || {};
-            const provider = cfg.provider || '';
-            const model = cfg.model || '';
-            const prompt = cfg.prompt ?? a.defaultPrompt;
-            const providerOk = provider && keys[provider];
-            const justSaved = !!savedAt[a.id];
+      {/* Stat cards */}
+      <div className="agv-stats">
+        <StatCard
+          label="Active Agents"
+          value={String(activeCount).padStart(2, '0')}
+          sub={`${activeCount}/${AGENTS.length} fully configured`}
+          progress={activeCount / AGENTS.length}
+        />
+        <StatCard
+          label="Context Capacity"
+          value={totalContextK >= 1_000_000 ? `${(totalContextK / 1_000_000).toFixed(1)}M` : `${Math.round(totalContextK / 1000)}k`}
+          sub="Aggregate token budget across active agents"
+        />
+        <StatCard
+          label="Providers Linked"
+          value={String(Object.values(keys).filter(Boolean).length)}
+          sub="Provider keys configured in API Keys"
+        />
+      </div>
 
-            return (
-              <div key={a.id} className="agv-card">
-                <div className="agv-card-head">
-                  <div>
-                    <div className="agv-card-title">{a.name}</div>
-                    <div className="agv-card-desc">{a.desc}</div>
-                  </div>
-                  {cfg.updatedAt && !justSaved && (
-                    <div className="agv-meta">Updated {fmtDate(cfg.updatedAt)}</div>
+      {/* Agents table */}
+      <div className="agv-table">
+        <div className="agv-table-head">
+          <span className="agv-th agv-th--name">Agent Identity</span>
+          <span className="agv-th agv-th--status">Status</span>
+          <span className="agv-th agv-th--spec">Specialization</span>
+          <span className="agv-th agv-th--model">Model</span>
+          <span className="agv-th agv-th--actions">Actions</span>
+        </div>
+
+        {loading && <div className="agv-loading">Loading agents…</div>}
+
+        {!loading && AGENTS.map(a => {
+          const cfg = settings[a.id] || {};
+          const hasKey = !!keys[cfg.provider];
+          const status = statusFor(cfg, hasKey);
+          const model = findModel(cfg.provider, cfg.model);
+
+          return (
+            <div key={a.id} className="agv-tr">
+              <div className="agv-td agv-td--name">
+                <div className="agv-agent-name">{a.name}</div>
+                <div className="agv-agent-id">ID: {a.code}</div>
+              </div>
+              <div className="agv-td agv-td--status">
+                <span className={`agv-badge agv-badge--${status}`}>
+                  <span className="agv-badge-dot" />
+                  {STATUS_LABEL[status]}
+                </span>
+              </div>
+              <div className="agv-td agv-td--spec">
+                {a.specialization}
+              </div>
+              <div className="agv-td agv-td--model">
+                {cfg.provider ? (
+                  <>
+                    <div className="agv-model-name">{model?.name || cfg.model || '—'}</div>
+                    <div className="agv-model-meta">
+                      {PROVIDER_LABELS[cfg.provider]}
+                      {model?.label && ` · ${model.label} ctx`}
+                    </div>
+                  </>
+                ) : (
+                  <span className="agv-not-set">— not configured —</span>
+                )}
+              </div>
+              <div className="agv-td agv-td--actions">
+
+                <div className="agv-menu-wrap" onClick={e => e.stopPropagation()}>
+                  <button
+                    className="agv-dot-btn"
+                    onClick={() => setOpenMenuId(openMenuId === a.id ? null : a.id)}
+                    title="More actions"
+                  >
+                    <DotsIcon />
+                  </button>
+                  {openMenuId === a.id && (
+                    <div className="agv-menu">
+                      <button
+                        className="agv-menu-item"
+                        onClick={() => { setOpenMenuId(null); setSelectedId(a.id); }}
+                      >
+                        Edit prompt & model
+                      </button>
+                      <button
+                        className="agv-menu-item"
+                        onClick={() => { setOpenMenuId(null); setSelectedId(a.id); }}
+                      >
+                        View token usage
+                      </button>
+                      <button
+                        className="agv-menu-item agv-menu-item--danger"
+                        disabled={!cfg.provider}
+                        onClick={async () => {
+                          setOpenMenuId(null);
+                          if (!window.confirm(`Reset ${a.name} to defaults?`)) return;
+                          await fetch(`/api/agent-settings/${a.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ provider: null, model: null, prompt: null }),
+                          });
+                          load();
+                        }}
+                      >
+                        Reset to default
+                      </button>
+                    </div>
                   )}
-                  {justSaved && <div className="agv-meta agv-meta--ok">Saved ✓</div>}
-                </div>
-
-                <div className="agv-grid">
-                  <div className="agv-field">
-                    <label className="agv-label">Provider</label>
-                    <select
-                      className="agv-select"
-                      value={provider}
-                      onChange={e => {
-                        updateField(a.id, 'provider', e.target.value);
-                        updateField(a.id, 'model', '');
-                      }}
-                    >
-                      <option value="">— select —</option>
-                      <option value="claude">Anthropic Claude</option>
-                      <option value="openai">OpenAI</option>
-                      <option value="gemini">Google Gemini</option>
-                    </select>
-                    {provider && !keys[provider] && (
-                      <div className="agv-hint agv-hint--warn">
-                        No API key configured for this provider. Add it in API Keys.
-                      </div>
-                    )}
-                    {providerOk && <div className="agv-hint agv-hint--ok">Key configured ✓</div>}
-                  </div>
-
-                  <div className="agv-field">
-                    <label className="agv-label">Model</label>
-                    <select
-                      className="agv-select"
-                      value={model}
-                      onChange={e => updateField(a.id, 'model', e.target.value)}
-                      disabled={!provider}
-                    >
-                      <option value="">— select —</option>
-                      {(PROVIDER_MODELS[provider] || []).map(m =>
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      )}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="agv-field">
-                  <label className="agv-label">System Prompt</label>
-                  <textarea
-                    className="agv-textarea"
-                    rows={6}
-                    value={prompt}
-                    placeholder={a.defaultPrompt}
-                    onChange={e => updateField(a.id, 'prompt', e.target.value)}
-                  />
-                  <div className="agv-hint">
-                    {prompt && prompt !== a.defaultPrompt
-                      ? `${prompt.length} chars — custom prompt`
-                      : 'Using default prompt — edit to override'}
-                  </div>
-                </div>
-
-                <div className="agv-actions">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => updateField(a.id, 'prompt', a.defaultPrompt)}
-                  >
-                    Reset to default
-                  </button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    disabled={saving[a.id]}
-                    onClick={() => saveAgent(a.id)}
-                  >
-                    {saving[a.id] ? 'Saving…' : 'Save'}
-                  </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer hint */}
+
+    </div>
+  );
+}
+
+/* ─── Stat card ───────────────────────────────────────────── */
+function StatCard({ label, value, sub, progress }) {
+  return (
+    <div className="agv-stat-card">
+      <div className="agv-stat-label">{label}</div>
+      <div className="agv-stat-value">{value}</div>
+      {sub && <div className="agv-stat-sub">{sub}</div>}
+      {progress != null && (
+        <div className="agv-stat-bar">
+          <div className="agv-stat-bar-fill" style={{ width: `${Math.min(100, progress * 100)}%` }} />
         </div>
       )}
     </div>
   );
 }
+
+/* ─── Detail view ─────────────────────────────────────────── */
+function AgentDetailView({ agent, cfg, keys, onBack, onSaved }) {
+  const [provider, setProvider] = useState(cfg.provider || '');
+  const [model, setModel] = useState(cfg.model || '');
+  const [prompt, setPrompt] = useState(cfg.prompt ?? agent.defaultPrompt);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('');
+  const promptRef = useRef(null);
+
+  const modelObj = findModel(provider, model);
+  const ctxWindow = modelObj?.contextWindow || 0;
+  const promptTokens = Math.ceil((prompt || '').length / 4);  // rough: ~4 chars per token
+  const ctxUsedPct = ctxWindow ? Math.min(100, (promptTokens / ctxWindow) * 100) : 0;
+  const hasKey = !!keys[provider];
+  const isCustomPrompt = prompt && prompt !== agent.defaultPrompt;
+
+  const save = async () => {
+    setSaving(true);
+    setStatus('');
+    try {
+      const res = await fetch(`/api/agent-settings/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: provider || null,
+          model: model || null,
+          prompt: prompt || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save.');
+      setStatus('Saved ✓');
+      onSaved?.();
+      setTimeout(() => setStatus(''), 2400);
+    } catch (e) {
+      setStatus(e.message);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="view agents-view agv-detail">
+      {/* Detail header */}
+      <div className="agv-detail-head">
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back to Control Room</button>
+        <div className="agv-detail-meta">
+          ID: <code>{agent.code}</code>
+          {cfg.updatedAt && <span> · Last updated {fmtDate(cfg.updatedAt)}</span>}
+        </div>
+      </div>
+
+      <div className="agv-detail-title">
+        <h1 className="view-title">{agent.name}</h1>
+        <p className="view-subtitle">{agent.desc}</p>
+      </div>
+
+      {/* Two-column body */}
+      <div className="agv-detail-body">
+
+        {/* Left — prompt + model */}
+        <div className="agv-detail-main">
+          <div className="agv-card">
+            <div className="agv-card-head">
+              <span className="agv-section-label">MODEL CONFIGURATION</span>
+            </div>
+            <div className="agv-grid">
+              <div className="agv-field">
+                <label className="agv-label">Provider</label>
+                <select
+                  className="agv-select"
+                  value={provider}
+                  onChange={e => { setProvider(e.target.value); setModel(''); }}
+                >
+                  <option value="">— select —</option>
+                  <option value="claude">Anthropic Claude</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+                {provider && !hasKey && (
+                  <div className="agv-hint agv-hint--warn">No API key for this provider — add it in API Keys.</div>
+                )}
+                {provider && hasKey && <div className="agv-hint agv-hint--ok">Key configured ✓</div>}
+              </div>
+              <div className="agv-field">
+                <label className="agv-label">Model</label>
+                <select
+                  className="agv-select"
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  disabled={!provider}
+                >
+                  <option value="">— select —</option>
+                  {(PROVIDER_MODELS[provider] || []).map(m =>
+                    <option key={m.id} value={m.id}>{m.name} ({m.label} ctx)</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="agv-card">
+            <div className="agv-card-head">
+              <span className="agv-section-label">CUSTOM PROMPT</span>
+              <span className="agv-card-meta">
+                {isCustomPrompt ? `${prompt.length} chars · custom` : 'using default'}
+              </span>
+            </div>
+            <textarea
+              ref={promptRef}
+              className="agv-textarea"
+              rows={12}
+              value={prompt}
+              placeholder={agent.defaultPrompt}
+              onChange={e => setPrompt(e.target.value)}
+            />
+            <div className="agv-prompt-actions">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPrompt(agent.defaultPrompt)}
+                disabled={!isCustomPrompt}
+              >
+                Reset to default
+              </button>
+              <div className="agv-prompt-spacer" />
+              {status && <span className={`agv-status-msg ${status.includes('✓') ? 'agv-status-msg--ok' : 'agv-status-msg--err'}`}>{status}</span>}
+              <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Configuration'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right — token usage / specs */}
+        <div className="agv-detail-side">
+          <div className="agv-card">
+            <div className="agv-card-head">
+              <span className="agv-section-label">MODEL CONTEXT WINDOW</span>
+            </div>
+            <div className="agv-ctx-row">
+              <div className="agv-ctx-value">
+                {ctxWindow >= 1_000_000 ? `${(ctxWindow / 1_000_000).toFixed(1)}M` : ctxWindow ? `${Math.round(ctxWindow / 1000)}k` : '—'}
+              </div>
+              <div className="agv-ctx-unit">{ctxWindow ? 'tokens max' : 'select a model'}</div>
+            </div>
+            <div className="agv-ctx-bar">
+              <div className="agv-ctx-bar-fill" style={{ width: `${ctxUsedPct}%` }} />
+            </div>
+            <div className="agv-ctx-legend">
+              <span>System prompt: <strong>{promptTokens.toLocaleString()}</strong> tokens (est.)</span>
+              <span className="agv-ctx-pct">{ctxWindow ? `${ctxUsedPct.toFixed(2)}% of window` : ''}</span>
+            </div>
+            <div className="agv-ctx-note">
+              Estimate uses 4 chars / token. Run-time usage will include retrieved test cases, requirements, and tool output.
+            </div>
+          </div>
+
+          <div className="agv-card">
+            <div className="agv-card-head">
+              <span className="agv-section-label">AGENT SPECIFICATION</span>
+            </div>
+            <dl className="agv-spec">
+              <div><dt>Specialization</dt><dd>{agent.specialization}</dd></div>
+              <div><dt>Agent ID</dt><dd><code>{agent.code}</code></dd></div>
+              <div><dt>Pipeline Stage</dt><dd>{agent.id}</dd></div>
+              <div><dt>Status</dt><dd>{STATUS_LABEL[statusFor({ provider, model }, hasKey)]}</dd></div>
+            </dl>
+          </div>
+
+          <div className="agv-card agv-card--tip">
+            <div className="agv-tip-title">Tip</div>
+            <p className="agv-tip-text">
+              Keep prompts concise — every token of the system prompt is sent on every call. Push
+              variable context (test cases, URLs, prior outputs) into runtime messages, not the prompt.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Icons ───────────────────────────────────────────────── */
+const DotsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <circle cx="3" cy="7" r="1.3" fill="currentColor" />
+    <circle cx="7" cy="7" r="1.3" fill="currentColor" />
+    <circle cx="11" cy="7" r="1.3" fill="currentColor" />
+  </svg>
+);

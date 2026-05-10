@@ -30,6 +30,8 @@ const upload = multer({
 });
 
 const runs = new Map();
+const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
+const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
 const runSecrets = new Map();
 const stageKeys = ["ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "manager", "delivery"];
 const optionalStageKeys = ["accessibility", "performance"];
@@ -2926,14 +2928,21 @@ function getUserEmail(req) {
 }
 
 app.get("/api/provider-keys", async (req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
-  }
   try {
     const userEmail = getUserEmail(req);
-    const rows = await dbHelpers.listProviderKeys(dbPool, userEmail);
+    let rows = [];
+    
+    if (dbEnabled && dbPool) {
+      rows = await dbHelpers.listProviderKeys(dbPool, userEmail);
+    } else {
+      // Fallback memory lookup
+      rows = ALLOWED_PROVIDERS.map(provider => memoryProviderKeys.get(`${userEmail}:${provider}`))
+                              .filter(Boolean);
+    }
+    
     const byProvider = {};
     for (const r of rows) byProvider[r.provider] = r;
+    
     const items = ALLOWED_PROVIDERS.map(provider => {
       const r = byProvider[provider];
       return {
@@ -2953,20 +2962,32 @@ app.get("/api/provider-keys", async (req, res) => {
 });
 
 app.put("/api/provider-keys/:provider", async (req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
-  }
   const provider = String(req.params.provider || "").toLowerCase();
   if (!ALLOWED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ error: `Unknown provider. Use one of: ${ALLOWED_PROVIDERS.join(", ")}` });
   }
   const key = (req.body?.key || "").toString().trim();
   if (!key) return res.status(400).json({ error: "Field 'key' is required." });
+  
   try {
     const userEmail = getUserEmail(req);
     const encryptedKey = encryption.encrypt(key);
     const last4 = encryption.lastFour(key);
-    await dbHelpers.upsertProviderKey(dbPool, { userEmail, provider, encryptedKey, last4 });
+    
+    if (dbEnabled && dbPool) {
+      await dbHelpers.upsertProviderKey(dbPool, { userEmail, provider, encryptedKey, last4 });
+    } else {
+      const compositeKey = `${userEmail}:${provider}`;
+      const existing = memoryProviderKeys.get(compositeKey);
+      memoryProviderKeys.set(compositeKey, {
+        provider,
+        encrypted_key: encryptedKey,
+        last_4: last4,
+        created_at: existing?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+    
     return res.json({ ok: true, provider, masked: `••••••••••••${last4}`, last4 });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -2974,16 +2995,17 @@ app.put("/api/provider-keys/:provider", async (req, res) => {
 });
 
 app.delete("/api/provider-keys/:provider", async (req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
-  }
   const provider = String(req.params.provider || "").toLowerCase();
   if (!ALLOWED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ error: "Unknown provider." });
   }
   try {
     const userEmail = getUserEmail(req);
-    await dbHelpers.deleteProviderKey(dbPool, userEmail, provider);
+    if (dbEnabled && dbPool) {
+      await dbHelpers.deleteProviderKey(dbPool, userEmail, provider);
+    } else {
+      memoryProviderKeys.delete(`${userEmail}:${provider}`);
+    }
     return res.json({ ok: true, provider });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -2994,14 +3016,20 @@ app.delete("/api/provider-keys/:provider", async (req, res) => {
 const ALLOWED_AGENTS = ["ba", "manualQa", "automationQa", "manager"];
 
 app.get("/api/agent-settings", async (req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
-  }
   try {
     const userEmail = getUserEmail(req);
-    const rows = await dbHelpers.listAgentSettings(dbPool, userEmail);
+    let rows = [];
+    
+    if (dbEnabled && dbPool) {
+      rows = await dbHelpers.listAgentSettings(dbPool, userEmail);
+    } else {
+      rows = ALLOWED_AGENTS.map(agent => memoryAgentSettings.get(`${userEmail}:${agent}`))
+                            .filter(Boolean);
+    }
+    
     const byAgent = {};
     for (const r of rows) byAgent[r.agent] = r;
+    
     const items = ALLOWED_AGENTS.map(agent => ({
       agent,
       provider: byAgent[agent]?.provider || null,
@@ -3016,9 +3044,6 @@ app.get("/api/agent-settings", async (req, res) => {
 });
 
 app.put("/api/agent-settings/:agent", async (req, res) => {
-  if (!dbEnabled || !dbPool) {
-    return res.status(503).json({ error: "PostgreSQL required. Set DATABASE_URL or PGHOST." });
-  }
   const agent = String(req.params.agent || "");
   if (!ALLOWED_AGENTS.includes(agent)) {
     return res.status(400).json({ error: `Unknown agent. Use one of: ${ALLOWED_AGENTS.join(", ")}` });
@@ -3027,15 +3052,29 @@ app.put("/api/agent-settings/:agent", async (req, res) => {
   if (provider && !ALLOWED_PROVIDERS.includes(String(provider).toLowerCase())) {
     return res.status(400).json({ error: "Unknown provider for agent." });
   }
+  
   try {
     const userEmail = getUserEmail(req);
-    await dbHelpers.upsertAgentSettings(dbPool, {
-      userEmail,
-      agent,
-      provider: provider ? String(provider).toLowerCase() : null,
-      model: model || null,
-      prompt: prompt || null
-    });
+    const normalizedProvider = provider ? String(provider).toLowerCase() : null;
+    
+    if (dbEnabled && dbPool) {
+      await dbHelpers.upsertAgentSettings(dbPool, {
+        userEmail,
+        agent,
+        provider: normalizedProvider,
+        model: model || null,
+        prompt: prompt || null
+      });
+    } else {
+      memoryAgentSettings.set(`${userEmail}:${agent}`, {
+        agent,
+        provider: normalizedProvider,
+        model: model || null,
+        prompt: prompt || null,
+        updated_at: new Date().toISOString()
+      });
+    }
+    
     return res.json({ ok: true, agent });
   } catch (error) {
     return res.status(500).json({ error: error.message });

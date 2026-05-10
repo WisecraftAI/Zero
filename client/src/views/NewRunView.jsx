@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './NewRunView.css';
 
 const STEPS = [
@@ -109,7 +109,7 @@ export default function NewRunView({ onSubmit }) {
         <div className="nrv-content">
 
           {/* Step 0 — Input Sources */}
-          {step === 0 && (
+          <div style={{ display: step === 0 ? 'block' : 'none' }}>
             <StepPanel title="Input Sources" eyebrow="Step 01 / 05" desc="Enter the target URL for QA execution">
               <Field label="Target URL" hint="Required" required>
                 <div className="nrv-url-row">
@@ -162,10 +162,10 @@ export default function NewRunView({ onSubmit }) {
                 </div>
               </div>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 1 — Test Assets */}
-          {step === 1 && (
+          <div style={{ display: step === 1 ? 'block' : 'none' }}>
             <StepPanel title="Test Assets" eyebrow="Step 02 / 05" desc="Provide test cases or context for the AI agents">
               <Field label="Test Cases CSV" hint="Columns: Feature, Scenario, Expected Result">
                 <div className="file-drop-zone">
@@ -196,10 +196,10 @@ export default function NewRunView({ onSubmit }) {
                 />
               </Field>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 2 — Credentials */}
-          {step === 2 && (
+          <div style={{ display: step === 2 ? 'block' : 'none' }}>
             <StepPanel title="Credentials" eyebrow="Step 03 / 05" desc="Used at runtime only — never persisted">
               <div className="nrv-2col">
                 <Field label="Email / Username">
@@ -214,10 +214,10 @@ export default function NewRunView({ onSubmit }) {
                 Credentials are passed directly to the test runner and are never stored.
               </div>
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 3 — Execution Options */}
-          {step === 3 && (
+          <div style={{ display: step === 3 ? 'block' : 'none' }}>
             <StepPanel title="Execution Options" eyebrow="Step 04 / 05" desc="Configure how the pipeline runs">
               <CheckOption
                 name="runHeaded"
@@ -245,10 +245,10 @@ export default function NewRunView({ onSubmit }) {
                 desc="Core Web Vitals, load time, resource analysis"
               />
             </StepPanel>
-          )}
+          </div>
 
           {/* Step 4 — Recording */}
-          {step === 4 && (
+          <div style={{ display: step === 4 ? 'block' : 'none' }}>
             <StepPanel title="Session Recording" eyebrow="Step 05 / 05" desc="Improve locator quality by recording your flow">
               <div className="nrv-recording-row">
                 <div className="file-drop-zone">
@@ -269,7 +269,7 @@ export default function NewRunView({ onSubmit }) {
                 </div>
               )}
             </StepPanel>
-          )}
+          </div>
 
         </div>
 
