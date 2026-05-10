@@ -21,13 +21,20 @@ const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
 const javaSeleniumBuilder = require("./lib/javaSeleniumBuilder");
 
+const cloudinaryLib = require("./lib/cloudinary");
+const axios = require("axios");
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const artifactsRoot = path.join(__dirname, "artifacts");
+// Use /tmp for artifacts on serverless platforms like Vercel to prevent read-only filesystem crashes
+const artifactsRoot = process.env.VERCEL 
+  ? path.join("/tmp", "artifacts") 
+  : path.join(__dirname, "artifacts");
+  
 app.use("/artifacts", express.static(artifactsRoot));
 
 const upload = multer({
@@ -941,6 +948,14 @@ async function screenshotForCase(page, run, testId, status, attempt) {
   const fileName = `${testId}-${status}-attempt-${attempt}.png`;
   const absolutePath = path.join(run.runDir, fileName);
   await page.screenshot({ path: absolutePath, fullPage: false });
+  
+  if (cloudinaryLib.isEnabled()) {
+    const cldUrl = await cloudinaryLib.uploadImage(absolutePath, { 
+      folder: `zero-qa/runs/${run.id}`,
+      public_id: path.parse(fileName).name
+    });
+    if (cldUrl) return cldUrl;
+  }
   return `/artifacts/${run.id}/${fileName}`;
 }
 
@@ -2687,6 +2702,18 @@ function statusColor(status) {
 
 async function screenshotPathFromRef(run, ref) {
   if (!ref || typeof ref !== "string") return null;
+
+  // If it's already an external URL (Cloudinary), fetch and return buffer
+  if (ref.startsWith("http")) {
+    try {
+      const response = await axios.get(ref, { responseType: "arraybuffer" });
+      return Buffer.from(response.data, "binary");
+    } catch (e) {
+      console.error("Failed to fetch remote screenshot for PDF:", e.message);
+      return null;
+    }
+  }
+
   const fileName = path.basename(ref);
   const abs = path.join(run.runDir, fileName);
   try {
@@ -3193,7 +3220,15 @@ app.post("/api/capture-cms-screenshot", express.json({ limit: "32kb" }), async (
     await page.screenshot({ path: absPath, fullPage });
     await browser.close();
     browser = null;
-    const publicPath = `/artifacts/cms-captures/${fileName}`;
+    
+    let publicPath = `/artifacts/cms-captures/${fileName}`;
+    if (cloudinaryLib.isEnabled()) {
+      const cldUrl = await cloudinaryLib.uploadImage(absPath, { 
+        folder: "zero-qa/cms-captures",
+        public_id: path.parse(fileName).name
+      });
+      if (cldUrl) publicPath = cldUrl;
+    }
     return res.json({
       ok: true,
       screenshot: publicPath,
@@ -3251,11 +3286,21 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
       try {
         await cmsCaptureSignalPage(page, url, waitMs, streamTab);
         await page.screenshot({ path: absPath, fullPage: true });
+        
+        let screenshotUrl = `/artifacts/cms-captures/${fileName}`;
+        if (cloudinaryLib.isEnabled()) {
+          const cldUrl = await cloudinaryLib.uploadImage(absPath, { 
+            folder: "zero-qa/cms-bulk",
+            public_id: path.parse(fileName).name
+          });
+          if (cldUrl) screenshotUrl = cldUrl;
+        }
+
         results.push({
           ok: true,
           url,
           station: slug,
-          screenshot: `/artifacts/cms-captures/${fileName}`
+          screenshot: screenshotUrl
         });
       } catch (err) {
         results.push({
