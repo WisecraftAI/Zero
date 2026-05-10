@@ -3373,3 +3373,5 @@ function buildArchitecturePictureSvg() {
   <text x="66" y="496" class="small">requirements + manual_tc + automation_bundle + execution + manager_report</text>
 </svg>`;
 }
+
+module.exports = app;
