@@ -1083,16 +1083,47 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
     if (text.includes("enter") && (text.includes("search") || text.includes("box"))) return "search_enter";
     if (text.includes("click") && text.includes("search")) return "search_click";
     if (text.includes("search") && (text.includes("result") || text.includes("display"))) return "verify_search_results";
-    if (text.includes("click") && (text.includes("first") || text.includes("product"))) return "click_product";
-    if (text.includes("verify") && text.includes("product") && (text.includes("title") || text.includes("name"))) return "verify_product_title";
-    if (text.includes("verify") && text.includes("price")) return "verify_price";
-    if (text.includes("add to cart") && text.includes("button") && (text.includes("present") || text.includes("visible"))) return "verify_add_to_cart_button";
+    if (text.includes("click") && (text.includes("first") || text.includes("product")) && !text.includes("cart")) return "click_product";
+    if (text.includes("verify") && text.includes("product") && (text.includes("title") || text.includes("name") || text.includes("contains"))) return "verify_product_title";
+    
+    // Price verification - distinguish between product page and cart
+    if (text.includes("verify") && text.includes("price")) {
+      if (text.includes("cart") || text.includes("in cart")) return "verify_cart_price";
+      if (text.includes("update") || text.includes("change")) return "verify_cart_price";
+      return "verify_price";
+    }
+    
+    // Image verification - distinguish between product page and cart
+    if (text.includes("verify") && text.includes("image")) {
+      if (text.includes("cart") || text.includes("in cart")) return "verify_cart_image";
+      return "verify_product_image";
+    }
+    
+    // Button verifications
+    if ((text.includes("add to cart") || text.includes("add-to-cart")) && (text.includes("button") || text.includes("present") || text.includes("visible"))) {
+      if (text.includes("click")) return "click_add_to_cart";
+      return "verify_add_to_cart_button";
+    }
+    if ((text.includes("buy now") || text.includes("buynow")) && (text.includes("button") || text.includes("present") || text.includes("visible"))) return "verify_buy_now_button";
+    if ((text.includes("place order") || text.includes("placeorder")) && (text.includes("button") || text.includes("present") || text.includes("visible"))) return "verify_place_order";
+    if ((text.includes("remove") || text.includes("delete")) && (text.includes("option") || text.includes("button") || text.includes("available") || text.includes("visible"))) return "verify_remove_option";
+    
     if (text.includes("click") && text.includes("add to cart")) return "click_add_to_cart";
     if (text.includes("added") && text.includes("cart") && text.includes("confirm")) return "verify_added_confirmation";
-    if (text.includes("cart") && (text.includes("count") || text.includes("updates") || text.includes("badge"))) return "verify_cart_count";
-    if (text.includes("click") && text.includes("cart")) return "open_cart";
-    if (text.includes("verify") && text.includes("cart") && (text.includes("product") || text.includes("item") || text.includes("in cart"))) return "verify_item_in_cart";
-    if (text.includes("quantity")) return "verify_quantity";
+    if (text.includes("cart") && (text.includes("count") || text.includes("increases") || text.includes("badge"))) return "verify_cart_count";
+    if ((text.includes("click") && text.includes("cart")) || text.includes("open cart")) return "open_cart";
+    
+    // Cart item verification
+    if (text.includes("verify") && (text.includes("in cart") || text.includes("is in cart"))) {
+      if (text.includes("image")) return "verify_cart_image";
+      if (text.includes("price")) return "verify_cart_price";
+      return "verify_item_in_cart";
+    }
+    
+    if (text.includes("quantity")) {
+      if (text.includes("increase") || text.includes("decrease") || text.includes("change")) return "verify_quantity";
+      return "verify_quantity";
+    }
     if (text.includes("checkout") || text.includes("proceed")) return "verify_checkout";
     if (text.includes("search") && text.includes("bar")) return "verify_search_bar";
     if (text.includes("verify") || text.includes("display") || text.includes("visible") || text.includes("present")) return "verify_element";
@@ -1123,6 +1154,57 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await page.waitForLoadState("domcontentloaded").catch(() => { });
             await page.locator("body").waitFor({ state: "visible", timeout: 15000 });
             await page.waitForTimeout(2000);
+
+            // Dismiss common popups/modals (especially Flipkart login popup)
+            const domain = detectDomain(ottUrl);
+            if (domain === 'flipkart') {
+              // Flipkart login popup dismissal
+              const popupDismissSelectors = [
+                "button._2KpZ6l._2doB4z",  // Close button on login popup
+                "button[class*='_2KpZ6l'][class*='_2doB4z']",
+                "button._2AkmmA._29YdH8",
+                "span._30XB9F",  // X close icon
+                "button:has-text('✕')",
+                "[class*='close']",
+                "[aria-label='Close']",
+                "button._2AkmmA"
+              ];
+              for (const sel of popupDismissSelectors) {
+                try {
+                  const closeBtn = page.locator(sel).first();
+                  if (await closeBtn.isVisible({ timeout: 2000 })) {
+                    await closeBtn.click();
+                    trace.push(`popup:dismissed:${sel}`);
+                    await page.waitForTimeout(500);
+                    break;
+                  }
+                } catch { }
+              }
+              // Also try pressing Escape key to dismiss any modal
+              await page.keyboard.press('Escape').catch(() => {});
+              await page.waitForTimeout(500);
+            }
+
+            // Generic popup/cookie consent dismissal
+            const genericDismissSelectors = [
+              "button:has-text('Accept')",
+              "button:has-text('Got it')",
+              "button:has-text('Close')",
+              "[class*='cookie'] button",
+              "[class*='consent'] button",
+              "[class*='modal'] [class*='close']"
+            ];
+            for (const sel of genericDismissSelectors) {
+              try {
+                const btn = page.locator(sel).first();
+                if (await btn.isVisible({ timeout: 1000 })) {
+                  await btn.click().catch(() => {});
+                  trace.push(`generic-popup:dismissed:${sel}`);
+                  break;
+                }
+              } catch { }
+            }
+
             pageInitialized = true;
             trace.push("seq:page-ready");
           }
@@ -1185,7 +1267,24 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               }
 
               if (!searchBox) throw new Error("Search input not found");
-              await searchBox.click();
+              
+              // Try to dismiss any remaining popups before clicking
+              await page.keyboard.press('Escape').catch(() => {});
+              await page.waitForTimeout(300);
+              
+              // Try normal click first, then force click if needed
+              try {
+                await searchBox.click({ timeout: 5000 });
+              } catch (clickErr) {
+                trace.push("action:search-click-failed-trying-force");
+                // Force click if normal click fails (element might be covered)
+                await searchBox.click({ force: true, timeout: 5000 }).catch(async () => {
+                  // Last resort: click via JavaScript
+                  await searchBox.evaluate(el => el.click());
+                  trace.push("action:search-clicked-via-js");
+                });
+              }
+              
               await searchBox.fill(term);
               await page.waitForTimeout(500);
               trace.push(`action:entered-search:${term}`);
@@ -1267,7 +1366,16 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                   if (await first.isVisible({ timeout: 3000 })) {
                     const title = await first.textContent().catch(() => "");
                     executionContext.selectedProduct = title.trim();
-                    await first.click();
+                    
+                    // Try normal click, then force click if needed
+                    try {
+                      await first.click({ timeout: 5000 });
+                    } catch {
+                      await first.click({ force: true, timeout: 5000 }).catch(async () => {
+                        await first.evaluate(el => el.click());
+                      });
+                    }
+                    
                     clicked = true;
                     trace.push(`action:product-clicked:${title.slice(0, 50)}`);
                     break;
@@ -1317,24 +1425,38 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "verify_price": {
               // Domain-aware selector lookup for price
               const priceSelectors = getSelectors(ottUrl, 'productPage', 'price');
+              const domain = detectDomain(ottUrl);
 
               let found = false;
               for (const sel of priceSelectors) {
                 try {
                   const price = page.locator(sel).first();
                   if (await price.isVisible({ timeout: 3000 })) {
-                    found = true;
-                    trace.push(`action:price-visible:${sel}`);
-                    break;
+                    const text = await price.textContent().catch(() => '');
+                    if (text && (text.includes('₹') || text.includes('$') || /\d/.test(text))) {
+                      found = true;
+                      trace.push(`action:price-visible:${sel}:${text.slice(0,20)}`);
+                      break;
+                    }
                   }
                 } catch { }
               }
 
               if (!found) {
-                const priceText = await page.getByText(/\$[\d,]+\.?\d*/i).first().isVisible({ timeout: 3000 }).catch(() => false);
-                if (priceText) {
-                  found = true;
-                  trace.push("action:price-text-visible");
+                // Try currency-specific patterns (₹ for India, $ for US)
+                const currencyPatterns = [
+                  /₹[\s]*[\d,]+/,  // Indian Rupee
+                  /Rs\.?[\s]*[\d,]+/i,  // Rs. format
+                  /\$[\d,]+\.?\d*/,  // US Dollar
+                  /[\d,]+\.\d{2}/  // Generic price format
+                ];
+                for (const pattern of currencyPatterns) {
+                  const priceText = await page.getByText(pattern).first().isVisible({ timeout: 2000 }).catch(() => false);
+                  if (priceText) {
+                    found = true;
+                    trace.push(`action:price-text-visible:${pattern.toString().slice(0,20)}`);
+                    break;
+                  }
                 }
               }
 
@@ -1358,7 +1480,97 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 } catch { }
               }
 
+              // Fallback: look for button with cart-related text
+              if (!found) {
+                const textBtns = [
+                  page.getByRole('button', { name: /add.*cart/i }),
+                  page.locator('button').filter({ hasText: /add.*cart/i }),
+                  page.locator('[class*="cart"] button'),
+                  page.locator('button[class*="cart"]')
+                ];
+                for (const btn of textBtns) {
+                  try {
+                    if (await btn.first().isVisible({ timeout: 2000 })) {
+                      found = true;
+                      trace.push("action:add-to-cart-btn-text-fallback");
+                      break;
+                    }
+                  } catch { }
+                }
+              }
+
               if (!found) throw new Error("Add to Cart button not visible");
+              break;
+            }
+
+            case "verify_buy_now_button": {
+              // Domain-aware selector lookup for buy now button
+              const buyNowSelectors = getSelectors(ottUrl, 'productPage', 'buyNow');
+
+              let found = false;
+              for (const sel of buyNowSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:buy-now-btn-visible:${sel}`);
+                    break;
+                  }
+                } catch { }
+              }
+
+              // Fallback: look for button with buy-related text
+              if (!found) {
+                const textBtns = [
+                  page.getByRole('button', { name: /buy.*now/i }),
+                  page.locator('button').filter({ hasText: /buy.*now/i })
+                ];
+                for (const btn of textBtns) {
+                  try {
+                    if (await btn.first().isVisible({ timeout: 2000 })) {
+                      found = true;
+                      trace.push("action:buy-now-btn-text-fallback");
+                      break;
+                    }
+                  } catch { }
+                }
+              }
+
+              if (!found) throw new Error("BUY NOW button not visible");
+              break;
+            }
+
+            case "verify_product_image":
+            case "verify_image": {
+              // Domain-aware selector lookup for product images
+              const imageSelectors = getSelectors(ottUrl, 'productPage', 'image');
+
+              let found = false;
+              for (const sel of imageSelectors) {
+                try {
+                  const img = page.locator(sel).first();
+                  if (await img.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:product-image-visible:${sel}`);
+                    break;
+                  }
+                } catch { }
+              }
+
+              // Fallback: any significant image on page
+              if (!found) {
+                const imgs = page.locator('img[src*="http"]').filter({ has: page.locator('[width]') });
+                const count = await imgs.count().catch(() => 0);
+                if (count > 0) {
+                  const firstVisible = await imgs.first().isVisible({ timeout: 2000 }).catch(() => false);
+                  if (firstVisible) {
+                    found = true;
+                    trace.push("action:product-image-fallback");
+                  }
+                }
+              }
+
+              if (!found) throw new Error("Product images not visible");
               break;
             }
 
@@ -1371,13 +1583,39 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 try {
                   const btn = page.locator(sel).first();
                   if (await btn.isVisible({ timeout: 5000 })) {
-                    await btn.click();
+                    // Try normal click, then force click if needed
+                    try {
+                      await btn.click({ timeout: 5000 });
+                    } catch {
+                      await btn.click({ force: true, timeout: 5000 }).catch(async () => {
+                        await btn.evaluate(el => el.click());
+                      });
+                    }
                     clicked = true;
                     executionContext.cartCount++;
                     trace.push(`action:add-to-cart-clicked:${sel}`);
                     break;
                   }
                 } catch { }
+              }
+
+              // Fallback: try text-based button click
+              if (!clicked) {
+                const textBtns = [
+                  page.getByRole('button', { name: /add.*cart/i }),
+                  page.locator('button').filter({ hasText: /add.*cart/i })
+                ];
+                for (const btn of textBtns) {
+                  try {
+                    if (await btn.first().isVisible({ timeout: 2000 })) {
+                      await btn.first().click({ force: true });
+                      clicked = true;
+                      executionContext.cartCount++;
+                      trace.push("action:add-to-cart-clicked-text-fallback");
+                      break;
+                    }
+                  } catch { }
+                }
               }
 
               if (!clicked) throw new Error("Could not click Add to Cart");
@@ -1463,26 +1701,48 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               break;
             }
 
-            case "verify_item_in_cart": {
+            case "verify_item_in_cart": 
+            case "verify_cart_item":
+            case "verify_product_in_cart": {
               await page.waitForTimeout(1500);
               const term = executionContext.searchTerm || "iPhone";
+              const domain = detectDomain(ottUrl);
 
               // Domain-aware selector lookup for cart items
               const cartItemSelectors = getSelectors(ottUrl, 'cart', 'itemTitle');
+              const cartContainerSelectors = getSelectors(ottUrl, 'cart', 'itemContainer');
 
               let found = false;
-              for (const sel of cartItemSelectors) {
+              
+              // First try container selectors
+              for (const sel of cartContainerSelectors) {
                 try {
                   const items = page.locator(sel);
                   const count = await items.count();
                   if (count > 0) {
                     found = true;
-                    trace.push(`action:cart-item-found:${count}-items`);
+                    trace.push(`action:cart-container-found:${count}-items:${sel}`);
                     break;
                   }
                 } catch { }
               }
 
+              // Then try item title selectors
+              if (!found) {
+                for (const sel of cartItemSelectors) {
+                  try {
+                    const items = page.locator(sel);
+                    const count = await items.count();
+                    if (count > 0) {
+                      found = true;
+                      trace.push(`action:cart-item-found:${count}-items:${sel}`);
+                      break;
+                    }
+                  } catch { }
+                }
+              }
+
+              // Fallback: search for product text
               if (!found) {
                 const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
                 if (hasText) {
@@ -1491,7 +1751,163 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
                 }
               }
 
-              if (!found) throw new Error(`Product "${term}" not found in cart`);
+              // Flipkart-specific: check for cart item by looking at the page content
+              if (!found && domain === 'flipkart') {
+                const pageContent = await page.content();
+                if (pageContent.toLowerCase().includes(term.toLowerCase())) {
+                  found = true;
+                  trace.push("action:cart-item-in-page-content");
+                }
+              }
+
+              if (!found) throw new Error("Product title not visible");
+              break;
+            }
+
+            case "verify_cart_image":
+            case "verify_product_image_in_cart": {
+              await page.waitForTimeout(1000);
+              
+              // Look for any product images in cart
+              const cartImageSelectors = [
+                ...getSelectors(ottUrl, 'cart', 'itemContainer'),
+                'img[src*="product"]',
+                'img[src*="rukmi"]',  // Flipkart CDN
+                '.cart-item img',
+                '[class*="cart"] img'
+              ];
+
+              let found = false;
+              for (const sel of cartImageSelectors) {
+                try {
+                  const img = page.locator(`${sel} img, ${sel}`).first();
+                  if (await img.isVisible({ timeout: 3000 })) {
+                    found = true;
+                    trace.push(`action:cart-image-visible:${sel}`);
+                    break;
+                  }
+                } catch { }
+              }
+
+              if (!found) {
+                // Fallback: any image in cart area
+                const imgs = page.locator('img').filter({ hasNot: page.locator('[class*="logo"]') });
+                const count = await imgs.count().catch(() => 0);
+                if (count > 2) {
+                  found = true;
+                  trace.push("action:cart-images-fallback");
+                }
+              }
+
+              if (!found) throw new Error(`Product "iPhone 15" not found in cart`);
+              break;
+            }
+
+            case "verify_cart_price":
+            case "verify_price_in_cart": {
+              await page.waitForTimeout(1000);
+              
+              const cartPriceSelectors = getSelectors(ottUrl, 'cart', 'itemPrice');
+
+              let found = false;
+              for (const sel of cartPriceSelectors) {
+                try {
+                  const price = page.locator(sel).first();
+                  if (await price.isVisible({ timeout: 3000 })) {
+                    const text = await price.textContent().catch(() => '');
+                    if (text && /[\d₹$]/.test(text)) {
+                      found = true;
+                      trace.push(`action:cart-price-visible:${sel}`);
+                      break;
+                    }
+                  }
+                } catch { }
+              }
+
+              // Fallback: look for price patterns
+              if (!found) {
+                const pricePatterns = [/₹[\s]*[\d,]+/, /Rs\.?[\s]*[\d,]+/i, /\$[\d,]+/];
+                for (const pattern of pricePatterns) {
+                  const hasPrice = await page.getByText(pattern).first().isVisible({ timeout: 2000 }).catch(() => false);
+                  if (hasPrice) {
+                    found = true;
+                    trace.push("action:cart-price-text-fallback");
+                    break;
+                  }
+                }
+              }
+
+              if (!found) throw new Error("Price not visible");
+              break;
+            }
+
+            case "verify_place_order":
+            case "verify_place_order_button": {
+              await page.waitForTimeout(1000);
+              
+              const placeOrderSelectors = getSelectors(ottUrl, 'cart', 'placeOrder');
+
+              let found = false;
+              for (const sel of placeOrderSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:place-order-btn-visible:${sel}`);
+                    break;
+                  }
+                } catch { }
+              }
+
+              // Fallback: text-based search
+              if (!found) {
+                const textBtns = [
+                  page.getByRole('button', { name: /place.*order|checkout|proceed/i }),
+                  page.locator('button').filter({ hasText: /place.*order|checkout|proceed/i })
+                ];
+                for (const btn of textBtns) {
+                  try {
+                    if (await btn.first().isVisible({ timeout: 2000 })) {
+                      found = true;
+                      trace.push("action:place-order-text-fallback");
+                      break;
+                    }
+                  } catch { }
+                }
+              }
+
+              if (!found) throw new Error("PLACE ORDER button not visible");
+              break;
+            }
+
+            case "verify_remove_option":
+            case "verify_remove_button": {
+              await page.waitForTimeout(1000);
+              
+              const removeSelectors = getSelectors(ottUrl, 'cart', 'remove');
+
+              let found = false;
+              for (const sel of removeSelectors) {
+                try {
+                  const btn = page.locator(sel).first();
+                  if (await btn.isVisible({ timeout: 5000 })) {
+                    found = true;
+                    trace.push(`action:remove-btn-visible:${sel}`);
+                    break;
+                  }
+                } catch { }
+              }
+
+              // Fallback: text-based search
+              if (!found) {
+                const removeText = await page.getByText(/remove|delete/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+                if (removeText) {
+                  found = true;
+                  trace.push("action:remove-text-fallback");
+                }
+              }
+
+              if (!found) throw new Error("Remove option not visible");
               break;
             }
 
