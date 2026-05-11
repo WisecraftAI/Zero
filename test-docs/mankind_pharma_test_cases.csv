@@ -1,0 +1,131 @@
+Test Case ID,Test Case Name,Description,Steps,Expected Result,Priority
+TC-001,Homepage Load Verification,Verify homepage loads with all key elements,"1. Navigate to https://www.mankindpharma.com/
+2. Wait for page to load completely
+3. Verify page title contains 'Mankind Pharma'","Homepage loads successfully with logo, navigation menu, and hero section visible",High
+TC-002,Main Navigation Menu Verification,Verify all main navigation items are present and clickable,"1. Navigate to homepage
+2. Locate main navigation menu
+3. Verify Company menu exists
+4. Verify R&D & Innovation menu exists
+5. Verify Safety & Sustainability menu exists
+6. Verify International menu exists
+7. Verify Investor Center menu exists
+8. Verify Careers link exists
+9. Verify Shop button exists","All navigation items are visible and accessible",High
+TC-003,Company Section Navigation,Navigate to Company section and verify content,"1. Navigate to homepage
+2. Click on Company menu item
+3. Wait for page load
+4. Verify company information is displayed","Company page loads with about us content",High
+TC-004,Contact Us Page Navigation,Navigate to Contact Us page and verify form,"1. Navigate to homepage
+2. Scroll to footer or find Contact link
+3. Click on GET IN TOUCH or Contact Us
+4. Verify Contact Us page loads","Contact page displays with contact form visible",High
+TC-005,Contact Form Fields Validation,Verify contact form has all required fields,"1. Navigate to Contact Us page
+2. Verify 'What can we help with' dropdown exists
+3. Verify Full Name field exists
+4. Verify Mobile No field exists
+5. Verify Email field exists
+6. Verify Message field exists
+7. Verify SUBMIT button exists","All form fields and submit button are present",High
+TC-006,Contact Form Empty Submission,Verify form validation for empty fields,"1. Navigate to Contact Us page
+2. Leave all fields empty
+3. Click SUBMIT button
+4. Verify validation error messages appear","Form shows validation errors for required fields",High
+TC-007,Contact Form Invalid Email,Verify email field validation,"1. Navigate to Contact Us page
+2. Enter 'Test User' in Full Name
+3. Enter '9876543210' in Mobile No
+4. Enter 'invalidemail' in Email field
+5. Enter 'Test message' in Message
+6. Click SUBMIT","Form shows email validation error",Medium
+TC-008,Contact Form Valid Submission,Submit contact form with valid data,"1. Navigate to Contact Us page
+2. Select option from dropdown
+3. Enter 'Test User' in Full Name
+4. Enter '9876543210' in Mobile No
+5. Enter 'test@example.com' in Email
+6. Enter 'This is a test inquiry' in Message
+7. Click SUBMIT","Form submits successfully with confirmation message",High
+TC-009,Shop Button Redirect,Verify Shop button redirects to Epic Love Store,"1. Navigate to homepage
+2. Find Shop button in navigation
+3. Click Shop button
+4. Verify redirect to epiclovestore.com","User is redirected to epiclovestore.com in new tab",Medium
+TC-010,Footer Social Media Links,Verify all social media links are present,"1. Navigate to homepage
+2. Scroll to footer section
+3. Verify Facebook icon/link exists
+4. Verify Twitter/X icon/link exists
+5. Verify LinkedIn icon/link exists
+6. Verify YouTube icon/link exists","All social media links are visible and functional",Medium
+TC-011,Privacy Policy Link,Navigate to Privacy Policy page,"1. Navigate to homepage
+2. Scroll to footer
+3. Click Privacy Policy link
+4. Verify Privacy Policy page loads","Privacy Policy page displays with policy content",Medium
+TC-012,Disclaimer Page Navigation,Navigate to Disclaimer page,"1. Navigate to homepage
+2. Scroll to footer
+3. Click Disclaimer link
+4. Verify Disclaimer page loads","Disclaimer page displays with disclaimer content",Low
+TC-013,Adverse Event Reporting Link,Verify Adverse Event Reporting functionality,"1. Navigate to Contact Us page
+2. Find Adverse Event Reporting section
+3. Click REPORT NOW link
+4. Verify reporting form or page loads","Adverse Event Reporting page/form is accessible",High
+TC-014,Quick Links iTAP Access,Verify iTAP login portal link,"1. Navigate to Contact Us or footer section
+2. Find Quick Links section
+3. Click iTAP link
+4. Verify login portal loads","iTAP login page opens",Medium
+TC-015,Blog Section Navigation,Navigate to Blog section,"1. Navigate to homepage
+2. Find Blog link in Quick Links or navigation
+3. Click Blog link
+4. Verify Blog page loads with articles","Blog page displays with blog posts/articles",Medium
+TC-016,Media Section Navigation,Navigate to Media section,"1. Navigate to homepage
+2. Find Media link
+3. Click Media link
+4. Verify Media page loads","Media page displays with press releases/news",Medium
+TC-017,Career Page Navigation,Navigate to Careers page,"1. Navigate to homepage
+2. Click Careers link in navigation
+3. Wait for page load
+4. Verify job listings or career info displayed","Careers page loads with career opportunities",High
+TC-018,Investor Center Access,Navigate to Investor Center,"1. Navigate to homepage
+2. Click Investor Center menu
+3. Verify investor relations information displayed","Investor Center page loads with financial info",Medium
+TC-019,Mobile Responsive Header,Verify header responsiveness on mobile viewport,"1. Navigate to homepage
+2. Resize browser to mobile viewport (375px)
+3. Verify hamburger menu appears
+4. Click hamburger menu
+5. Verify navigation items are accessible","Mobile navigation works correctly",Medium
+TC-020,Page Scroll Functionality,Verify smooth scroll on homepage,"1. Navigate to homepage
+2. Find SCROLL indicator
+3. Scroll down the page
+4. Verify content sections load smoothly","Page scrolls smoothly through all sections",Low
+TC-021,Corporate Office Contact Info,Verify corporate office information displayed,"1. Navigate to Contact Us page
+2. Find Contact Information section
+3. Verify Corporate Office address is displayed
+4. Verify phone number +91 11 4684 6700 is visible
+5. Verify email investors@mankindpharma.com is visible","All corporate contact details are accurate",Medium
+TC-022,Code of Conduct Link,Navigate to Code of Conduct page,"1. Navigate to homepage
+2. Scroll to footer
+3. Click Code of Conduct link
+4. Verify Code of Conduct page loads","Code of Conduct page displays",Low
+TC-023,FAQ Section Navigation,Navigate to FAQ section,"1. Navigate to homepage
+2. Find FAQ link in Quick Links
+3. Click FAQ's link
+4. Verify FAQ page loads with questions and answers","FAQ page displays with expandable Q&A sections",Medium
+TC-024,R&D Innovation Section,Navigate to R&D & Innovation section,"1. Navigate to homepage
+2. Click R&D & Innovation menu
+3. Verify R&D information page loads","R&D page displays research and innovation content",Medium
+TC-025,Safety Sustainability Section,Navigate to Safety & Sustainability section,"1. Navigate to homepage
+2. Click Safety & Sustainability menu
+3. Verify sustainability information displayed","Safety & Sustainability page loads with ESG content",Medium
+TC-026,International Section Navigation,Navigate to International section,"1. Navigate to homepage
+2. Click International menu
+3. Verify international operations information","International page displays global presence info",Medium
+TC-027,Logo Home Navigation,Verify clicking logo returns to homepage,"1. Navigate to Contact Us page
+2. Click Mankind Pharma logo
+3. Verify redirect to homepage","User returns to homepage when clicking logo",High
+TC-028,Phone Number Click Action,Verify phone numbers are clickable,"1. Navigate to Contact Us page
+2. Find phone number +91 11 4684 6700
+3. Verify it is a clickable tel: link","Phone number initiates call action on mobile devices",Low
+TC-029,Email Link Click Action,Verify email addresses are clickable mailto links,"1. Navigate to Contact Us page
+2. Find email contact@mankindpharma.com
+3. Click the email link
+4. Verify mailto action triggered","Email client opens with pre-filled recipient",Low
+TC-030,Products Page Navigation,Navigate to Products section,"1. Navigate to homepage
+2. Find Products link or menu
+3. Click to navigate to products
+4. Verify product categories or listings displayed","Products page loads with pharmaceutical products info",High

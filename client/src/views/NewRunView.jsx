@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import './NewRunView.css';
 
 const STEPS = [
@@ -8,6 +8,72 @@ const STEPS = [
   { id: 'options',   label: 'Execution Options' },
   { id: 'recording', label: 'Recording' },
 ];
+
+// Detect website type from URL
+function detectWebsiteType(url) {
+  if (!url) return null;
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    
+    // E-commerce platforms
+    if (hostname.includes('flipkart')) return 'E-commerce Platform (Flipkart)';
+    if (hostname.includes('amazon')) return 'E-commerce Platform (Amazon)';
+    if (hostname.includes('myntra')) return 'E-commerce Platform (Myntra)';
+    if (hostname.includes('ajio')) return 'E-commerce Platform (AJIO)';
+    if (hostname.includes('nykaa')) return 'E-commerce Platform (Nykaa)';
+    if (hostname.includes('meesho')) return 'E-commerce Platform (Meesho)';
+    if (hostname.includes('snapdeal')) return 'E-commerce Platform (Snapdeal)';
+    if (hostname.includes('tatacliq')) return 'E-commerce Platform (Tata CLiQ)';
+    if (hostname.includes('ebay')) return 'E-commerce Platform (eBay)';
+    if (hostname.includes('walmart')) return 'E-commerce Platform (Walmart)';
+    if (hostname.includes('target')) return 'E-commerce Platform (Target)';
+    if (hostname.includes('bestbuy')) return 'E-commerce Platform (Best Buy)';
+    if (hostname.includes('shop') || hostname.includes('store') || hostname.includes('cart')) return 'E-commerce Platform';
+    
+    // Pharmaceutical / Healthcare
+    if (hostname.includes('pharma') || hostname.includes('mankind')) return 'Pharmaceutical/Healthcare Website';
+    if (hostname.includes('health') || hostname.includes('medical') || hostname.includes('hospital')) return 'Healthcare Website';
+    if (hostname.includes('apollo') || hostname.includes('netmeds') || hostname.includes('1mg') || hostname.includes('pharmeasy')) return 'Pharmaceutical E-commerce';
+    
+    // OTT / Streaming platforms
+    if (hostname.includes('netflix') || hostname.includes('hotstar') || hostname.includes('primevideo')) return 'OTT Streaming Platform';
+    if (hostname.includes('youtube') || hostname.includes('vimeo')) return 'Video Streaming Platform';
+    if (hostname.includes('spotify') || hostname.includes('gaana') || hostname.includes('jiosaavn')) return 'Audio Streaming Platform';
+    if (hostname.includes('aha') || hostname.includes('zee5') || hostname.includes('sonyliv')) return 'OTT Streaming Platform';
+    if (hostname.includes('tvnz') || hostname.includes('gray')) return 'OTT Streaming Platform';
+    
+    // Banking / Finance
+    if (hostname.includes('bank') || hostname.includes('hdfc') || hostname.includes('icici') || hostname.includes('sbi')) return 'Banking/Finance Website';
+    if (hostname.includes('paytm') || hostname.includes('phonepe') || hostname.includes('gpay')) return 'Payment Platform';
+    if (hostname.includes('zerodha') || hostname.includes('groww') || hostname.includes('upstox')) return 'Trading/Investment Platform';
+    
+    // Social media
+    if (hostname.includes('facebook') || hostname.includes('instagram') || hostname.includes('twitter') || hostname.includes('linkedin')) return 'Social Media Platform';
+    
+    // News / Media
+    if (hostname.includes('news') || hostname.includes('times') || hostname.includes('ndtv') || hostname.includes('bbc')) return 'News/Media Website';
+    
+    // Travel
+    if (hostname.includes('makemytrip') || hostname.includes('booking') || hostname.includes('goibibo') || hostname.includes('yatra')) return 'Travel Booking Platform';
+    if (hostname.includes('airline') || hostname.includes('hotel') || hostname.includes('flight')) return 'Travel Website';
+    
+    // Food delivery
+    if (hostname.includes('swiggy') || hostname.includes('zomato') || hostname.includes('uber') || hostname.includes('doordash')) return 'Food Delivery Platform';
+    
+    // Education
+    if (hostname.includes('edu') || hostname.includes('coursera') || hostname.includes('udemy') || hostname.includes('byju')) return 'Education Platform';
+    
+    // Government
+    if (hostname.includes('.gov') || hostname.includes('govt')) return 'Government Portal';
+    
+    // Corporate
+    if (hostname.includes('corp') || hostname.includes('enterprise') || hostname.includes('business')) return 'Corporate Website';
+    
+    return 'Website';
+  } catch {
+    return 'Website';
+  }
+}
 
 export default function NewRunView({ onSubmit }) {
   const formRef = useRef(null);
@@ -19,6 +85,9 @@ export default function NewRunView({ onSubmit }) {
   const [ottUrl, setOttUrl] = useState('');
   const [hasFile, setHasFile]   = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
+
+  // Detect website type dynamically
+  const websiteType = useMemo(() => detectWebsiteType(ottUrl), [ottUrl]);
 
   useEffect(() => {
     console.log('[NewRunView] MOUNTED');
@@ -150,7 +219,7 @@ export default function NewRunView({ onSubmit }) {
                 </div>
                 <div className="nrv-ai-line">
                   <span className="nrv-ai-key">Type</span>
-                  <span className="nrv-ai-val">{ottUrl ? 'OTT Streaming Platform' : '—'}</span>
+                  <span className="nrv-ai-val">{websiteType || '—'}</span>
                 </div>
                 <div className="nrv-ai-line">
                   <span className="nrv-ai-key">URL</span>

@@ -1155,6 +1155,58 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await page.locator("body").waitFor({ state: "visible", timeout: 15000 });
             await page.waitForTimeout(2000);
 
+            // Anti-bot / Captcha / Blocked page detection
+            const pageContent = await page.content();
+            const pageTitle = await page.title();
+            const bodyText = await page.locator("body").textContent().catch(() => "");
+            
+            const blockedIndicators = [
+              // Captcha/bot detection
+              "captcha",
+              "recaptcha",
+              "hcaptcha",
+              "challenge-running",
+              "cf-browser-verification",
+              "cloudflare",
+              "ddos-guard",
+              // Access denied messages
+              "user validation required",
+              "access denied",
+              "blocked",
+              "forbidden",
+              "not allowed",
+              "please verify",
+              "human verification",
+              "bot detection",
+              "automated access",
+              "security check",
+              "prove you're human",
+              "suspicious activity",
+              // Rate limiting
+              "too many requests",
+              "rate limit",
+              "try again later"
+            ];
+            
+            const contentLower = (pageContent + " " + pageTitle + " " + bodyText).toLowerCase();
+            const isBlocked = blockedIndicators.some(indicator => contentLower.includes(indicator));
+            
+            if (isBlocked) {
+              trace.push("error:page-blocked-anti-bot");
+              throw new Error("Page blocked by anti-bot protection, captcha, or access restriction. Cannot run automated tests on this website.");
+            }
+
+            // Verify page has meaningful content (not just error page)
+            const hasMinimalContent = bodyText.length > 100;
+            const hasValidStructure = await page.$("nav, header, main, footer, [role='main'], [role='navigation']").catch(() => null);
+            
+            if (!hasMinimalContent && !hasValidStructure) {
+              trace.push("error:invalid-page-content");
+              throw new Error("Page did not load properly - missing expected content structure");
+            }
+            
+            trace.push("validation:page-content-valid");
+
             // Dismiss common popups/modals (especially Flipkart login popup)
             const domain = detectDomain(ottUrl);
             if (domain === 'flipkart') {
