@@ -244,6 +244,13 @@ export default function NewRunView({ onSubmit }) {
                 badge="CWV"
                 desc="Core Web Vitals, load time, resource analysis"
               />
+              <CheckOption
+                name="enableSecurity"
+                value="true"
+                label="Security Agent"
+                badge="SEC"
+                desc="Security headers, HTTPS, CSP, XSS protection, cookie security"
+              />
             </StepPanel>
           </div>
 

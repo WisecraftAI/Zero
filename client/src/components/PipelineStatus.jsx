@@ -1,16 +1,18 @@
 import './PipelineStatus.css';
 
-const BASE_STAGES = ['ba', 'manualQa', 'automationQa', 'execution'];
-const OPTIONAL_STAGES = ['accessibility', 'performance'];
+const BASE_STAGES = ['webAnalyzer', 'ba', 'manualQa', 'automationQa', 'execution'];
+const OPTIONAL_STAGES = ['webAnalyzer', 'accessibility', 'performance', 'security'];
 const FINAL_STAGES = ['manager'];
 
 const STAGE_LABELS = {
+  webAnalyzer: 'Web Analyzer Agent',
   ba: 'BA Agent',
   manualQa: 'Manual QA Agent',
   automationQa: 'Automation QA Agent',
   execution: 'Execution Service',
   accessibility: 'Accessibility Agent',
   performance: 'Performance Agent',
+  security: 'Security Agent',
   manager: 'Manager Agent',
   delivery: 'Delivery Manager Agent'
 };

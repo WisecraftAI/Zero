@@ -134,6 +134,11 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
               <span>Performance Agent</span>
               <span className="agent-desc">Measures page load time, Core Web Vitals, resource analysis</span>
             </label>
+            <label className="checkbox-label">
+              <input name="enableSecurity" type="checkbox" value="true" />
+              <span>Security Agent</span>
+              <span className="agent-desc">Checks HTTPS, security headers, CSP, cookie security, XSS protection</span>
+            </label>
           </div>
         </div>
       </div>

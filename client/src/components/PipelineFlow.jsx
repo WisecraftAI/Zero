@@ -1,16 +1,18 @@
 import './PipelineFlow.css';
 
 const STAGE_META = {
+  webAnalyzer:   { label: 'Web Analyzer', short: 'WEB', optional: true },
   ba:            { label: 'BA Agent',      short: 'BA' },
   manualQa:      { label: 'Manual QA',     short: 'MQA' },
   automationQa:  { label: 'Automation',    short: 'AUTO' },
   execution:     { label: 'Execution',     short: 'EXEC' },
   accessibility: { label: 'Accessibility', short: 'A11Y', optional: true },
   performance:   { label: 'Performance',   short: 'PERF', optional: true },
+  security:      { label: 'Security',      short: 'SEC', optional: true },
   manager:       { label: 'Manager',       short: 'MGR' },
 };
 
-const BASE_ORDER = ['ba', 'manualQa', 'automationQa', 'execution', 'manager'];
+const BASE_ORDER = ['webAnalyzer', 'ba', 'manualQa', 'automationQa', 'execution', 'manager'];
 
 export default function PipelineFlow({ run }) {
   const stages = run?.stages;

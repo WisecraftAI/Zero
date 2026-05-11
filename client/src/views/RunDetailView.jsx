@@ -4,12 +4,14 @@ import './RunDetailView.css';
 
 /* ─── Tab definitions ─────────────────────────────────────── */
 const ALL_TABS = [
+  { id: 'webAnalysis',  label: 'Web Analysis',  optional: true },
   { id: 'requirements', label: 'Requirements' },
   { id: 'manual',       label: 'Manual TC' },
   { id: 'automation',   label: 'Automation' },
   { id: 'execution',    label: 'Execution' },
   { id: 'accessibility',label: 'Accessibility', optional: true },
   { id: 'performance',  label: 'Performance',   optional: true },
+  { id: 'security',     label: 'Security',      optional: true },
   { id: 'manager',      label: 'Manager Report' },
   { id: 'recording',    label: 'Recording',     optional: true },
   { id: 'element-log',  label: 'Element Log' },
@@ -19,8 +21,10 @@ const ALL_TABS = [
 function getVisibleTabs(run) {
   return ALL_TABS.filter(t => {
     if (!t.optional) return true;
+    if (t.id === 'webAnalysis')   return !!run?.stages?.webAnalyzer;
     if (t.id === 'accessibility') return !!run?.stages?.accessibility;
     if (t.id === 'performance')   return !!run?.stages?.performance;
+    if (t.id === 'security')      return !!run?.stages?.security;
     if (t.id === 'recording')     return !!(run?.artifacts?.recording || run?.input?.recording);
     if (t.id === 'flow')          return !!run?.picture;
     return false;
@@ -156,12 +160,14 @@ function TabContent({ run, tab, runId }) {
     );
   }
   switch (tab) {
+    case 'webAnalysis':   return <WebAnalysisTab run={run} />;
     case 'requirements':  return <RequirementsTab run={run} />;
     case 'manual':        return <ManualTab run={run} />;
     case 'automation':    return <AutomationTab run={run} />;
     case 'execution':     return <ExecutionTab run={run} />;
     case 'accessibility': return <AccessibilityTab run={run} />;
     case 'performance':   return <PerformanceTab run={run} />;
+    case 'security':      return <SecurityTab run={run} />;
     case 'manager':       return <ManagerTab run={run} />;
     case 'recording':     return <RecordingTab run={run} />;
     case 'element-log':   return <ElementLogTab />;
@@ -376,6 +382,160 @@ function PerformanceTab({ run }) {
       {data.recommendations?.length > 0 && (
         <Section title="Recommendations">
           <ol className="reco-list">{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
+        </Section>
+      )}
+      <JsonToggle data={data} />
+    </div>
+  );
+}
+
+function WebAnalysisTab({ run }) {
+  const data = run.artifacts?.webAnalysis;
+  if (!data) return <Awaiting msg="Web Analyzer runs automatically when no test document is provided." />;
+  return (
+    <div className="agent-report">
+      <Section title="Site Overview">
+        <div className="site-overview">
+          <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
+          <p><strong>Type:</strong> {data.siteOverview?.type || '—'}</p>
+          <p><strong>Domain:</strong> {data.metadata?.domain || '—'} ({data.metadata?.siteName})</p>
+          <p><strong>Pages Discovered:</strong> {data.siteOverview?.pagesDiscovered || 0}</p>
+        </div>
+      </Section>
+      {data.baInsights && (
+        <Section title="BA Insights">
+          <p className="insight-summary">{data.baInsights.summary}</p>
+          {data.baInsights.keyFunctionalities?.length > 0 && (
+            <>
+              <h4>Key Functionalities</h4>
+              <ul className="feature-list">
+                {data.baInsights.keyFunctionalities.map((f, i) => (
+                  <li key={i}><strong>{f.name}</strong> - Priority: <span className={`priority-${f.priority?.toLowerCase()}`}>{f.priority}</span></li>
+                ))}
+              </ul>
+            </>
+          )}
+          {data.baInsights.userJourneys?.length > 0 && (
+            <>
+              <h4>Suggested User Journeys</h4>
+              <ol className="journey-list">{data.baInsights.userJourneys.map((j, i) => <li key={i}>{j}</li>)}</ol>
+            </>
+          )}
+          {data.baInsights.criticalPaths?.length > 0 && (
+            <>
+              <h4>Critical Paths</h4>
+              <ul className="critical-list">{data.baInsights.criticalPaths.map((p, i) => <li key={i}>{p}</li>)}</ul>
+            </>
+          )}
+        </Section>
+      )}
+      {data.features?.length > 0 && (
+        <Section title="Discovered Features">
+          <table className="data-table">
+            <thead><tr><th>Feature</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              {data.features.map((f, i) => (
+                <tr key={i}><td>{f.name}</td><td>{f.type}</td><td>{f.description}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+      {data.discoveredPages?.length > 0 && (
+        <Section title="Discovered Pages">
+          <ul className="page-list">
+            {data.discoveredPages.map((p, i) => (
+              <li key={i}><strong>{p.linkText}</strong>: {p.title} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {data.suggestedTestAreas?.length > 0 && (
+        <Section title="Suggested Test Areas">
+          {data.suggestedTestAreas.map((area, i) => (
+            <div key={i} className="test-area-block">
+              <h4>{area.area} <span className={`priority-badge priority-${area.priority?.toLowerCase()}`}>{area.priority}</span></h4>
+              <ul>{area.tests?.map((t, j) => <li key={j}>{t}</li>)}</ul>
+            </div>
+          ))}
+        </Section>
+      )}
+      {data.suggestedRequirements?.length > 0 && (
+        <Section title="Auto-Generated Requirements">
+          <ul className="req-list">{data.suggestedRequirements.map((r, i) => <li key={i}>{r}</li>)}</ul>
+        </Section>
+      )}
+      <JsonToggle data={data} />
+    </div>
+  );
+}
+
+function SecurityTab({ run }) {
+  const data = run.artifacts?.securityReport;
+  if (!data) return <Awaiting msg="Security Agent not enabled or awaiting…" />;
+  const summary = data.summary || {};
+  const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
+  return (
+    <div className="agent-report">
+      <div className="agent-score-row">
+        <span className={`score-badge ${scoreClass}`}>{summary.score ?? '—'}<small>/100</small></span>
+        <div>
+          <div className="agent-verdict">{summary.verdict || '—'}</div>
+          <div className="agent-counts">
+            {summary.checksRun} checks · {summary.passed} passed · {summary.failed} failed · {summary.warnings} warnings
+          </div>
+        </div>
+      </div>
+      {data.securityHeaders && (
+        <Section title="Security Headers">
+          <table className="data-table">
+            <thead><tr><th>Header</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Content-Security-Policy</td><td className={data.securityHeaders.contentSecurityPolicy ? 'status-passed' : 'status-failed'}>{data.securityHeaders.contentSecurityPolicy ? '✓ Present' : '✗ Missing'}</td></tr>
+              <tr><td>X-Frame-Options</td><td className={data.securityHeaders.xFrameOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xFrameOptions || '✗ Missing'}</td></tr>
+              <tr><td>X-Content-Type-Options</td><td className={data.securityHeaders.xContentTypeOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xContentTypeOptions || '✗ Missing'}</td></tr>
+              <tr><td>Strict-Transport-Security</td><td className={data.securityHeaders.strictTransportSecurity ? 'status-passed' : 'status-failed'}>{data.securityHeaders.strictTransportSecurity ? '✓ Present' : '✗ Missing'}</td></tr>
+              <tr><td>Referrer-Policy</td><td className={data.securityHeaders.referrerPolicy ? 'status-passed' : 'status-skipped'}>{data.securityHeaders.referrerPolicy || '—'}</td></tr>
+            </tbody>
+          </table>
+        </Section>
+      )}
+      {data.checks?.length > 0 && (
+        <Section title="Security Checks">
+          <table className="data-table">
+            <thead><tr><th>Check</th><th>Status</th><th>Severity</th><th>Description</th></tr></thead>
+            <tbody>
+              {data.checks.map((c, i) => (
+                <tr key={i}>
+                  <td>{c.name}</td>
+                  <td><span className={c.status === 'pass' ? 'status-passed' : c.status === 'fail' ? 'status-failed' : 'status-skipped'}>{c.status}</span></td>
+                  <td><span className={`severity-${c.severity}`}>{c.severity}</span></td>
+                  <td>{c.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+      {data.vulnerabilities?.length > 0 && (
+        <Section title="⚠️ Vulnerabilities Found">
+          <ul className="issue-list">
+            {data.vulnerabilities.map((v, i) => (
+              <li key={i} className={`issue issue--${v.type}`}>
+                <strong>[{v.type?.toUpperCase()}]</strong> {v.name}: {v.description}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {data.recommendations?.length > 0 && (
+        <Section title="Recommendations">
+          <ol className="reco-list">{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
+        </Section>
+      )}
+      {data.complianceNotes?.length > 0 && (
+        <Section title="Compliance Notes">
+          <ul className="compliance-list">{data.complianceNotes.map((n, i) => <li key={i}>{n}</li>)}</ul>
         </Section>
       )}
       <JsonToggle data={data} />

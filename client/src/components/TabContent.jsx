@@ -26,9 +26,192 @@ export default function TabContent({ run, activeTab, placeholder }) {
 
   if (activeTab === 'requirements') {
     const d = run.artifacts?.requirements;
+    // Include web analysis insights if available
+    const webAnalysis = run.artifacts?.webAnalysis;
     return (
       <div className="tab-content-inner">
+        {webAnalysis && webAnalysis.baInsights && (
+          <div className="manager-section web-analysis-insights">
+            <h3>🔍 Web Analysis Insights</h3>
+            <p><strong>Summary:</strong> {webAnalysis.baInsights.summary}</p>
+            {webAnalysis.baInsights.keyFunctionalities?.length > 0 && (
+              <>
+                <h4>Key Functionalities Discovered</h4>
+                <ul>
+                  {webAnalysis.baInsights.keyFunctionalities.map((f, i) => (
+                    <li key={i}><strong>{f.name}</strong> - Priority: {f.priority}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {webAnalysis.baInsights.userJourneys?.length > 0 && (
+              <>
+                <h4>Suggested User Journeys</h4>
+                <ol>
+                  {webAnalysis.baInsights.userJourneys.map((j, i) => <li key={i}>{j}</li>)}
+                </ol>
+              </>
+            )}
+            {webAnalysis.suggestedRequirements?.length > 0 && (
+              <>
+                <h4>Auto-Generated Requirements</h4>
+                <ul>
+                  {webAnalysis.suggestedRequirements.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
         {d ? <pre>{JSON.stringify(d, null, 2)}</pre> : <p className="empty">Awaiting…</p>}
+      </div>
+    );
+  }
+
+  if (activeTab === 'webAnalysis') {
+    const data = run.artifacts?.webAnalysis;
+    if (!data) return <div className="tab-content-inner"><p className="empty">Web Analyzer not run. It auto-runs when no test document is provided.</p></div>;
+    return (
+      <div className="tab-content-inner">
+        <div className="manager-section">
+          <h3>Site Overview</h3>
+          <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
+          <p><strong>Type:</strong> {data.siteOverview?.type || '—'}</p>
+          <p><strong>Domain:</strong> {data.metadata?.domain || '—'} ({data.metadata?.siteName})</p>
+          <p><strong>Pages Discovered:</strong> {data.siteOverview?.pagesDiscovered || 0}</p>
+        </div>
+        {data.features?.length > 0 && (
+          <div className="manager-section">
+            <h3>Discovered Features</h3>
+            <table className="exec-table">
+              <thead><tr><th>Feature</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                {data.features.map((f, i) => (
+                  <tr key={i}>
+                    <td>{f.name}</td>
+                    <td>{f.type}</td>
+                    <td>{f.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data.discoveredPages?.length > 0 && (
+          <div className="manager-section">
+            <h3>Discovered Pages</h3>
+            <ul>
+              {data.discoveredPages.map((p, i) => (
+                <li key={i}><strong>{p.linkText}</strong>: {p.title} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {data.forms?.length > 0 && (
+          <div className="manager-section">
+            <h3>Discovered Forms ({data.forms.length})</h3>
+            {data.forms.map((form, i) => (
+              <div key={i} className="form-analysis">
+                <p><strong>Form {i + 1}</strong> · Method: {form.method?.toUpperCase()} · Fields: {form.fields?.length || 0}</p>
+                <ul>
+                  {form.fields?.map((f, j) => (
+                    <li key={j}>{f.name || 'unnamed'} ({f.type}) {f.required && '(required)'}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.suggestedTestAreas?.length > 0 && (
+          <div className="manager-section">
+            <h3>Suggested Test Areas</h3>
+            {data.suggestedTestAreas.map((area, i) => (
+              <div key={i} className="test-area">
+                <h4>{area.area} <span className="priority-badge">{area.priority}</span></h4>
+                <ul>
+                  {area.tests?.map((t, j) => <li key={j}>{t}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        <details className="mt"><summary className="details-summary">Full JSON</summary><pre className="mt">{JSON.stringify(data, null, 2)}</pre></details>
+      </div>
+    );
+  }
+
+  if (activeTab === 'security') {
+    const data = run.artifacts?.securityReport;
+    if (!data) return <div className="tab-content-inner"><p className="empty">Security Agent not enabled or awaiting…</p></div>;
+    const summary = data.summary || {};
+    const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
+    return (
+      <div className="tab-content-inner">
+        <div className="manager-section">
+          <h3>Security Score</h3>
+          <p>
+            <span className={`score-badge ${scoreClass}`}>{summary.score}/100</span>
+            <span className="verdict-text">{summary.verdict || '—'}</span>
+          </p>
+          <p>{summary.checksRun || 0} checks run · {summary.passed || 0} passed · {summary.failed || 0} failed · {summary.warnings || 0} warnings</p>
+        </div>
+        {data.securityHeaders && (
+          <div className="manager-section">
+            <h3>Security Headers</h3>
+            <table className="exec-table">
+              <thead><tr><th>Header</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Content-Security-Policy</td><td className={data.securityHeaders.contentSecurityPolicy ? 'status-passed' : 'status-failed'}>{data.securityHeaders.contentSecurityPolicy ? '✓ Present' : '✗ Missing'}</td></tr>
+                <tr><td>X-Frame-Options</td><td className={data.securityHeaders.xFrameOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xFrameOptions || '✗ Missing'}</td></tr>
+                <tr><td>X-Content-Type-Options</td><td className={data.securityHeaders.xContentTypeOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xContentTypeOptions || '✗ Missing'}</td></tr>
+                <tr><td>Strict-Transport-Security</td><td className={data.securityHeaders.strictTransportSecurity ? 'status-passed' : 'status-failed'}>{data.securityHeaders.strictTransportSecurity ? '✓ Present' : '✗ Missing'}</td></tr>
+                <tr><td>Referrer-Policy</td><td className={data.securityHeaders.referrerPolicy ? 'status-passed' : 'status-skipped'}>{data.securityHeaders.referrerPolicy || '—'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data.checks?.length > 0 && (
+          <div className="manager-section">
+            <h3>Security Checks</h3>
+            <table className="exec-table">
+              <thead><tr><th>Check</th><th>Status</th><th>Severity</th><th>Description</th></tr></thead>
+              <tbody>
+                {data.checks.map((c, i) => (
+                  <tr key={i}>
+                    <td>{c.name}</td>
+                    <td className={`status-${c.status === 'pass' ? 'passed' : c.status === 'fail' ? 'failed' : 'skipped'}`}>{c.status}</td>
+                    <td className={`severity-${c.severity}`}>{c.severity}</td>
+                    <td>{c.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data.vulnerabilities?.length > 0 && (
+          <div className="manager-section vulnerabilities">
+            <h3>⚠️ Vulnerabilities Found</h3>
+            <ul className="issues-list">
+              {data.vulnerabilities.map((v, i) => (
+                <li key={i} className={`issue-${v.type}`}>
+                  <strong>[{v.type.toUpperCase()}]</strong> {v.name}: {v.description}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {data.recommendations?.length > 0 && (
+          <div className="manager-section">
+            <h3>Recommendations</h3>
+            <ol>{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
+          </div>
+        )}
+        {data.complianceNotes?.length > 0 && (
+          <div className="manager-section">
+            <h3>Compliance Notes</h3>
+            <ul>{data.complianceNotes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+          </div>
+        )}
+        <details className="mt"><summary className="details-summary">Full JSON</summary><pre className="mt">{JSON.stringify(data, null, 2)}</pre></details>
       </div>
     );
   }

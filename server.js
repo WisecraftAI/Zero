@@ -51,7 +51,7 @@ const runs = new Map();
 const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
 const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
 const runSecrets = new Map();
-const stageKeys = ["ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "manager", "delivery"];
+const stageKeys = ["webAnalyzer", "ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "security", "manager", "delivery"];
 const optionalStageKeys = ["accessibility", "performance"];
 const selectorMemory = new Map();
 
@@ -290,13 +290,20 @@ function createRun(input) {
   const id = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const now = new Date().toISOString();
 
-  // Base stages - always included
-  const stages = {
-    ba: { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null },
-    manualQa: { label: "Manual QA Agent", status: "pending", startedAt: null, finishedAt: null },
-    automationQa: { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null },
-    execution: { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null }
-  };
+  // Check if we need Web Analyzer (no test document provided)
+  const needsWebAnalyzer = !input.tcFileBuffer && !input.tcFileContent && (!input.notes || input.notes.trim().length < 50);
+
+  // Base stages - conditionally include web analyzer
+  const stages = {};
+  
+  if (needsWebAnalyzer) {
+    stages.webAnalyzer = { label: "Web Analyzer Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+
+  stages.ba = { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.manualQa = { label: "Manual QA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.automationQa = { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.execution = { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null };
 
   // Optional agents - only add if enabled in input
   if (input.enableAccessibility) {
@@ -305,12 +312,16 @@ function createRun(input) {
   if (input.enablePerformance) {
     stages.performance = { label: "Performance Agent", status: "pending", startedAt: null, finishedAt: null };
   }
+  if (input.enableSecurity) {
+    stages.security = { label: "Security Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
 
   // Final stages - always included
   stages.manager = { label: "Manager Agent", status: "pending", startedAt: null, finishedAt: null };
   stages.delivery = { label: "Delivery Manager Agent", status: "pending", startedAt: null, finishedAt: null };
 
   const artifacts = {
+    webAnalysis: null,
     requirements: null,
     manualTestCases: null,
     automationBundle: null,
@@ -325,6 +336,9 @@ function createRun(input) {
   }
   if (input.enablePerformance) {
     artifacts.performanceReport = null;
+  }
+  if (input.enableSecurity) {
+    artifacts.securityReport = null;
   }
 
   const run = {
@@ -1727,6 +1741,495 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
 // ========== OPTIONAL AGENTS ==========
 
+/**
+ * Web Analyzer Agent - Analyzes a website when no test document is provided
+ * Crawls the site to discover pages, features, and provides insights for BA Agent
+ */
+async function generateWebAnalysis(run) {
+  const ottUrl = run.input.ottUrl;
+  const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
+  const { detectDomain, getDomainConfig } = require("./lib/ecommerceSelectors");
+
+  let browser = null;
+  const discoveredPages = [];
+  const discoveredFeatures = [];
+  const discoveredForms = [];
+  const discoveredCTAs = [];
+  const siteStructure = { navigation: [], footer: [], headers: [] };
+
+  try {
+    browser = await chromium.launch({ headless, args: ["--no-sandbox"] });
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    const page = await context.newPage();
+
+    // Domain detection
+    const domainConfig = getDomainConfig(ottUrl);
+    const domain = domainConfig.domain;
+    const siteName = domainConfig.name;
+
+    await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.waitForTimeout(3000);
+
+    // Get page title and meta info
+    const pageTitle = await page.title();
+    const metaDescription = await page.$eval('meta[name="description"]', m => m.content).catch(() => "");
+
+    // Discover navigation links
+    const navLinks = await page.$$eval('nav a, header a, [role="navigation"] a', (links) => 
+      links.slice(0, 30).map(a => ({ href: a.href, text: a.textContent?.trim().slice(0, 50) || "" }))
+        .filter(l => l.text && l.href && !l.href.startsWith('javascript'))
+    );
+    siteStructure.navigation = navLinks;
+
+    // Discover main CTAs (buttons and prominent links)
+    const ctaElements = await page.$$eval('button, a.btn, a[class*="button"], [role="button"], input[type="submit"]', (elements) =>
+      elements.slice(0, 20).map(el => ({
+        type: el.tagName.toLowerCase(),
+        text: el.textContent?.trim().slice(0, 50) || el.value || "",
+        classes: el.className?.slice(0, 100) || "",
+        ariaLabel: el.getAttribute('aria-label') || ""
+      })).filter(e => e.text || e.ariaLabel)
+    );
+    discoveredCTAs.push(...ctaElements);
+
+    // Discover forms
+    const forms = await page.$$eval('form', (formElements) =>
+      formElements.slice(0, 10).map(form => {
+        const inputs = Array.from(form.querySelectorAll('input, select, textarea')).slice(0, 10);
+        return {
+          action: form.action?.slice(0, 100) || "",
+          method: form.method || "get",
+          fields: inputs.map(inp => ({
+            type: inp.type || inp.tagName.toLowerCase(),
+            name: inp.name || "",
+            placeholder: inp.placeholder || "",
+            required: inp.required || false
+          }))
+        };
+      })
+    );
+    discoveredForms.push(...forms);
+
+    // Discover key page sections
+    const sections = await page.$$eval('main, section, article, [role="main"], [role="region"]', (elements) =>
+      elements.slice(0, 15).map(el => ({
+        tag: el.tagName.toLowerCase(),
+        role: el.getAttribute('role') || "",
+        ariaLabel: el.getAttribute('aria-label') || "",
+        headings: Array.from(el.querySelectorAll('h1, h2, h3')).slice(0, 3).map(h => h.textContent?.trim().slice(0, 50) || "")
+      }))
+    );
+
+    // Detect features based on domain type
+    if (domain === 'flipkart' || domain === 'amazon' || domain === 'generic') {
+      // E-commerce features detection
+      const hasSearch = await page.$('input[type="search"], input[name="q"], input[placeholder*="Search"]').catch(() => null);
+      const hasCart = await page.$('a[href*="cart"], [class*="cart"], [data-cart]').catch(() => null);
+      const hasLogin = await page.$('a[href*="login"], button:has-text("Sign"), a:has-text("Login")').catch(() => null);
+
+      if (hasSearch) discoveredFeatures.push({ name: "Search", type: "core", description: "Product search functionality" });
+      if (hasCart) discoveredFeatures.push({ name: "Shopping Cart", type: "core", description: "Shopping cart functionality" });
+      if (hasLogin) discoveredFeatures.push({ name: "User Authentication", type: "core", description: "Login/Registration system" });
+
+      // Check for product listing
+      const hasProducts = await page.$('[class*="product"], [data-product], article').catch(() => null);
+      if (hasProducts) discoveredFeatures.push({ name: "Product Listing", type: "core", description: "Product catalog display" });
+
+      // Check for filters
+      const hasFilters = await page.$('[class*="filter"], [role="listbox"], aside').catch(() => null);
+      if (hasFilters) discoveredFeatures.push({ name: "Filters/Sorting", type: "feature", description: "Product filtering and sorting" });
+    }
+
+    // Crawl linked pages (limited)
+    const internalLinks = navLinks
+      .filter(l => l.href.includes(new URL(ottUrl).hostname))
+      .slice(0, 8);
+
+    for (const link of internalLinks.slice(0, 5)) {
+      try {
+        await page.goto(link.href, { waitUntil: "domcontentloaded", timeout: 15000 });
+        await page.waitForTimeout(1000);
+
+        const subPageTitle = await page.title();
+        const subPageHeadings = await page.$$eval('h1, h2', hs => hs.slice(0, 3).map(h => h.textContent?.trim().slice(0, 50)));
+
+        discoveredPages.push({
+          url: link.href,
+          title: subPageTitle,
+          linkText: link.text,
+          mainHeadings: subPageHeadings
+        });
+      } catch (_) { /* skip failed pages */ }
+    }
+
+    await browser.close();
+    browser = null;
+
+    // Generate BA-ready insights
+    const baInsights = generateBAInsights(discoveredFeatures, discoveredForms, discoveredCTAs, siteStructure, domain);
+
+    return {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "Web Analyzer Agent",
+        url: ottUrl,
+        domain,
+        siteName
+      },
+      siteOverview: {
+        title: pageTitle,
+        description: metaDescription,
+        type: domain === 'generic' ? 'Website' : `${siteName} (E-commerce)`,
+        pagesDiscovered: discoveredPages.length + 1
+      },
+      discoveredPages,
+      features: discoveredFeatures,
+      forms: discoveredForms,
+      ctas: discoveredCTAs,
+      siteStructure,
+      sections,
+      baInsights,
+      suggestedTestAreas: generateSuggestedTestAreas(discoveredFeatures, discoveredForms, domain),
+      suggestedRequirements: generateSuggestedRequirements(discoveredFeatures, discoveredForms, domain)
+    };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    return {
+      metadata: { generatedAt: new Date().toISOString(), source: "Web Analyzer Agent", url: ottUrl },
+      siteOverview: { title: "Analysis Failed", description: "", type: "Unknown", pagesDiscovered: 0 },
+      error: err.message,
+      baInsights: { summary: "Web analysis failed. Manual BRD input recommended." }
+    };
+  }
+}
+
+function generateBAInsights(features, forms, ctas, structure, domain) {
+  const insights = {
+    summary: "",
+    keyFunctionalities: [],
+    userJourneys: [],
+    criticalPaths: [],
+    riskAreas: []
+  };
+
+  // Summary based on discovered features
+  if (domain === 'flipkart' || domain === 'amazon') {
+    insights.summary = `E-commerce platform with ${features.length} core features detected. Focus testing on search-to-purchase flow.`;
+  } else {
+    insights.summary = `Website with ${features.length} features and ${forms.length} forms discovered. Requires functional and UI testing.`;
+  }
+
+  // Key functionalities
+  features.forEach(f => {
+    insights.keyFunctionalities.push({
+      name: f.name,
+      priority: f.type === 'core' ? 'High' : 'Medium',
+      testable: true
+    });
+  });
+
+  // User journeys based on features
+  if (features.some(f => f.name === 'Search')) {
+    insights.userJourneys.push("Search → Browse Results → Select Product");
+  }
+  if (features.some(f => f.name === 'Shopping Cart')) {
+    insights.userJourneys.push("Add to Cart → View Cart → Proceed to Checkout");
+  }
+  if (features.some(f => f.name === 'User Authentication')) {
+    insights.userJourneys.push("Registration → Login → Profile Management");
+  }
+
+  // Critical paths
+  if (domain === 'flipkart' || domain === 'amazon') {
+    insights.criticalPaths = [
+      "Complete purchase flow (search → cart → checkout)",
+      "User authentication and session management",
+      "Search functionality and result accuracy"
+    ];
+  }
+
+  // Risk areas
+  insights.riskAreas = [
+    forms.length > 3 ? "Multiple forms require validation testing" : null,
+    structure.navigation.length > 15 ? "Complex navigation may affect usability" : null,
+    ctas.length > 10 ? "Multiple CTAs - ensure clear call-to-action hierarchy" : null
+  ].filter(Boolean);
+
+  return insights;
+}
+
+function generateSuggestedTestAreas(features, forms, domain) {
+  const areas = [];
+
+  if (domain === 'flipkart' || domain === 'amazon') {
+    areas.push(
+      { area: "Search Functionality", priority: "Critical", tests: ["Search with valid keywords", "Search with special characters", "Empty search handling", "Search suggestions"] },
+      { area: "Product Display", priority: "High", tests: ["Product image loading", "Price display accuracy", "Stock availability", "Product details"] },
+      { area: "Cart Operations", priority: "Critical", tests: ["Add to cart", "Update quantity", "Remove item", "Cart persistence"] },
+      { area: "Checkout Flow", priority: "Critical", tests: ["Address selection", "Payment options", "Order confirmation", "Price calculation"] }
+    );
+  }
+
+  if (forms.length > 0) {
+    areas.push({
+      area: "Form Validation",
+      priority: "High",
+      tests: ["Required field validation", "Input format validation", "Error message display", "Form submission"]
+    });
+  }
+
+  if (features.some(f => f.name === 'User Authentication')) {
+    areas.push({
+      area: "Authentication",
+      priority: "Critical",
+      tests: ["Login with valid credentials", "Login with invalid credentials", "Password reset", "Session management"]
+    });
+  }
+
+  return areas;
+}
+
+function generateSuggestedRequirements(features, forms, domain) {
+  const requirements = [];
+
+  if (domain === 'flipkart' || domain === 'amazon') {
+    requirements.push(
+      "REQ-001: Users must be able to search for products using keywords",
+      "REQ-002: Search results must display relevant products with images, prices, and ratings",
+      "REQ-003: Users must be able to add products to cart from product listing and detail pages",
+      "REQ-004: Cart must persist across sessions for logged-in users",
+      "REQ-005: Checkout process must support multiple payment methods"
+    );
+  }
+
+  forms.forEach((form, i) => {
+    if (form.fields.length > 0) {
+      requirements.push(`REQ-FORM-${i + 1}: Form with ${form.fields.length} fields must validate all inputs before submission`);
+    }
+  });
+
+  if (features.some(f => f.name === 'User Authentication')) {
+    requirements.push(
+      "REQ-AUTH-001: User authentication must use secure password hashing",
+      "REQ-AUTH-002: Session must expire after 30 minutes of inactivity"
+    );
+  }
+
+  return requirements;
+}
+
+/**
+ * Security Testing Agent - Performs basic security checks on the website
+ */
+async function generateSecurityReport(run) {
+  const ottUrl = run.input.ottUrl;
+  const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
+
+  let browser = null;
+  const vulnerabilities = [];
+  const checks = [];
+  const recommendations = [];
+
+  try {
+    browser = await chromium.launch({ headless, args: ["--no-sandbox"] });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // Capture security headers from response
+    let securityHeaders = {};
+    page.on("response", (response) => {
+      if (response.url() === ottUrl || response.url() === ottUrl + '/') {
+        const headers = response.headers();
+        securityHeaders = {
+          contentSecurityPolicy: headers['content-security-policy'] || null,
+          xFrameOptions: headers['x-frame-options'] || null,
+          xContentTypeOptions: headers['x-content-type-options'] || null,
+          strictTransportSecurity: headers['strict-transport-security'] || null,
+          xXssProtection: headers['x-xss-protection'] || null,
+          referrerPolicy: headers['referrer-policy'] || null
+        };
+      }
+    });
+
+    await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    // Check 1: HTTPS usage
+    const isHttps = ottUrl.startsWith('https://');
+    checks.push({
+      name: "HTTPS Enabled",
+      status: isHttps ? "pass" : "fail",
+      severity: isHttps ? "none" : "critical",
+      description: isHttps ? "Site uses HTTPS" : "Site does not use HTTPS - data transmitted insecurely"
+    });
+    if (!isHttps) {
+      vulnerabilities.push({ type: "critical", name: "Missing HTTPS", description: "Site not using HTTPS encryption" });
+      recommendations.push("Enable HTTPS with a valid SSL certificate");
+    }
+
+    // Check 2: Content Security Policy
+    checks.push({
+      name: "Content Security Policy",
+      status: securityHeaders.contentSecurityPolicy ? "pass" : "warning",
+      severity: securityHeaders.contentSecurityPolicy ? "none" : "medium",
+      description: securityHeaders.contentSecurityPolicy ? "CSP header present" : "No CSP header - vulnerable to XSS"
+    });
+    if (!securityHeaders.contentSecurityPolicy) {
+      vulnerabilities.push({ type: "medium", name: "Missing CSP", description: "No Content-Security-Policy header" });
+      recommendations.push("Implement Content-Security-Policy header to prevent XSS attacks");
+    }
+
+    // Check 3: X-Frame-Options
+    checks.push({
+      name: "Clickjacking Protection",
+      status: securityHeaders.xFrameOptions ? "pass" : "warning",
+      severity: securityHeaders.xFrameOptions ? "none" : "medium",
+      description: securityHeaders.xFrameOptions ? `X-Frame-Options: ${securityHeaders.xFrameOptions}` : "No X-Frame-Options header"
+    });
+    if (!securityHeaders.xFrameOptions) {
+      vulnerabilities.push({ type: "medium", name: "Missing X-Frame-Options", description: "Site may be vulnerable to clickjacking" });
+      recommendations.push("Add X-Frame-Options header (DENY or SAMEORIGIN)");
+    }
+
+    // Check 4: X-Content-Type-Options
+    checks.push({
+      name: "MIME Type Sniffing Protection",
+      status: securityHeaders.xContentTypeOptions ? "pass" : "warning",
+      severity: securityHeaders.xContentTypeOptions ? "none" : "low",
+      description: securityHeaders.xContentTypeOptions ? "X-Content-Type-Options: nosniff" : "No X-Content-Type-Options header"
+    });
+
+    // Check 5: HSTS
+    checks.push({
+      name: "HTTP Strict Transport Security",
+      status: securityHeaders.strictTransportSecurity ? "pass" : "warning",
+      severity: securityHeaders.strictTransportSecurity ? "none" : "medium",
+      description: securityHeaders.strictTransportSecurity ? "HSTS enabled" : "No HSTS header"
+    });
+    if (!securityHeaders.strictTransportSecurity && isHttps) {
+      recommendations.push("Enable HSTS to enforce HTTPS usage");
+    }
+
+    // Check 6: Password fields
+    const passwordFields = await page.$$eval('input[type="password"]', fields =>
+      fields.map(f => ({
+        name: f.name || f.id || "unnamed",
+        autocomplete: f.autocomplete,
+        hasLabel: !!f.labels?.length
+      }))
+    );
+    const insecurePasswords = passwordFields.filter(f => f.autocomplete === 'on');
+    checks.push({
+      name: "Password Field Security",
+      status: insecurePasswords.length === 0 ? "pass" : "warning",
+      severity: insecurePasswords.length === 0 ? "none" : "low",
+      description: `${passwordFields.length} password field(s) found, ${insecurePasswords.length} with autocomplete enabled`
+    });
+
+    // Check 7: External scripts
+    const externalScripts = await page.$$eval('script[src]', scripts =>
+      scripts.filter(s => !s.src.includes(window.location.hostname))
+        .map(s => ({ src: s.src.slice(0, 100), integrity: s.integrity || null }))
+    );
+    const scriptsWithoutIntegrity = externalScripts.filter(s => !s.integrity);
+    checks.push({
+      name: "Subresource Integrity",
+      status: scriptsWithoutIntegrity.length === 0 ? "pass" : "info",
+      severity: scriptsWithoutIntegrity.length === 0 ? "none" : "low",
+      description: `${externalScripts.length} external scripts, ${scriptsWithoutIntegrity.length} without SRI`
+    });
+
+    // Check 8: Form actions
+    const forms = await page.$$eval('form', forms =>
+      forms.map(f => ({
+        action: f.action || "same page",
+        method: f.method || "GET",
+        isHttps: f.action?.startsWith('https://') || !f.action || f.action.startsWith('/')
+      }))
+    );
+    const insecureForms = forms.filter(f => !f.isHttps);
+    checks.push({
+      name: "Secure Form Submissions",
+      status: insecureForms.length === 0 ? "pass" : "fail",
+      severity: insecureForms.length === 0 ? "none" : "high",
+      description: `${forms.length} form(s), ${insecureForms.length} with insecure action URLs`
+    });
+    if (insecureForms.length > 0) {
+      vulnerabilities.push({ type: "high", name: "Insecure Form Action", description: "Form submits data over HTTP" });
+    }
+
+    // Check 9: Cookie security
+    const cookies = await context.cookies();
+    const insecureCookies = cookies.filter(c => !c.secure || !c.httpOnly);
+    checks.push({
+      name: "Cookie Security",
+      status: insecureCookies.length === 0 ? "pass" : "warning",
+      severity: insecureCookies.length === 0 ? "none" : "medium",
+      description: `${cookies.length} cookie(s), ${insecureCookies.length} without Secure/HttpOnly flags`
+    });
+
+    // Check 10: Sensitive data exposure
+    const pageContent = await page.content();
+    const sensitivePatterns = [
+      { pattern: /api[_-]?key\s*[:=]\s*["'][^"']+["']/gi, name: "API Key" },
+      { pattern: /password\s*[:=]\s*["'][^"']+["']/gi, name: "Hardcoded Password" },
+      { pattern: /secret\s*[:=]\s*["'][^"']+["']/gi, name: "Secret Key" }
+    ];
+    const exposedSecrets = sensitivePatterns.filter(p => p.pattern.test(pageContent));
+    checks.push({
+      name: "Sensitive Data Exposure",
+      status: exposedSecrets.length === 0 ? "pass" : "fail",
+      severity: exposedSecrets.length === 0 ? "none" : "critical",
+      description: exposedSecrets.length === 0 ? "No exposed secrets detected" : `Potential ${exposedSecrets.map(s => s.name).join(', ')} exposure`
+    });
+    if (exposedSecrets.length > 0) {
+      vulnerabilities.push({ type: "critical", name: "Sensitive Data Exposure", description: "Potential secrets found in page source" });
+    }
+
+    await browser.close();
+    browser = null;
+
+    // Calculate security score
+    const passedChecks = checks.filter(c => c.status === "pass").length;
+    const criticalIssues = vulnerabilities.filter(v => v.type === "critical").length;
+    const highIssues = vulnerabilities.filter(v => v.type === "high").length;
+    const score = Math.max(0, 100 - (criticalIssues * 25) - (highIssues * 15) - ((checks.length - passedChecks) * 5));
+
+    return {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "Security Agent",
+        url: ottUrl
+      },
+      summary: {
+        score,
+        verdict: score >= 80 ? "Good" : score >= 60 ? "Acceptable" : score >= 40 ? "Needs Improvement" : "Critical",
+        checksRun: checks.length,
+        passed: passedChecks,
+        failed: checks.filter(c => c.status === "fail").length,
+        warnings: checks.filter(c => c.status === "warning").length
+      },
+      securityHeaders,
+      checks,
+      vulnerabilities,
+      recommendations: [...new Set(recommendations)],
+      complianceNotes: [
+        isHttps ? "HTTPS compliance: Met" : "HTTPS compliance: Not Met",
+        securityHeaders.contentSecurityPolicy ? "CSP compliance: Met" : "CSP compliance: Not Met"
+      ]
+    };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    return {
+      metadata: { generatedAt: new Date().toISOString(), source: "Security Agent", url: ottUrl },
+      summary: { score: 0, verdict: "Error", checksRun: 0, passed: 0, failed: 1, warnings: 0 },
+      checks: [],
+      vulnerabilities: [{ type: "error", name: "Agent Error", description: err.message }],
+      recommendations: ["Fix agent execution error and retry"]
+    };
+  }
+}
+
 async function generateAccessibilityReport(run) {
   const ottUrl = run.input.ottUrl;
   const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
@@ -1982,7 +2485,7 @@ async function generatePerformanceReport(run) {
 
 // ========== END OPTIONAL AGENTS ==========
 
-function generateManagerReport(requirements, manualCases, automationBundle, executionReport, accessibilityReport = null, performanceReport = null) {
+function generateManagerReport(requirements, manualCases, automationBundle, executionReport, accessibilityReport = null, performanceReport = null, securityReport = null) {
   const tests = executionReport.tests || [];
   const failures = tests.filter((t) => t.status === "failed");
   const skipped = tests.filter((t) => t.status === "skipped");
@@ -2050,6 +2553,36 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
   actionPlan.push("4. Use Element log tab to feed stable selectors for this OTT URL (Postgres required)");
   actionPlan.push("5. Add assertion lines (selector: or text:) for critical UI checks");
 
+  // Include optional agent summaries
+  const optionalAgentSummaries = {};
+  if (accessibilityReport && accessibilityReport.summary) {
+    optionalAgentSummaries.accessibility = {
+      score: accessibilityReport.summary.score,
+      verdict: accessibilityReport.summary.verdict,
+      errors: accessibilityReport.summary.errors,
+      warnings: accessibilityReport.summary.warnings
+    };
+  }
+  if (performanceReport && performanceReport.summary) {
+    optionalAgentSummaries.performance = {
+      score: performanceReport.summary.score,
+      verdict: performanceReport.summary.verdict,
+      loadTime: performanceReport.summary.loadTime
+    };
+  }
+  if (securityReport && securityReport.summary) {
+    optionalAgentSummaries.security = {
+      score: securityReport.summary.score,
+      verdict: securityReport.summary.verdict,
+      vulnerabilities: securityReport.vulnerabilities?.length || 0,
+      criticalIssues: securityReport.vulnerabilities?.filter(v => v.type === 'critical').length || 0
+    };
+    // Adjust risk level if security issues found
+    if (securityReport.summary.score < 50) {
+      actionPlan.unshift("SECURITY: Address critical security vulnerabilities before release");
+    }
+  }
+
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
@@ -2068,6 +2601,7 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
       profile: requirements.metadata.profile,
       ottUrl: requirements.metadata.ottUrl
     },
+    optionalAgentSummaries,
     traceabilityMatrix: traceability,
     coverageByFeature: byFeature,
     analysis: {
@@ -2120,7 +2654,21 @@ async function processRun(id) {
     run.status = "running";
     await persistRun(run);
 
+    // Optional: Web Analyzer Agent (runs when no test document provided)
+    if (run.stages.webAnalyzer) {
+      setStage(run, "webAnalyzer", "running");
+      run.artifacts.webAnalysis = await generateWebAnalysis(run);
+      setStage(run, "webAnalyzer", "done");
+      await persistRun(run);
+    }
+
     setStage(run, "ba", "running");
+    // If web analysis was run, enhance requirements with its insights
+    if (run.artifacts.webAnalysis && run.artifacts.webAnalysis.baInsights) {
+      run.input._webAnalysisInsights = run.artifacts.webAnalysis.baInsights;
+      run.input._suggestedRequirements = run.artifacts.webAnalysis.suggestedRequirements;
+      run.input._suggestedTestAreas = run.artifacts.webAnalysis.suggestedTestAreas;
+    }
     run.artifacts.requirements = consolidateRequirements(run.input);
     run.input.tcFileBuffer = null;
     setStage(run, "ba", "done");
@@ -2161,6 +2709,14 @@ async function processRun(id) {
       await persistRun(run);
     }
 
+    // Optional: Security Agent
+    if (run.input.enableSecurity && run.stages.security) {
+      setStage(run, "security", "running");
+      run.artifacts.securityReport = await generateSecurityReport(run);
+      setStage(run, "security", "done");
+      await persistRun(run);
+    }
+
     setStage(run, "manager", "running");
     run.artifacts.managerReport = generateManagerReport(
       run.artifacts.requirements,
@@ -2168,7 +2724,8 @@ async function processRun(id) {
       run.artifacts.automationBundle,
       run.artifacts.executionReport,
       run.artifacts.accessibilityReport,
-      run.artifacts.performanceReport
+      run.artifacts.performanceReport,
+      run.artifacts.securityReport
     );
     setStage(run, "manager", "done");
     await persistRun(run);
