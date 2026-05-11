@@ -1,0 +1,25 @@
+Feature,Scenario,Expected Result
+Search,Navigate to Flipkart homepage,Flipkart homepage loads successfully with search bar visible
+Search,Verify search bar is present on homepage,Search bar is visible at the top of the page
+Search,Enter iPhone 15 in search box,Search box accepts text input iPhone 15
+Search,Click search button to submit,Search is submitted successfully
+Search,Verify search results display iPhone 15 products,Search results show relevant iPhone 15 products with images and prices
+Product Selection,Click on first iPhone 15 product in results,Product detail page opens for iPhone 15
+Product Selection,Verify product title contains iPhone 15,Product page displays iPhone 15 in the title
+Product Selection,Verify product price is displayed,Product price is visible on the page
+Product Selection,Verify product images are displayed,Product images load correctly on detail page
+Product Selection,Verify ADD TO CART button is present,ADD TO CART button is visible and enabled
+Product Selection,Verify BUY NOW button is present,BUY NOW button is visible on the page
+Add to Cart,Click ADD TO CART button,Product is added to cart
+Add to Cart,Verify added to cart confirmation,Added to Cart confirmation or cart flyout appears
+Add to Cart,Verify cart count increases in header,Cart icon shows updated item count
+Cart Verification,Click on Cart icon to open cart,Cart page opens showing cart contents
+Cart Verification,Verify iPhone 15 is in cart,Cart displays iPhone 15 product with correct name
+Cart Verification,Verify product image in cart,Product image is displayed in cart
+Cart Verification,Verify product price in cart,Cart shows correct price for iPhone 15
+Cart Verification,Verify product quantity is 1,Quantity shows 1 for the added iPhone 15
+Cart Verification,Verify PLACE ORDER button is visible,PLACE ORDER button is visible and enabled
+Cart Verification,Verify Remove option is available,Remove link or button is visible for the item
+Cart Actions,Increase quantity to 2,Quantity updates to 2 and price recalculates
+Cart Actions,Verify price updates after quantity change,Total price reflects quantity of 2
+Cart Actions,Decrease quantity back to 1,Quantity updates back to 1

@@ -20,6 +20,7 @@ const elementLogger = require("./lib/elementLogger");
 const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
 const javaSeleniumBuilder = require("./lib/javaSeleniumBuilder");
+const { detectDomain, getSelectors, getDomainConfig } = require("./lib/ecommerceSelectors");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1131,15 +1132,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_search_bar": {
-              const searchSelectors = [
-                "input#twotabsearchtextbox", // Amazon
-                "input[type='search']",
-                "input[placeholder*='Search']",
-                "input[name='field-keywords']",
-                "[aria-label*='Search']",
-                "#search-input",
-                ".search-input"
-              ];
+              // Domain-aware selector lookup
+              const searchSelectors = getSelectors(ottUrl, 'search', 'input');
               let found = false;
               for (const sel of searchSelectors) {
                 try {
@@ -1159,14 +1153,10 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               const term = searchTerm || executionContext.searchTerm || "iPhone 15";
               executionContext.searchTerm = term;
 
-              const searchSelectors = [
-                "input#twotabsearchtextbox",
-                "input[type='search']",
-                "input[placeholder*='Search']",
-                "input[name='field-keywords']",
-                "[aria-label*='Search'] input",
-                "#search-input"
-              ];
+              // Domain-aware selector lookup
+              const searchSelectors = getSelectors(ottUrl, 'search', 'input');
+              const domainConfig = getDomainConfig(ottUrl);
+              trace.push(`domain:detected:${domainConfig.domain}:${domainConfig.name}`);
 
               let searchBox = null;
               for (const sel of searchSelectors) {
@@ -1189,14 +1179,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "search_click": {
-              const submitSelectors = [
-                "#nav-search-submit-button",
-                "input[type='submit'][value='Go']",
-                "button[type='submit']",
-                "[aria-label*='Search']button",
-                ".search-submit",
-                "button:has-text('Search')"
-              ];
+              // Domain-aware selector lookup
+              const submitSelectors = getSelectors(ottUrl, 'search', 'submit');
 
               let submitted = false;
               for (const sel of submitSelectors) {
@@ -1226,15 +1210,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               await page.waitForTimeout(1500);
               const term = executionContext.searchTerm || "iPhone";
 
-              // Look for search results
-              const resultSelectors = [
-                "[data-component-type='s-search-result']",
-                ".s-result-item",
-                ".s-search-results",
-                "[data-asin]",
-                ".product-list",
-                ".search-results"
-              ];
+              // Domain-aware selector lookup for search results
+              const resultSelectors = getSelectors(ottUrl, 'results', 'container');
 
               let found = false;
               for (const sel of resultSelectors) {
@@ -1265,14 +1242,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "click_product": {
               await page.waitForTimeout(1000);
 
-              const productSelectors = [
-                "[data-component-type='s-search-result'] h2 a",
-                ".s-result-item h2 a",
-                "[data-asin] h2 a",
-                ".s-product-image-container a",
-                ".product-title a",
-                "h2 a[href*='/dp/']"
-              ];
+              // Domain-aware selector lookup for product links
+              const productSelectors = getSelectors(ottUrl, 'results', 'productCard');
 
               let clicked = false;
               for (const sel of productSelectors) {
@@ -1301,13 +1272,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               await page.waitForTimeout(1000);
               const term = executionContext.searchTerm || "iPhone";
 
-              const titleSelectors = [
-                "#productTitle",
-                "#title",
-                "h1[data-automation='productTitle']",
-                ".product-title",
-                "h1.product-name"
-              ];
+              // Domain-aware selector lookup for product title
+              const titleSelectors = getSelectors(ottUrl, 'productPage', 'title');
 
               let found = false;
               for (const sel of titleSelectors) {
@@ -1335,15 +1301,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_price": {
-              const priceSelectors = [
-                ".a-price .a-offscreen",
-                "#priceblock_ourprice",
-                "#priceblock_dealprice",
-                ".a-price-whole",
-                "[data-a-color='price']",
-                ".price",
-                "#price"
-              ];
+              // Domain-aware selector lookup for price
+              const priceSelectors = getSelectors(ottUrl, 'productPage', 'price');
 
               let found = false;
               for (const sel of priceSelectors) {
@@ -1370,13 +1329,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_add_to_cart_button": {
-              const cartBtnSelectors = [
-                "#add-to-cart-button",
-                "input[name='add']",
-                "button:has-text('Add to Cart')",
-                "[data-action='add-to-cart']",
-                ".add-to-cart-button"
-              ];
+              // Domain-aware selector lookup for add to cart button
+              const cartBtnSelectors = getSelectors(ottUrl, 'productPage', 'addToCart');
 
               let found = false;
               for (const sel of cartBtnSelectors) {
@@ -1395,13 +1349,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "click_add_to_cart": {
-              const cartBtnSelectors = [
-                "#add-to-cart-button",
-                "input[name='add']",
-                "button:has-text('Add to Cart')",
-                "[data-action='add-to-cart']",
-                ".add-to-cart-button"
-              ];
+              // Domain-aware selector lookup for add to cart button
+              const cartBtnSelectors = getSelectors(ottUrl, 'productPage', 'addToCart');
 
               let clicked = false;
               for (const sel of cartBtnSelectors) {
@@ -1425,14 +1374,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             case "verify_added_confirmation": {
               await page.waitForTimeout(1500);
 
-              const confirmSelectors = [
-                "#NATC_SMART_WAGON_CONF_MSG_SUCCESS",
-                "#attachDisplayAddBase498",
-                "[data-feature-id='addToCart'] .a-alert-heading",
-                ".a-alert-success",
-                "h1:has-text('Added to Cart')",
-                ":text('Added to Cart')"
-              ];
+              // Domain-aware selector lookup for cart confirmation
+              const confirmSelectors = getSelectors(ottUrl, 'confirmation', 'added');
 
               let found = false;
               for (const sel of confirmSelectors) {
@@ -1459,13 +1402,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_cart_count": {
-              const countSelectors = [
-                "#nav-cart-count",
-                ".nav-cart-count",
-                "#nav-cart-count-container",
-                ".cart-count",
-                "[data-cart-count]"
-              ];
+              // Domain-aware selector lookup for cart count
+              const countSelectors = getSelectors(ottUrl, 'cart', 'count');
 
               let found = false;
               for (const sel of countSelectors) {
@@ -1485,13 +1423,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "open_cart": {
-              const cartSelectors = [
-                "#nav-cart",
-                "#nav-cart-count-container",
-                "a[href*='/cart']",
-                ".nav-cart",
-                "#cart-link"
-              ];
+              // Domain-aware selector lookup for cart icon
+              const cartSelectors = getSelectors(ottUrl, 'cart', 'icon');
 
               let clicked = false;
               for (const sel of cartSelectors) {
@@ -1520,13 +1453,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
               await page.waitForTimeout(1500);
               const term = executionContext.searchTerm || "iPhone";
 
-              const cartItemSelectors = [
-                ".sc-product-title",
-                "[data-name='Active Items'] .sc-product-title",
-                ".sc-list-item-content",
-                ".cart-item-title",
-                ".a-list-item"
-              ];
+              // Domain-aware selector lookup for cart items
+              const cartItemSelectors = getSelectors(ottUrl, 'cart', 'itemTitle');
 
               let found = false;
               for (const sel of cartItemSelectors) {
@@ -1554,13 +1482,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_quantity": {
-              const qtySelectors = [
-                "[data-a-class='quantity']",
-                ".sc-action-quantity",
-                "select[name*='quantity']",
-                ".quantity-dropdown",
-                ":text('Qty:')"
-              ];
+              // Domain-aware selector lookup for quantity
+              const qtySelectors = getSelectors(ottUrl, 'cart', 'quantity');
 
               let found = false;
               for (const sel of qtySelectors) {
@@ -1579,13 +1502,8 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
 
             case "verify_checkout": {
-              const checkoutSelectors = [
-                "input[name='proceedToRetailCheckout']",
-                "#sc-buy-box-ptc-button",
-                "button:has-text('Proceed to checkout')",
-                "a:has-text('Proceed to checkout')",
-                ".checkout-button"
-              ];
+              // Domain-aware selector lookup for checkout button
+              const checkoutSelectors = getSelectors(ottUrl, 'cart', 'placeOrder');
 
               let found = false;
               for (const sel of checkoutSelectors) {
