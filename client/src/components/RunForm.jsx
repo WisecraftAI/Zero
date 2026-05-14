@@ -5,6 +5,10 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
   const formRef = useRef(null);
   const [recordingSessionId, setRecordingSessionId] = useState(null);
   const [recordingId, setRecordingId] = useState(null);
+  const [testCaseInputMode, setTestCaseInputMode] = useState('none'); // 'none', 'csv', 'manual'
+  const [manualTestCases, setManualTestCases] = useState([
+    { feature: '', scenario: '', expectedResult: '' }
+  ]);
 
   useEffect(() => {
     const onMessage = (e) => {
@@ -39,6 +43,22 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
     }
   };
 
+  const addManualTestCase = () => {
+    setManualTestCases([...manualTestCases, { feature: '', scenario: '', expectedResult: '' }]);
+  };
+
+  const removeManualTestCase = (index) => {
+    if (manualTestCases.length > 1) {
+      setManualTestCases(manualTestCases.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateManualTestCase = (index, field, value) => {
+    const updated = [...manualTestCases];
+    updated[index][field] = value;
+    setManualTestCases(updated);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = formRef.current;
@@ -46,10 +66,33 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
     const ottUrl = form.ottUrl?.value?.trim();
     const notes = form.notes?.value?.trim();
     const file = form.tcFile?.files?.[0];
+    
     if (!ottUrl) return;
-    if (!file && !notes) return;
+    
+    // Check if we have test cases from any source (CSV, manual, or URL analysis with notes)
+    const hasManualCases = testCaseInputMode === 'manual' && manualTestCases.some(tc => tc.feature || tc.scenario);
+    const hasCsvFile = testCaseInputMode === 'csv' && file;
+    const hasUrlAnalysisMode = testCaseInputMode === 'none'; // URL Analyzer will generate test cases
+    
+    if (!hasCsvFile && !hasManualCases && !hasUrlAnalysisMode && !notes) {
+      alert('Please provide test cases (CSV or manual) or let URL Analyzer generate them automatically.');
+      return;
+    }
+    
     const fd = new FormData(form);
     fd.set('figmaUrl', '');
+    
+    // Add manual test cases as JSON if provided
+    if (hasManualCases) {
+      const validCases = manualTestCases.filter(tc => tc.feature || tc.scenario || tc.expectedResult);
+      fd.set('manualTestCases', JSON.stringify(validCases));
+      fd.set('testCaseInputMode', 'manual');
+    } else if (hasCsvFile) {
+      fd.set('testCaseInputMode', 'csv');
+    } else {
+      fd.set('testCaseInputMode', 'auto'); // URL Analyzer will generate
+    }
+    
     if (recordingId) fd.set('recordingId', recordingId);
     else if (recordingSessionId) fd.set('recordingSessionId', recordingSessionId);
     const recFile = form.recordingFile?.files?.[0];
@@ -65,12 +108,108 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
           <input name="ottUrl" type="url" placeholder="https://example.com" required />
         </label>
       </div>
+      
+      {/* Test Cases Input Section */}
+      <div className="form-row">
+        <div className="field full test-case-section">
+          <span className="field-label">Test Cases</span>
+          <p className="field-hint">Choose how to provide test cases: upload CSV, enter manually, or let URL Analyzer auto-generate from website analysis.</p>
+          
+          <div className="test-case-tabs">
+            <button 
+              type="button" 
+              className={`tab-btn ${testCaseInputMode === 'none' ? 'active' : ''}`}
+              onClick={() => setTestCaseInputMode('none')}
+            >
+              🤖 Auto-Generate
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${testCaseInputMode === 'csv' ? 'active' : ''}`}
+              onClick={() => setTestCaseInputMode('csv')}
+            >
+              📄 Upload CSV
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${testCaseInputMode === 'manual' ? 'active' : ''}`}
+              onClick={() => setTestCaseInputMode('manual')}
+            >
+              ✏️ Manual Entry
+            </button>
+          </div>
+
+          {/* Auto-Generate Mode */}
+          {testCaseInputMode === 'none' && (
+            <div className="test-case-content auto-mode">
+              <div className="auto-info">
+                <span className="auto-icon">🔍</span>
+                <div>
+                  <strong>URL Analyzer Agent</strong>
+                  <p>The URL Analyzer will visit your website, discover all elements, features, and user flows, then automatically generate test cases and a BRD document.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CSV Upload Mode */}
+          {testCaseInputMode === 'csv' && (
+            <div className="test-case-content csv-mode">
+              <input name="tcFile" type="file" accept=".csv,.xlsx,.xls" />
+              <span className="field-hint">CSV format: Feature, Scenario, Expected Result (one test case per row)</span>
+            </div>
+          )}
+
+          {/* Manual Entry Mode */}
+          {testCaseInputMode === 'manual' && (
+            <div className="test-case-content manual-mode">
+              <div className="manual-cases-list">
+                {manualTestCases.map((tc, index) => (
+                  <div key={index} className="manual-case-row">
+                    <span className="case-number">#{index + 1}</span>
+                    <input
+                      type="text"
+                      placeholder="Feature/Module"
+                      value={tc.feature}
+                      onChange={(e) => updateManualTestCase(index, 'feature', e.target.value)}
+                      className="case-input feature"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Scenario/Test Step"
+                      value={tc.scenario}
+                      onChange={(e) => updateManualTestCase(index, 'scenario', e.target.value)}
+                      className="case-input scenario"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Expected Result"
+                      value={tc.expectedResult}
+                      onChange={(e) => updateManualTestCase(index, 'expectedResult', e.target.value)}
+                      className="case-input expected"
+                    />
+                    <button 
+                      type="button" 
+                      className="remove-case-btn"
+                      onClick={() => removeManualTestCase(index)}
+                      disabled={manualTestCases.length === 1}
+                      title="Remove test case"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="add-case-btn" onClick={addManualTestCase}>
+                + Add Test Case
+              </button>
+              <span className="field-hint">Enter Feature/Module, Scenario description, and Expected Result for each test case.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="form-row two">
-        <label className="field">
-          <span className="field-label">Test cases CSV <em>required</em></span>
-          <input name="tcFile" type="file" accept=".csv,.xlsx,.xls" />
-          <span className="field-hint">Feature, Scenario, Expected Result</span>
-        </label>
         <label className="field">
           <span className="field-label">Channel profile</span>
           <select name="channelProfile">
@@ -83,25 +222,25 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
             <option value="default">Generic OTT</option>
           </select>
         </label>
-      </div>
-      <div className="form-row two">
-        <label className="field">
-          <span className="field-label">Assertions (one per line)</span>
-          <textarea
-            name="assertions"
-            rows={4}
-            placeholder={"text:Sign in\ntext:Continue Watching\nselector:[data-testid='play']\nselector:button.primary"}
-          />
-          <span className="field-hint">
-            Use <strong>text:</strong> for visible text. Use <strong>selector:</strong> for CSS or XPath. Each line = one check on the landing page.
-          </span>
-        </label>
         <label className="field">
           <span className="field-label">Login (optional)</span>
           <div className="field-inputs">
             <input name="loginUsername" type="text" placeholder="Email" autoComplete="off" />
             <input name="loginPassword" type="password" placeholder="Password" autoComplete="off" />
           </div>
+        </label>
+      </div>
+      <div className="form-row">
+        <label className="field full">
+          <span className="field-label">Assertions (one per line)</span>
+          <textarea
+            name="assertions"
+            rows={3}
+            placeholder={"text:Sign in\ntext:Continue Watching\nselector:[data-testid='play']\nselector:button.primary"}
+          />
+          <span className="field-hint">
+            Use <strong>text:</strong> for visible text. Use <strong>selector:</strong> for CSS or XPath. Each line = one check on the landing page.
+          </span>
         </label>
       </div>
       <div className="form-row">

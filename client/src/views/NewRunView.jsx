@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import './NewRunView.css';
 
+// Initial manual test case template
+const emptyTestCase = () => ({ id: Date.now(), feature: '', scenario: '', expectedResult: '' });
+
 const STEPS = [
   { id: 'input',     label: 'Input Sources' },
   { id: 'assets',    label: 'Test Assets' },
@@ -14,6 +17,9 @@ function detectWebsiteType(url) {
   if (!url) return null;
   try {
     const hostname = new URL(url).hostname.toLowerCase();
+    
+    // Retail Stores (specific - check before generic 'store')
+    if (hostname.includes('supersaravanastores') || hostname.includes('saravana')) return 'Retail Store (Super Saravana Stores)';
     
     // E-commerce platforms
     if (hostname.includes('flipkart')) return 'E-commerce Platform (Flipkart)';
@@ -85,6 +91,21 @@ export default function NewRunView({ onSubmit }) {
   const [ottUrl, setOttUrl] = useState('');
   const [hasFile, setHasFile]   = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
+  
+  // Test case input mode: 'auto' | 'csv' | 'manual'
+  const [testCaseMode, setTestCaseMode] = useState('auto');
+  const [manualTestCases, setManualTestCases] = useState([emptyTestCase()]);
+
+  // Manual test case handlers
+  const addManualTestCase = () => {
+    setManualTestCases(prev => [...prev, emptyTestCase()]);
+  };
+  const removeManualTestCase = (id) => {
+    setManualTestCases(prev => prev.filter(tc => tc.id !== id));
+  };
+  const updateManualTestCase = (id, field, value) => {
+    setManualTestCases(prev => prev.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
+  };
 
   // Detect website type dynamically
   const websiteType = useMemo(() => detectWebsiteType(ottUrl), [ottUrl]);
@@ -133,14 +154,39 @@ export default function NewRunView({ onSubmit }) {
 
     const url = form.ottUrl?.value?.trim();
     if (!url) { setError('Target URL is required.'); return; }
+    
     const file  = form.tcFile?.files?.[0];
     const notes = form.notes?.value?.trim();
-    if (!file && !notes) { setError('Provide test cases (CSV) or release notes.'); return; }
+    
+    // Validate based on test case mode
+    if (testCaseMode === 'csv' && !file) {
+      setError('Please upload a CSV file or switch to another mode.');
+      return;
+    }
+    if (testCaseMode === 'manual') {
+      const validCases = manualTestCases.filter(tc => tc.feature.trim() || tc.scenario.trim());
+      if (validCases.length === 0) {
+        setError('Please add at least one test case or switch to another mode.');
+        return;
+      }
+    }
+    if (testCaseMode === 'auto' && !notes && !url) {
+      setError('Provide a target URL for auto-generation.');
+      return;
+    }
 
     setError('');
     setSubmitting(true);
     const fd = new FormData(form);
     fd.set('figmaUrl', '');
+    fd.set('testCaseInputMode', testCaseMode);
+    
+    // Add manual test cases if in manual mode
+    if (testCaseMode === 'manual') {
+      const validCases = manualTestCases.filter(tc => tc.feature.trim() || tc.scenario.trim());
+      fd.set('manualTestCases', JSON.stringify(validCases));
+    }
+    
     if (recordingId) fd.set('recordingId', recordingId);
     else if (recordingSessionId) fd.set('recordingSessionId', recordingSessionId);
     const recFile = form.recordingFile?.files?.[0];
@@ -235,16 +281,118 @@ export default function NewRunView({ onSubmit }) {
 
           {/* Step 1 — Test Assets */}
           <div style={{ display: step === 1 ? 'block' : 'none' }}>
-            <StepPanel title="Test Assets" eyebrow="Step 02 / 05" desc="Provide test cases or context for the AI agents">
-              <Field label="Test Cases CSV" hint="Columns: Feature, Scenario, Expected Result">
-                <div className="file-drop-zone">
-                  <input name="tcFile" type="file" accept=".csv,.xlsx,.xls" className="file-input" id="tcFile"
-                    onChange={e => setHasFile(!!e.target.files?.[0])} />
-                  <label htmlFor="tcFile" className={`file-drop-label${hasFile ? ' file-drop-label--filled' : ''}`}>
-                    {hasFile ? <><CheckIcon /> File selected</> : <><UploadIcon /> Drop CSV / Excel here or click to browse</>}
-                  </label>
+            <StepPanel title="Test Assets" eyebrow="Step 02 / 05" desc="Provide test cases or let AI generate them">
+              
+              {/* Test Case Mode Tabs */}
+              <div className="tc-mode-tabs">
+                <button
+                  type="button"
+                  className={`tc-mode-tab${testCaseMode === 'auto' ? ' tc-mode-tab--active' : ''}`}
+                  onClick={() => setTestCaseMode('auto')}
+                >
+                  <AIIcon /> Auto-Generate
+                </button>
+                <button
+                  type="button"
+                  className={`tc-mode-tab${testCaseMode === 'csv' ? ' tc-mode-tab--active' : ''}`}
+                  onClick={() => setTestCaseMode('csv')}
+                >
+                  <UploadIcon /> Upload CSV
+                </button>
+                <button
+                  type="button"
+                  className={`tc-mode-tab${testCaseMode === 'manual' ? ' tc-mode-tab--active' : ''}`}
+                  onClick={() => setTestCaseMode('manual')}
+                >
+                  <EditIcon /> Manual Entry
+                </button>
+              </div>
+
+              {/* Auto-Generate Mode */}
+              {testCaseMode === 'auto' && (
+                <div className="tc-mode-content tc-auto">
+                  <div className="tc-auto-info">
+                    <AIIcon />
+                    <div>
+                      <strong>URL Analyzer Agent</strong>
+                      <p>The AI will analyze your target URL to discover elements, detect features, and automatically generate test cases based on what it finds.</p>
+                    </div>
+                  </div>
+                  <Field label="Additional Context" hint="Optional — helps focus the analysis">
+                    <textarea
+                      name="notes"
+                      className="form-textarea"
+                      rows={3}
+                      placeholder="Focus areas, specific features to test, known issues..."
+                      onChange={e => setHasNotes(!!e.target.value.trim())}
+                    />
+                  </Field>
                 </div>
-              </Field>
+              )}
+
+              {/* CSV Upload Mode */}
+              {testCaseMode === 'csv' && (
+                <div className="tc-mode-content tc-csv">
+                  <Field label="Test Cases CSV" hint="Columns: Feature, Scenario, Expected Result">
+                    <div className="file-drop-zone">
+                      <input name="tcFile" type="file" accept=".csv,.xlsx,.xls" className="file-input" id="tcFile"
+                        onChange={e => setHasFile(!!e.target.files?.[0])} />
+                      <label htmlFor="tcFile" className={`file-drop-label${hasFile ? ' file-drop-label--filled' : ''}`}>
+                        {hasFile ? <><CheckIcon /> File selected</> : <><UploadIcon /> Drop CSV / Excel here or click to browse</>}
+                      </label>
+                    </div>
+                  </Field>
+                </div>
+              )}
+
+              {/* Manual Entry Mode */}
+              {testCaseMode === 'manual' && (
+                <div className="tc-mode-content tc-manual">
+                  <div className="tc-manual-header">
+                    <span className="tc-manual-title">Test Cases ({manualTestCases.length})</span>
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={addManualTestCase}>
+                      + Add Test Case
+                    </button>
+                  </div>
+                  <div className="tc-manual-list">
+                    {manualTestCases.map((tc, idx) => (
+                      <div key={tc.id} className="tc-manual-row">
+                        <span className="tc-manual-num">{idx + 1}</span>
+                        <input
+                          type="text"
+                          className="form-input tc-manual-input"
+                          placeholder="Feature (e.g., Login)"
+                          value={tc.feature}
+                          onChange={e => updateManualTestCase(tc.id, 'feature', e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          className="form-input tc-manual-input tc-manual-input--wide"
+                          placeholder="Scenario (e.g., User logs in with valid credentials)"
+                          value={tc.scenario}
+                          onChange={e => updateManualTestCase(tc.id, 'scenario', e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          className="form-input tc-manual-input"
+                          placeholder="Expected Result"
+                          value={tc.expectedResult}
+                          onChange={e => updateManualTestCase(tc.id, 'expectedResult', e.target.value)}
+                        />
+                        {manualTestCases.length > 1 && (
+                          <button
+                            type="button"
+                            className="tc-manual-remove"
+                            onClick={() => removeManualTestCase(tc.id)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <Field label="Assertions" hint="One per line — text:Sign In  or  selector:[data-testid='play']">
                 <textarea
@@ -252,16 +400,6 @@ export default function NewRunView({ onSubmit }) {
                   className="form-textarea"
                   rows={4}
                   placeholder={"text:Sign in\ntext:Continue Watching\nselector:[data-testid='play']\nselector:button.primary"}
-                />
-              </Field>
-
-              <Field label="Release Notes / Context" hint="Optional — helps the BA Agent scope the run">
-                <textarea
-                  name="notes"
-                  className="form-textarea"
-                  rows={3}
-                  placeholder="Release context, known blockers, scope…"
-                  onChange={e => setHasNotes(!!e.target.value.trim())}
                 />
               </Field>
             </StepPanel>
@@ -454,6 +592,11 @@ const AIIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
     <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.3" />
     <path d="M4 6l1.5 1.5 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const EditIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
   </svg>
 );
 const LockIcon = () => (

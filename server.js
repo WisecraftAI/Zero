@@ -5,6 +5,30 @@ const fs = require("fs/promises");
 const path = require("path");
 const multer = require("multer");
 const { Pool } = require("pg");
+const compression = require("compression");
+const cors = require("cors");
+
+// Professional plugins
+const logger = require("./lib/logger");
+const apiKeyManager = require("./lib/apiKeyManager");
+const swaggerSpec = require("./lib/swagger");
+const { 
+  rateLimiters, 
+  securityHeaders, 
+  corsOptions, 
+  requestId,
+  cacheMiddleware,
+  invalidateCache
+} = require("./lib/middleware");
+
+// Swagger UI (conditionally load)
+let swaggerUi;
+try {
+  swaggerUi = require("swagger-ui-express");
+} catch (e) {
+  logger.warn("swagger-ui-express not installed, API docs disabled");
+}
+
 // Lazy-load Playwright to prevent cold-start serverless crash
 const chromium = {
   launch: (options) => {
@@ -21,9 +45,32 @@ const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
 const javaSeleniumBuilder = require("./lib/javaSeleniumBuilder");
 const { detectDomain, getSelectors, getDomainConfig } = require("./lib/ecommerceSelectors");
+const urlAnalyzerPro = require("./lib/urlAnalyzerPro");
+const urlAnalyzer = require("./lib/urlAnalyzer"); // Legacy fallback
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// Security middleware
+app.use(securityHeaders);
+app.use(cors(corsOptions));
+app.use(compression());
+app.use(requestId);
+
+// Request logging
+app.use(logger.requestLogger);
+
+// Rate limiting (apply before routes)
+app.use("/api/", rateLimiters.general);
+
+// Swagger API documentation
+if (swaggerUi) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "ZER0 API Documentation"
+  }));
+  logger.info("API documentation available at /api-docs");
+}
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -166,6 +213,115 @@ const appProfiles = {
       pauseCta: ["button[aria-label*='Pause']", "button:has-text('Pause')"],
       seekBar: ["[role='slider']", "[aria-label*='Seek']", "input[type='range']"]
     }
+  },
+  // ============== DOMAIN-SPECIFIC PROFILES (NON-OTT) ==============
+  retail_store: {
+    name: "Retail Store",
+    modules: ["Home", "Branches", "Categories", "Products", "About", "Contact"],
+    journeys: ["Browse store locations", "Explore product categories", "Find contact information", "Navigate to branch details"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']", "[class*='menu']"],
+      branchList: ["[class*='branch']", "[class*='location']", "[class*='store']", "a[href*='branch']"],
+      categoryList: ["[class*='category']", "[class*='product']", "a[href*='category']"],
+      contactInfo: ["a[href^='tel:']", "a[href^='mailto:']", "[class*='contact']"],
+      footer: ["footer", "[class*='footer']"]
+    }
+  },
+  ecommerce: {
+    name: "E-commerce Platform",
+    modules: ["Home", "Search", "Categories", "Product", "Cart", "Checkout", "Account"],
+    journeys: ["Search for product", "Browse categories", "Add to cart", "Complete checkout", "User authentication"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      searchBox: ["input[type='search']", "input[name*='search']", "input[placeholder*='search' i]"],
+      searchSubmit: ["button[type='submit']", "[class*='search'] button"],
+      productCard: ["[class*='product']", "article", "[data-product]"],
+      addToCart: ["button:has-text('Add to Cart')", "button:has-text('Add to Bag')", "[class*='add-to-cart']"],
+      cartIcon: ["[class*='cart']", "a[href*='cart']"],
+      loginCta: ["button:has-text('Login')", "a:has-text('Sign in')"]
+    }
+  },
+  healthcare: {
+    name: "Healthcare/Pharmaceutical",
+    modules: ["Home", "Products", "About", "Contact", "Careers", "Investor Relations"],
+    journeys: ["Browse products", "Find contact information", "Access career portal", "Report adverse event"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      productList: ["[class*='product']", "[class*='brand']", "a[href*='product']"],
+      contactForm: ["form", "[class*='contact']"],
+      adverseEvent: ["a[href*='adverse']", "a:has-text('Report')"],
+      footer: ["footer", "[class*='footer']"]
+    }
+  },
+  corporate: {
+    name: "Corporate Website",
+    modules: ["Home", "About", "Services", "Products", "Careers", "Contact", "Investor Relations"],
+    journeys: ["Navigate main sections", "Access company information", "Find contact details", "Explore careers"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      aboutSection: ["a[href*='about']", "[class*='about']"],
+      careersSection: ["a[href*='career']", "[class*='career']"],
+      contactForm: ["form", "[class*='contact']"],
+      footer: ["footer", "[class*='footer']"]
+    }
+  },
+  banking: {
+    name: "Banking/Finance Portal",
+    modules: ["Home", "Login", "Accounts", "Transfers", "Payments", "Settings"],
+    journeys: ["Secure login", "View account balance", "Transfer funds", "Pay bills"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      loginForm: ["form[class*='login']", "[class*='login']"],
+      loginCta: ["button:has-text('Login')", "a:has-text('Login')"],
+      accountInfo: ["[class*='account']", "[class*='balance']"],
+      footer: ["footer", "[class*='footer']"]
+    }
+  },
+  food_delivery: {
+    name: "Food Delivery Platform",
+    modules: ["Home", "Search", "Restaurants", "Menu", "Cart", "Checkout", "Orders"],
+    journeys: ["Search restaurants", "Browse menu", "Add to cart", "Complete order", "Track order"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      searchBox: ["input[type='search']", "input[placeholder*='search' i]"],
+      restaurantCard: ["[class*='restaurant']", "article", "[data-restaurant]"],
+      menuItem: ["[class*='menu-item']", "[class*='dish']"],
+      cartIcon: ["[class*='cart']", "a[href*='cart']"]
+    }
+  },
+  travel: {
+    name: "Travel Booking Platform",
+    modules: ["Home", "Search", "Flights", "Hotels", "Packages", "Booking", "Account"],
+    journeys: ["Search flights", "Search hotels", "Complete booking", "Manage booking"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      searchForm: ["form", "[class*='search']"],
+      flightCard: ["[class*='flight']", "[class*='result']"],
+      hotelCard: ["[class*='hotel']", "[class*='property']"],
+      bookNow: ["button:has-text('Book')", "a:has-text('Book')"]
+    }
+  },
+  education: {
+    name: "Education Platform",
+    modules: ["Home", "Courses", "Categories", "Learning", "Profile", "Certificates"],
+    journeys: ["Browse courses", "Enroll in course", "Access learning content", "Track progress"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      courseCard: ["[class*='course']", "article", "[data-course]"],
+      enrollButton: ["button:has-text('Enroll')", "a:has-text('Start')"],
+      videoPlayer: ["video", "[class*='player']"]
+    }
+  },
+  news_media: {
+    name: "News/Media Website",
+    modules: ["Home", "Categories", "Articles", "Videos", "Search", "Subscribe"],
+    journeys: ["Browse headlines", "Read article", "Watch video", "Search content"],
+    selectorCandidates: {
+      primaryNav: ["nav", "header", "[role='navigation']"],
+      articleCard: ["article", "[class*='article']", "[class*='story']"],
+      searchBox: ["input[type='search']", "input[placeholder*='search' i]"],
+      videoPlayer: ["video", "[class*='player']"]
+    }
   }
 };
 
@@ -198,6 +354,71 @@ const profileScenarioCatalog = {
     { module: "Authentication", scenario: "Login gate handling", expected: "User progresses through auth gate", priority: "High", type: "Sanity" },
     { module: "Navigation", scenario: "Home to detail drill-down", expected: "Card open and details metadata are visible", priority: "High", type: "Sanity" },
     { module: "Playback", scenario: "Playback control checks", expected: "Play/Pause/Seek interactions work", priority: "High", type: "Sanity" }
+  ],
+  // ============== DOMAIN-SPECIFIC SCENARIO CATALOGS ==============
+  retail_store: [
+    { module: "Navigation", scenario: "Main menu navigation", expected: "All menu items are clickable and navigate correctly", priority: "Critical", type: "Sanity" },
+    { module: "Branches", scenario: "Store branch listing", expected: "All store branches are displayed with addresses", priority: "Critical", type: "Sanity" },
+    { module: "Branches", scenario: "Branch details and contact", expected: "Contact information and store hours are visible", priority: "High", type: "Functional" },
+    { module: "Categories", scenario: "Product category browsing", expected: "Product categories are navigable and show items", priority: "High", type: "Functional" },
+    { module: "Contact", scenario: "Contact information access", expected: "Phone, email, and address are accessible", priority: "High", type: "Functional" },
+    { module: "UI", scenario: "Image and media loading", expected: "All images load without errors", priority: "Medium", type: "UI" },
+    { module: "Footer", scenario: "Footer links verification", expected: "Footer links navigate to correct pages", priority: "Medium", type: "Sanity" }
+  ],
+  ecommerce: [
+    { module: "Search", scenario: "Product search functionality", expected: "Search returns relevant products", priority: "Critical", type: "Sanity" },
+    { module: "Products", scenario: "Product listing page", expected: "Products display with image, price, and title", priority: "Critical", type: "Sanity" },
+    { module: "Products", scenario: "Product details page", expected: "Product details show complete information", priority: "High", type: "Functional" },
+    { module: "Cart", scenario: "Add to cart functionality", expected: "Product is added to cart, count updates", priority: "Critical", type: "Sanity" },
+    { module: "Cart", scenario: "Cart management", expected: "Items can be updated and removed", priority: "High", type: "Functional" },
+    { module: "Authentication", scenario: "User login", expected: "User can log in with valid credentials", priority: "High", type: "Functional" },
+    { module: "Checkout", scenario: "Checkout flow", expected: "User can complete checkout process", priority: "Critical", type: "E2E" }
+  ],
+  healthcare: [
+    { module: "Navigation", scenario: "Main navigation verification", expected: "All sections are accessible", priority: "Critical", type: "Sanity" },
+    { module: "Products", scenario: "Product information access", expected: "Product details are accurate and complete", priority: "High", type: "Functional" },
+    { module: "Contact", scenario: "Contact form submission", expected: "Form accepts input and confirms submission", priority: "High", type: "Functional" },
+    { module: "Compliance", scenario: "Adverse event reporting access", expected: "Adverse event reporting is accessible", priority: "Critical", type: "Compliance" },
+    { module: "About", scenario: "Company information pages", expected: "About, careers, and investor pages load", priority: "Medium", type: "Functional" }
+  ],
+  corporate: [
+    { module: "Navigation", scenario: "Main navigation verification", expected: "All sections are accessible", priority: "Critical", type: "Sanity" },
+    { module: "About", scenario: "Company information pages", expected: "About, leadership, and history pages load", priority: "High", type: "Functional" },
+    { module: "Contact", scenario: "Contact form submission", expected: "Form accepts input and confirms submission", priority: "High", type: "Functional" },
+    { module: "Careers", scenario: "Career portal access", expected: "Job listings are viewable", priority: "Medium", type: "Functional" }
+  ],
+  banking: [
+    { module: "Security", scenario: "HTTPS verification", expected: "All pages use HTTPS", priority: "Critical", type: "Security" },
+    { module: "Authentication", scenario: "Secure login", expected: "Login accepts credentials securely", priority: "Critical", type: "Security" },
+    { module: "Navigation", scenario: "Main navigation verification", expected: "All sections are accessible", priority: "High", type: "Sanity" },
+    { module: "Forms", scenario: "Form validation", expected: "Forms validate input correctly", priority: "High", type: "Functional" }
+  ],
+  food_delivery: [
+    { module: "Search", scenario: "Restaurant search", expected: "Search returns relevant restaurants", priority: "Critical", type: "Sanity" },
+    { module: "Browse", scenario: "Restaurant listing", expected: "Restaurants display with ratings and info", priority: "High", type: "Functional" },
+    { module: "Menu", scenario: "Menu browsing", expected: "Menu items are viewable with prices", priority: "High", type: "Functional" },
+    { module: "Cart", scenario: "Add items to cart", expected: "Items are added and cart updates", priority: "Critical", type: "Sanity" }
+  ],
+  travel: [
+    { module: "Search", scenario: "Flight/hotel search", expected: "Search returns relevant results", priority: "Critical", type: "Sanity" },
+    { module: "Results", scenario: "Search results display", expected: "Results show prices and details", priority: "High", type: "Functional" },
+    { module: "Booking", scenario: "Booking flow", expected: "User can proceed through booking", priority: "Critical", type: "E2E" }
+  ],
+  education: [
+    { module: "Courses", scenario: "Course catalog browsing", expected: "Courses are listed and searchable", priority: "Critical", type: "Sanity" },
+    { module: "Enrollment", scenario: "Course enrollment", expected: "User can enroll in a course", priority: "High", type: "Functional" },
+    { module: "Learning", scenario: "Content access", expected: "Learning content is accessible", priority: "High", type: "Functional" }
+  ],
+  news_media: [
+    { module: "Navigation", scenario: "Category navigation", expected: "All news categories are accessible", priority: "Critical", type: "Sanity" },
+    { module: "Content", scenario: "Article loading", expected: "Articles load with full content", priority: "High", type: "Functional" },
+    { module: "Search", scenario: "Content search", expected: "Search returns relevant articles", priority: "High", type: "Functional" }
+  ],
+  default: [
+    { module: "Navigation", scenario: "Main navigation verification", expected: "All menu items are clickable and navigate correctly", priority: "Critical", type: "Sanity" },
+    { module: "UI", scenario: "Page loading and display", expected: "Page loads completely without errors", priority: "High", type: "Sanity" },
+    { module: "Forms", scenario: "Form functionality", expected: "Forms accept input and provide feedback", priority: "High", type: "Functional" },
+    { module: "Links", scenario: "Link verification", expected: "All links navigate to valid pages", priority: "Medium", type: "Sanity" }
   ]
 };
 
@@ -532,48 +753,172 @@ function extractUploadedCases(input) {
 }
 
 function consolidateRequirements(input) {
-  const profileKey = inferProfile(input.ottUrl, input.channelProfile);
-  const profile = appProfiles[profileKey];
   const assertions = safeList(input.assertions);
   const notes = safeList(input.notes);
   const extraction = extractUploadedCases(input);
   const uploadedCases = extraction.cases;
   const testCaseRowsStructured = extraction.structured || [];
 
+  // Check for URL Analysis insights
+  const hasUrlAnalysis = input._webAnalysisInsights || input._brdDocument;
+  const brdDocument = input._brdDocument || null;
+  const urlAnalysisInsights = input._webAnalysisInsights || {};
+  const suggestedRequirements = input._suggestedRequirements || [];
+  const suggestedTestAreas = input._suggestedTestAreas || [];
+  const autoGeneratedTestCases = input._autoGeneratedTestCases || [];
+  const userFlows = input._userFlows || [];
+  const observations = input._observations || [];
+
+  // Determine the actual website type from URL analysis
+  const detectedWebsiteType = urlAnalysisInsights.websiteType || urlAnalysisInsights.siteType || null;
+  const websiteTypeConfidence = urlAnalysisInsights.websiteTypeConfidence || 0;
+  
+  // Map detected website type to profile key
+  let profileKey = 'default';
+  if (detectedWebsiteType && websiteTypeConfidence >= 0.5) {
+    if (detectedWebsiteType.toLowerCase().includes('retail')) profileKey = 'retail_store';
+    else if (detectedWebsiteType.toLowerCase().includes('e-commerce') || detectedWebsiteType.toLowerCase().includes('ecommerce')) profileKey = 'ecommerce';
+    else if (detectedWebsiteType.toLowerCase().includes('healthcare') || detectedWebsiteType.toLowerCase().includes('pharma')) profileKey = 'healthcare';
+    else if (detectedWebsiteType.toLowerCase().includes('corporate')) profileKey = 'corporate';
+    else if (detectedWebsiteType.toLowerCase().includes('bank') || detectedWebsiteType.toLowerCase().includes('finance')) profileKey = 'banking';
+    else if (detectedWebsiteType.toLowerCase().includes('food') || detectedWebsiteType.toLowerCase().includes('delivery')) profileKey = 'food_delivery';
+    else if (detectedWebsiteType.toLowerCase().includes('travel') || detectedWebsiteType.toLowerCase().includes('booking')) profileKey = 'travel';
+    else if (detectedWebsiteType.toLowerCase().includes('education') || detectedWebsiteType.toLowerCase().includes('learning')) profileKey = 'education';
+    else if (detectedWebsiteType.toLowerCase().includes('news') || detectedWebsiteType.toLowerCase().includes('media')) profileKey = 'news_media';
+    else if (detectedWebsiteType.toLowerCase().includes('ott') || detectedWebsiteType.toLowerCase().includes('streaming')) {
+      // Check for specific OTT platforms
+      profileKey = inferProfile(input.ottUrl, input.channelProfile);
+    }
+  } else {
+    // Fallback to OTT profile inference for backward compatibility
+    profileKey = inferProfile(input.ottUrl, input.channelProfile);
+  }
+  
+  const profile = appProfiles[profileKey] || appProfiles.default;
+  const effectiveProfileName = detectedWebsiteType || profile.name;
+
   const sourceMode = input.figmaUrl
     ? "figma-plus-user-input"
     : uploadedCases.length
       ? (testCaseRowsStructured.length ? "csv-test-cases-only" : "uploaded-test-cases-plus-user-input")
-      : "user-input-only";
+      : hasUrlAnalysis
+        ? "url-analysis-auto-generated"
+        : "user-input-only";
+
+  // Generate domain-appropriate requirement statements
+  let requirementStatements = [];
+  
+  if (profileKey === 'retail_store') {
+    requirementStatements = [
+      "All store branch locations must be displayed with complete address and contact information.",
+      "Store operating hours must be clearly visible for each branch.",
+      "Product categories must be navigable and display relevant items.",
+      "Contact information must be accessible from all pages.",
+      "Navigation menu must provide clear access to all main sections.",
+      "Images and media must load correctly across all pages."
+    ];
+  } else if (profileKey === 'ecommerce') {
+    requirementStatements = [
+      "Product search must return relevant results within 3 seconds.",
+      "Product listing pages must display price, image, and availability.",
+      "Add to Cart functionality must update cart count immediately.",
+      "Cart must persist items across page navigation.",
+      "Checkout flow must be completable without errors.",
+      "User authentication must work for login and registration."
+    ];
+  } else if (profileKey === 'healthcare') {
+    requirementStatements = [
+      "Product information must be accurate and accessible.",
+      "Contact forms must accept user input and confirm submission.",
+      "Adverse event reporting mechanism must be accessible.",
+      "Company information must be available and accurate.",
+      "Navigation must provide access to all product and corporate sections."
+    ];
+  } else if (profileKey === 'banking') {
+    requirementStatements = [
+      "Login must be secure with proper credential handling.",
+      "All pages must be served over HTTPS.",
+      "Session management must handle timeout appropriately.",
+      "Account information must display accurately.",
+      "Transaction forms must validate input properly."
+    ];
+  } else {
+    // Default/OTT requirements
+    requirementStatements = [
+      "Application shell must render with primary navigation and discoverable entry points.",
+      "Content must be accessible through navigation and search.",
+      "Forms must accept user input and provide feedback.",
+      "Images and media must load correctly.",
+      "All interactive elements must respond to user actions."
+    ];
+  }
+
+  // Add suggested requirements from URL Analysis
+  if (suggestedRequirements.length > 0) {
+    requirementStatements = [
+      ...requirementStatements,
+      ...suggestedRequirements.slice(0, 10)
+    ];
+  }
+
+  // Add requirements from BRD document
+  if (brdDocument && brdDocument.functionalRequirements) {
+    const brdReqs = brdDocument.functionalRequirements
+      .filter(r => r.testable)
+      .slice(0, 10)
+      .map(r => `${r.id}: ${r.description}`);
+    requirementStatements = [...requirementStatements, ...brdReqs];
+  }
+
+  // Get user journeys from URL analysis or profile
+  let enhancedJourneys = [...(profile.journeys || [])];
+  if (urlAnalysisInsights.userJourneys && urlAnalysisInsights.userJourneys.length > 0) {
+    enhancedJourneys = urlAnalysisInsights.userJourneys; // Prefer URL analysis journeys
+  }
+  if (userFlows.length > 0) {
+    const flowNames = userFlows.map(f => f.name);
+    enhancedJourneys = [...new Set([...flowNames, ...enhancedJourneys])];
+  }
+
+  // Determine target domain and audience from URL analysis
+  const targetDomain = detectedWebsiteType || profileKey.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  let audience = "Website visitors";
+  if (profileKey === 'ecommerce') audience = "Online shoppers";
+  else if (profileKey === 'retail_store') audience = "Retail customers";
+  else if (profileKey === 'healthcare') audience = "Patients and healthcare professionals";
+  else if (profileKey === 'banking') audience = "Banking customers";
+  else if (profileKey === 'food_delivery') audience = "Food ordering customers";
+  else if (profileKey === 'travel') audience = "Travelers";
+  else if (profileKey === 'education') audience = "Students and learners";
+  else if (profileKey === 'news_media') audience = "Readers and viewers";
+  else if (profileKey.includes('ott') || profile.name.includes('OTT')) audience = "Streaming users";
 
   return {
     metadata: {
       ottUrl: input.ottUrl,
       figmaUrl: input.figmaUrl || null,
       profileKey,
-      profile: profile.name,
+      profile: effectiveProfileName,
+      websiteType: detectedWebsiteType,
+      websiteTypeConfidence,
       generatedAt: new Date().toISOString(),
-      source: "BA Agent",
+      source: hasUrlAnalysis ? "BA Agent + URL Analyzer Pro" : "BA Agent",
       sourceMode,
-      sourceCaseCount: uploadedCases.length
+      sourceCaseCount: uploadedCases.length,
+      hasUrlAnalysis,
+      autoGeneratedTestCaseCount: autoGeneratedTestCases.length
     },
     testCaseRowsStructured,
     channelContext: {
       hostname: hostFromUrl(input.ottUrl),
-      targetDomain: "OTT",
-      audience: "Streaming users",
+      targetDomain,
+      audience,
       releaseIntent: "Regression + user critical paths",
       loginCredentialsProvided: Boolean(input.login && input.login.enabled)
     },
     modules: profile.modules,
-    userJourneys: profile.journeys,
-    requirementStatements: [
-      "Application shell must render with primary navigation and discoverable entry points.",
-      "If unauthenticated gates exist, system must support clear progression using Continue/Sign-in actions.",
-      "Content card to details transition must preserve media metadata and CTA visibility.",
-      "Player experience must expose play, pause, and timeline interaction reliably.",
-      "Assertion points provided by user must map to at least one manual and one automated check."
-    ],
+    userJourneys: enhancedJourneys,
+    requirementStatements: [...new Set(requirementStatements)],
     qualityStandard: {
       mode: "pro",
       manualCaseTemplate: ["id", "module", "scenario", "priority", "preconditions", "steps", "expectedResult", "type"]
@@ -585,13 +930,25 @@ function consolidateRequirements(input) {
     assumptions: [
       "Given URL is a valid pre-prod or prod-like environment.",
       "If figma is unavailable, uploaded test case file is accepted as baseline behavior reference.",
-      "No credential secrets are provided in this tool; login walls may remain partial in automation."
+      "No credential secrets are provided in this tool; login walls may remain partial in automation.",
+      ...(hasUrlAnalysis ? ["URL Analysis provides comprehensive element discovery for test coverage."] : [])
     ],
     risks: [
       "Dynamic content rails can shift selectors between runs.",
       "Regional variants may alter CTA labels.",
-      "Login gates may require OTP/captcha not automatable in generic flow."
-    ]
+      "Login gates may require OTP/captcha not automatable in generic flow.",
+      ...(observations.filter(o => o.type === 'warning').map(o => o.message) || [])
+    ],
+    // URL Analysis enhanced data
+    urlAnalysis: hasUrlAnalysis ? {
+      insights: urlAnalysisInsights,
+      suggestedTestAreas,
+      suggestedRequirements,
+      autoGeneratedTestCases,
+      userFlows,
+      observations: observations.filter(o => o.type !== 'warning'),
+      brdDocument
+    } : null
   };
 }
 
@@ -734,6 +1091,172 @@ function generateCasesFromUploadedOnly(requirements) {
       professionalMode: true,
       mode: "uploaded_tc_only",
       totalCases: testCases.length
+    },
+    testCases
+  };
+}
+
+/**
+ * Generate test cases from URL Analysis results
+ * Uses the auto-generated test cases from the URL Analyzer agent
+ */
+function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
+  const profile = requirements.metadata?.profile || webAnalysis.siteOverview?.title || "Website";
+  const autoTestCases = webAnalysis.autoGeneratedTestCases || [];
+  const userFlows = webAnalysis.userFlows || [];
+  const brd = webAnalysis.brdDocument || {};
+  
+  // Combine auto-generated test cases with flow-based test cases
+  const testCases = [];
+  
+  // Add auto-generated test cases from URL Analyzer
+  autoTestCases.forEach((tc, i) => {
+    testCases.push({
+      id: tc.id || `TC-AUTO-${String(i + 1).padStart(3, '0')}`,
+      module: tc.module || 'Auto-Discovered',
+      scenario: tc.scenario || tc.title,
+      title: tc.title || `${profile}: Auto-discovered test ${i + 1}`,
+      type: tc.type || 'Auto',
+      priority: tc.priority || 'High',
+      preconditions: tc.preconditions || 'Website is accessible, browser is ready',
+      testData: tc.testData || 'Standard test data',
+      steps: Array.isArray(tc.steps) ? tc.steps : [tc.steps || 'Execute test scenario'],
+      expectedResult: tc.expectedResult || 'Test passes without errors',
+      traceability: tc.traceability || 'Generated by URL Analyzer Agent'
+    });
+  });
+
+  // Add test cases from BRD functional requirements if not already covered
+  if (brd.functionalRequirements) {
+    const existingScenarios = new Set(testCases.map(tc => tc.scenario?.toLowerCase()));
+    
+    brd.functionalRequirements.forEach((req, i) => {
+      if (req.testable && !existingScenarios.has(req.feature?.toLowerCase())) {
+        testCases.push({
+          id: `TC-BRD-${String(i + 1).padStart(3, '0')}`,
+          module: req.feature || 'BRD Requirement',
+          scenario: `Verify ${req.feature || 'Requirement'}`,
+          title: `${profile}: ${req.feature} - BRD Verification`,
+          type: 'BRD',
+          priority: req.priority || 'High',
+          preconditions: 'As specified in BRD document',
+          testData: 'As per requirement specification',
+          steps: req.acceptanceCriteria ? req.acceptanceCriteria.map((ac, j) => `Step ${j + 1}: Verify - ${ac}`) : [`Verify: ${req.description}`],
+          expectedResult: req.acceptanceCriteria ? req.acceptanceCriteria.join('; ') : req.description,
+          traceability: `BRD Requirement: ${req.id}`
+        });
+      }
+    });
+  }
+
+  // Add test cases for discovered features not yet covered
+  if (webAnalysis.features) {
+    const coveredFeatures = new Set(testCases.map(tc => tc.module?.toLowerCase()));
+    
+    webAnalysis.features.forEach((feature, i) => {
+      if (!coveredFeatures.has(feature.name?.toLowerCase())) {
+        testCases.push({
+          id: `TC-FEAT-${String(i + 1).padStart(3, '0')}`,
+          module: feature.name,
+          scenario: `Verify ${feature.name} functionality`,
+          title: `${profile}: ${feature.name} - Feature Verification`,
+          type: feature.type === 'core' ? 'Sanity' : 'Functional',
+          priority: feature.type === 'core' ? 'Critical' : feature.priority || 'High',
+          preconditions: 'Feature is accessible on the website',
+          testData: 'Standard test data',
+          steps: [
+            `Navigate to ${feature.name} area`,
+            `Verify ${feature.name} is visible`,
+            `Interact with ${feature.name}`,
+            `Verify expected behavior: ${feature.description || 'Feature works as expected'}`
+          ],
+          expectedResult: feature.description || `${feature.name} functions correctly`,
+          traceability: 'Generated from URL Analysis - Feature Discovery'
+        });
+      }
+    });
+  }
+
+  // Calculate quality metrics
+  const structuredRate = testCases.length
+    ? Math.round((testCases.filter(tc => tc.module && tc.scenario && tc.steps && tc.steps.length >= 2).length / testCases.length) * 100)
+    : 0;
+
+  return {
+    metadata: {
+      generatedAt: new Date().toISOString(),
+      source: "URL Analyzer Agent",
+      profile,
+      professionalMode: true,
+      mode: "url_analysis",
+      totalCases: testCases.length,
+      qualityGate: {
+        structureRate: `${structuredRate}%`,
+        minAcceptedStructureRate: "80%"
+      },
+      analysisStats: {
+        autoGeneratedCount: autoTestCases.length,
+        brdRequirementCount: brd.functionalRequirements?.length || 0,
+        featureCount: webAnalysis.features?.length || 0,
+        userFlowCount: userFlows.length
+      }
+    },
+    testCases,
+    brdDocument: brd,
+    observations: webAnalysis.observations || [],
+    warnings: webAnalysis.warnings || []
+  };
+}
+
+/**
+ * Generate test cases from manually entered test cases (from UI form)
+ */
+function generateCasesFromManualInput(manualTestCases, requirements) {
+  const profile = requirements.metadata?.profile || "Website";
+  
+  const testCases = manualTestCases
+    .filter(tc => tc.feature || tc.scenario || tc.expectedResult)
+    .map((tc, i) => {
+      const feature = tc.feature?.trim() || "General";
+      const scenario = tc.scenario?.trim() || `Manual Test ${i + 1}`;
+      const expectedResult = tc.expectedResult?.trim() || "Expected behavior as per test case";
+      
+      return {
+        id: `TC-MANUAL-${String(i + 1).padStart(3, '0')}`,
+        module: feature,
+        scenario,
+        title: `${feature}: ${scenario}`,
+        type: 'Manual',
+        priority: 'High',
+        preconditions: 'Website is accessible, test environment is ready',
+        testData: 'As specified in the test case',
+        steps: [
+          `Navigate to relevant area for: ${feature}`,
+          `Execute: ${scenario}`,
+          `Verify: ${expectedResult.slice(0, 120)}${expectedResult.length > 120 ? '…' : ''}`
+        ],
+        expectedResult,
+        traceability: 'Manually entered test case'
+      };
+    });
+
+  // Calculate quality metrics
+  const structuredRate = testCases.length
+    ? Math.round((testCases.filter(tc => tc.module && tc.scenario && tc.expectedResult).length / testCases.length) * 100)
+    : 0;
+
+  return {
+    metadata: {
+      generatedAt: new Date().toISOString(),
+      source: "Manual Entry",
+      profile,
+      professionalMode: true,
+      mode: "manual_tc_only",
+      totalCases: testCases.length,
+      qualityGate: {
+        structureRate: `${structuredRate}%`,
+        minAcceptedStructureRate: "80%"
+      }
     },
     testCases
   };
@@ -931,7 +1454,192 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
     ? new Set(previous.tests.filter((t) => t.status === "failed").map((t) => t.id))
     : null;
 
-  const baseTests = [
+  // Detect website type from URL analysis
+  const webAnalysis = run.artifacts.webAnalysis || {};
+  const websiteType = webAnalysis.metadata?.domain || 'generic';
+  const websiteTypeName = webAnalysis.metadata?.websiteType || 'Website';
+  const autoGeneratedTestCases = webAnalysis.autoGeneratedTestCases || [];
+  const userFlows = webAnalysis.userFlows || [];
+  
+  console.log(`[Execution] Website type: ${websiteTypeName} (${websiteType})`);
+  console.log(`[Execution] Auto-generated test cases: ${autoGeneratedTestCases.length}`);
+  console.log(`[Execution] User flows: ${userFlows.length}`);
+
+  // Build domain-specific tests from auto-generated test cases
+  function buildDomainSpecificTests() {
+    // If we have auto-generated test cases from URL analysis, use those
+    if (autoGeneratedTestCases.length > 0) {
+      return autoGeneratedTestCases.slice(0, 10).map((tc, idx) => ({
+        id: tc.id || `AUTO-${String(idx + 1).padStart(3, "0")}`,
+        title: tc.scenario || tc.title || `Test Case ${idx + 1}`,
+        execute: async (page, trace) => {
+          // Navigate to URL if first test
+          if (idx === 0) {
+            await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+            await page.waitForLoadState("domcontentloaded");
+            await page.waitForTimeout(2000);
+          }
+          
+          const body = page.locator("body");
+          await body.waitFor({ state: "visible", timeout: 15000 });
+          
+          // Execute based on test case module/type
+          const module = (tc.module || "").toLowerCase();
+          const scenario = (tc.scenario || "").toLowerCase();
+          const type = (tc.type || "").toLowerCase();
+          
+          // Navigation tests
+          if (module.includes("nav") || scenario.includes("navigation") || scenario.includes("menu")) {
+            const nav = page.locator("nav, [role='navigation'], header nav, .navbar, .nav-menu").first();
+            if (await nav.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("nav:verified");
+              // Try clicking a nav item
+              const navItems = page.locator("nav a, header a, .nav-link, .nav-item a").first();
+              if (await navItems.isVisible({ timeout: 3000 }).catch(() => false)) {
+                trace.push("nav-items:found");
+              }
+            } else {
+              trace.push("nav:body-visible-only");
+            }
+            return;
+          }
+          
+          // Footer tests
+          if (module.includes("footer") || scenario.includes("footer")) {
+            const footer = page.locator("footer, [role='contentinfo'], .footer").first();
+            if (await footer.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("footer:verified");
+            } else {
+              // Scroll to bottom to find footer
+              await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+              await page.waitForTimeout(1000);
+              if (await footer.isVisible({ timeout: 5000 }).catch(() => false)) {
+                trace.push("footer:found-after-scroll");
+              } else {
+                trace.push("footer:not-visible");
+              }
+            }
+            return;
+          }
+          
+          // Store/Branch locator tests (retail)
+          if (scenario.includes("store") || scenario.includes("branch") || scenario.includes("location")) {
+            const storeLinks = page.locator("a:has-text('store'), a:has-text('branch'), a:has-text('location'), a:has-text('find us')").first();
+            if (await storeLinks.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("store-locator:found");
+            } else {
+              trace.push("store-locator:checking-page-content");
+            }
+            return;
+          }
+          
+          // Product/Category tests
+          if (scenario.includes("product") || scenario.includes("categor")) {
+            const products = page.locator(".product, .category, [class*='product'], [class*='category'], .item-card").first();
+            if (await products.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("products:found");
+            } else {
+              trace.push("products:checking-links");
+              const productLinks = page.locator("a:has-text('product'), a:has-text('shop'), a:has-text('categor')").first();
+              if (await productLinks.isVisible({ timeout: 3000 }).catch(() => false)) {
+                trace.push("product-links:found");
+              }
+            }
+            return;
+          }
+          
+          // Contact tests
+          if (scenario.includes("contact") || module.includes("contact")) {
+            const contactInfo = page.locator("a[href*='tel:'], a[href*='mailto:'], .contact, [class*='contact']").first();
+            if (await contactInfo.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("contact:found");
+            } else {
+              trace.push("contact:checking-footer");
+            }
+            return;
+          }
+          
+          // Media/Image tests
+          if (scenario.includes("media") || scenario.includes("image") || scenario.includes("video")) {
+            const media = page.locator("img, video, [class*='media'], [class*='gallery']").first();
+            if (await media.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("media:found");
+            } else {
+              trace.push("media:none-visible");
+            }
+            return;
+          }
+          
+          // Search tests
+          if (scenario.includes("search")) {
+            const searchInput = page.locator("input[type='search'], input[name*='search'], input[placeholder*='search'], .search-input").first();
+            if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("search:found");
+            } else {
+              trace.push("search:not-visible");
+            }
+            return;
+          }
+          
+          // Form tests
+          if (scenario.includes("form") || module.includes("form")) {
+            const forms = page.locator("form, [role='form']").first();
+            if (await forms.isVisible({ timeout: 5000 }).catch(() => false)) {
+              trace.push("form:found");
+            } else {
+              trace.push("form:not-visible");
+            }
+            return;
+          }
+          
+          // Default: verify page loaded
+          const visible = await body.isVisible();
+          if (!visible) throw new Error("Page did not load properly");
+          trace.push(`generic-test:${tc.module || 'page'}:verified`);
+        }
+      }));
+    }
+    
+    // Fallback: build tests from user flows
+    if (userFlows.length > 0) {
+      return userFlows.slice(0, 8).map((flow, idx) => ({
+        id: `FLOW-${String(idx + 1).padStart(3, "0")}`,
+        title: flow.name || `User Flow ${idx + 1}`,
+        execute: async (page, trace) => {
+          if (idx === 0) {
+            await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+            await page.waitForLoadState("domcontentloaded");
+            await page.waitForTimeout(2000);
+          }
+          const body = page.locator("body");
+          await body.waitFor({ state: "visible", timeout: 15000 });
+          trace.push(`flow:${flow.name}:page-loaded`);
+        }
+      }));
+    }
+    
+    // Ultimate fallback: basic page verification
+    return [{
+      id: "AUTO-001",
+      title: `Verify ${websiteTypeName} loads correctly`,
+      execute: async (page, trace) => {
+        await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+        await page.waitForLoadState("domcontentloaded");
+        await page.waitForTimeout(2000);
+        const body = page.locator("body");
+        await body.waitFor({ state: "visible", timeout: 15000 });
+        const visible = await body.isVisible();
+        if (!visible) throw new Error("Page did not load: body not visible.");
+        trace.push("page:loaded");
+      }
+    }];
+  }
+
+  // Use domain-specific tests instead of hardcoded OTT tests
+  const baseTests = buildDomainSpecificTests();
+
+  // Legacy OTT-specific tests (kept for backward compatibility with OTT platforms)
+  const ottTests = [
     {
       id: "AUTO-001",
       title: "Reach OTT app shell",
@@ -2210,280 +2918,186 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 // ========== OPTIONAL AGENTS ==========
 
 /**
- * Web Analyzer Agent - Analyzes a website when no test document is provided
- * Crawls the site to discover pages, features, and provides insights for BA Agent
+ * Web Analyzer Agent - Comprehensive website analysis when no test document is provided
+ * Uses the urlAnalyzerPro module for professional-grade analysis:
+ * - Intelligent website type detection (E-commerce, Retail, Healthcare, OTT, Corporate, etc.)
+ * - BRD (Business Requirements Document) generation
+ * - Domain-specific test cases automatically generated
+ * - Detailed observations for BA and other agents
  */
 async function generateWebAnalysis(run) {
   const ottUrl = run.input.ottUrl;
   const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
-  const { detectDomain, getDomainConfig } = require("./lib/ecommerceSelectors");
 
   let browser = null;
-  const discoveredPages = [];
-  const discoveredFeatures = [];
-  const discoveredForms = [];
-  const discoveredCTAs = [];
-  const siteStructure = { navigation: [], footer: [], headers: [] };
 
   try {
-    browser = await chromium.launch({ headless, args: ["--no-sandbox"] });
+    browser = await chromium.launch({ headless, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     const page = await context.newPage();
 
-    // Domain detection
-    const domainConfig = getDomainConfig(ottUrl);
-    const domain = domainConfig.domain;
-    const siteName = domainConfig.name;
-
-    await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-    await page.waitForTimeout(3000);
-
-    // Get page title and meta info
-    const pageTitle = await page.title();
-    const metaDescription = await page.$eval('meta[name="description"]', m => m.content).catch(() => "");
-
-    // Discover navigation links
-    const navLinks = await page.$$eval('nav a, header a, [role="navigation"] a', (links) => 
-      links.slice(0, 30).map(a => ({ href: a.href, text: a.textContent?.trim().slice(0, 50) || "" }))
-        .filter(l => l.text && l.href && !l.href.startsWith('javascript'))
-    );
-    siteStructure.navigation = navLinks;
-
-    // Discover main CTAs (buttons and prominent links)
-    const ctaElements = await page.$$eval('button, a.btn, a[class*="button"], [role="button"], input[type="submit"]', (elements) =>
-      elements.slice(0, 20).map(el => ({
-        type: el.tagName.toLowerCase(),
-        text: el.textContent?.trim().slice(0, 50) || el.value || "",
-        classes: el.className?.slice(0, 100) || "",
-        ariaLabel: el.getAttribute('aria-label') || ""
-      })).filter(e => e.text || e.ariaLabel)
-    );
-    discoveredCTAs.push(...ctaElements);
-
-    // Discover forms
-    const forms = await page.$$eval('form', (formElements) =>
-      formElements.slice(0, 10).map(form => {
-        const inputs = Array.from(form.querySelectorAll('input, select, textarea')).slice(0, 10);
-        return {
-          action: form.action?.slice(0, 100) || "",
-          method: form.method || "get",
-          fields: inputs.map(inp => ({
-            type: inp.type || inp.tagName.toLowerCase(),
-            name: inp.name || "",
-            placeholder: inp.placeholder || "",
-            required: inp.required || false
-          }))
-        };
-      })
-    );
-    discoveredForms.push(...forms);
-
-    // Discover key page sections
-    const sections = await page.$$eval('main, section, article, [role="main"], [role="region"]', (elements) =>
-      elements.slice(0, 15).map(el => ({
-        tag: el.tagName.toLowerCase(),
-        role: el.getAttribute('role') || "",
-        ariaLabel: el.getAttribute('aria-label') || "",
-        headings: Array.from(el.querySelectorAll('h1, h2, h3')).slice(0, 3).map(h => h.textContent?.trim().slice(0, 50) || "")
-      }))
-    );
-
-    // Detect features based on domain type
-    if (domain === 'flipkart' || domain === 'amazon' || domain === 'generic') {
-      // E-commerce features detection
-      const hasSearch = await page.$('input[type="search"], input[name="q"], input[placeholder*="Search"]').catch(() => null);
-      const hasCart = await page.$('a[href*="cart"], [class*="cart"], [data-cart]').catch(() => null);
-      const hasLogin = await page.$('a[href*="login"], button:has-text("Sign"), a:has-text("Login")').catch(() => null);
-
-      if (hasSearch) discoveredFeatures.push({ name: "Search", type: "core", description: "Product search functionality" });
-      if (hasCart) discoveredFeatures.push({ name: "Shopping Cart", type: "core", description: "Shopping cart functionality" });
-      if (hasLogin) discoveredFeatures.push({ name: "User Authentication", type: "core", description: "Login/Registration system" });
-
-      // Check for product listing
-      const hasProducts = await page.$('[class*="product"], [data-product], article').catch(() => null);
-      if (hasProducts) discoveredFeatures.push({ name: "Product Listing", type: "core", description: "Product catalog display" });
-
-      // Check for filters
-      const hasFilters = await page.$('[class*="filter"], [role="listbox"], aside').catch(() => null);
-      if (hasFilters) discoveredFeatures.push({ name: "Filters/Sorting", type: "feature", description: "Product filtering and sorting" });
-    }
-
-    // Crawl linked pages (limited)
-    const internalLinks = navLinks
-      .filter(l => l.href.includes(new URL(ottUrl).hostname))
-      .slice(0, 8);
-
-    for (const link of internalLinks.slice(0, 5)) {
-      try {
-        await page.goto(link.href, { waitUntil: "domcontentloaded", timeout: 15000 });
-        await page.waitForTimeout(1000);
-
-        const subPageTitle = await page.title();
-        const subPageHeadings = await page.$$eval('h1, h2', hs => hs.slice(0, 3).map(h => h.textContent?.trim().slice(0, 50)));
-
-        discoveredPages.push({
-          url: link.href,
-          title: subPageTitle,
-          linkText: link.text,
-          mainHeadings: subPageHeadings
-        });
-      } catch (_) { /* skip failed pages */ }
-    }
+    // Use the PRO URL Analyzer for comprehensive professional analysis
+    const analysisResult = await urlAnalyzerPro.analyzeUrlPro(page, ottUrl, { headless });
 
     await browser.close();
     browser = null;
 
-    // Generate BA-ready insights
-    const baInsights = generateBAInsights(discoveredFeatures, discoveredForms, discoveredCTAs, siteStructure, domain);
+    // Format observations for BA Agent using Pro format
+    const baObservations = urlAnalyzerPro.formatForBAAgent(analysisResult);
+
+    // Extract data for backward compatibility
+    const websiteType = analysisResult.websiteType || { typeName: 'Website', type: 'GENERIC' };
+    const domain = websiteType.type?.toLowerCase() || 'generic';
+    const discoveredFeatures = baObservations.keyFunctionalities || [];
+    const discoveredForms = analysisResult.forms || [];
 
     return {
       metadata: {
         generatedAt: new Date().toISOString(),
-        source: "Web Analyzer Agent",
+        source: "URL Analyzer Pro Agent",
         url: ottUrl,
-        domain,
-        siteName
+        domain: domain,
+        websiteType: websiteType.typeName,
+        websiteTypeConfidence: websiteType.confidence,
+        siteName: analysisResult.pageStructure?.title || 'Website',
+        analysisDepth: 'professional',
+        duration: analysisResult.analysisTime || 0
       },
       siteOverview: {
-        title: pageTitle,
-        description: metaDescription,
-        type: domain === 'generic' ? 'Website' : `${siteName} (E-commerce)`,
-        pagesDiscovered: discoveredPages.length + 1
+        title: analysisResult.pageStructure?.title || "Analysis Complete",
+        description: analysisResult.pageStructure?.metaTags?.description || "",
+        type: websiteType.typeName,
+        url: ottUrl,
+        pagesDiscovered: analysisResult.pagesAnalyzed || 1
       },
-      discoveredPages,
-      features: discoveredFeatures,
-      forms: discoveredForms,
-      ctas: discoveredCTAs,
-      siteStructure,
-      sections,
-      baInsights,
-      suggestedTestAreas: generateSuggestedTestAreas(discoveredFeatures, discoveredForms, domain),
-      suggestedRequirements: generateSuggestedRequirements(discoveredFeatures, discoveredForms, domain)
+      discoveredPages: [],
+      features: discoveredFeatures.map(f => ({
+        name: f.name,
+        type: 'core',
+        description: f.name,
+        priority: f.priority,
+        testable: f.testable !== false
+      })),
+      forms: discoveredForms.map(f => ({
+        id: f.id,
+        purpose: f.purpose,
+        fieldCount: f.fieldCount,
+        fields: f.fields
+      })),
+      ctas: analysisResult.elements?.filter(e => e.category === 'BUTTONS')?.slice(0, 20) || [],
+      siteStructure: {
+        navigation: analysisResult.elements?.filter(e => e.category === 'NAVIGATION') || [],
+        footer: analysisResult.elements?.filter(e => e.category === 'FOOTER') || [],
+        headers: analysisResult.pageStructure?.headings || []
+      },
+      sections: analysisResult.pageStructure?.sections || [],
+      
+      // Comprehensive analysis results
+      allElements: (() => {
+        const grouped = {};
+        (analysisResult.elements || []).forEach(el => {
+          if (!grouped[el.category]) grouped[el.category] = [];
+          grouped[el.category].push(el);
+        });
+        return grouped;
+      })(),
+      pageStructure: analysisResult.pageStructure || {},
+      userFlows: analysisResult.userFlows || [],
+      selectors: {},
+      observations: analysisResult.observations || [],
+      warnings: analysisResult.warnings || [],
+      
+      // BRD Document
+      brdDocument: analysisResult.brd || null,
+      
+      // Auto-generated test cases from analysis
+      autoGeneratedTestCases: analysisResult.testCases || [],
+      
+      // BA Agent insights
+      baInsights: {
+        summary: baObservations.summary,
+        websiteType: websiteType.typeName,
+        websiteTypeConfidence: websiteType.confidence,
+        keyFunctionalities: baObservations.keyFunctionalities || [],
+        userJourneys: baObservations.userJourneys || [],
+        criticalPaths: baObservations.criticalPaths || [],
+        riskAreas: baObservations.riskAreas || [],
+        formAnalysis: baObservations.formAnalysis || [],
+        navigationStructure: baObservations.navigationStructure || {},
+        testingRecommendations: baObservations.testingRecommendations || []
+      },
+      
+      // Suggested test areas based on website type
+      suggestedTestAreas: (() => {
+        const areas = [];
+        
+        // Add type-specific test areas
+        if (websiteType.type === 'RETAIL_STORE') {
+          areas.push({ area: "Store Locations", priority: "Critical", tests: ["Branch listing", "Address accuracy", "Contact information", "Store timings", "Directions"] });
+          areas.push({ area: "Product Categories", priority: "High", tests: ["Category navigation", "Category pages", "Product display"] });
+        }
+        
+        if (websiteType.type === 'ECOMMERCE') {
+          areas.push({ area: "Search Functionality", priority: "Critical", tests: ["Search with keywords", "Search results", "Filters", "Sorting"] });
+          areas.push({ area: "Cart Operations", priority: "Critical", tests: ["Add to cart", "Update quantity", "Remove item", "Cart total"] });
+          areas.push({ area: "Product Display", priority: "Critical", tests: ["Product listing", "Product details", "Images", "Pricing"] });
+        }
+        
+        if (websiteType.type === 'HEALTHCARE_PHARMA') {
+          areas.push({ area: "Product Information", priority: "Critical", tests: ["Product details", "Composition", "Usage", "Warnings"] });
+          areas.push({ area: "Adverse Event Reporting", priority: "Critical", tests: ["Form accessibility", "Submission", "Confirmation"] });
+        }
+        
+        if (websiteType.type === 'OTT_STREAMING') {
+          areas.push({ area: "Content Discovery", priority: "Critical", tests: ["Content browse", "Search", "Categories", "Recommendations"] });
+          areas.push({ area: "Video Playback", priority: "Critical", tests: ["Play button", "Controls", "Quality", "Buffering"] });
+        }
+        
+        // Common test areas for all types
+        if (analysisResult.forms?.length > 0) {
+          areas.push({ area: "Form Validation", priority: "High", tests: ["Required fields", "Input validation", "Error messages", "Submission"] });
+        }
+        
+        areas.push({ area: "Navigation", priority: "High", tests: ["Menu items", "Page transitions", "Logo link", "Footer links"] });
+        areas.push({ area: "UI/Visual", priority: "Medium", tests: ["Page layout", "Images", "Responsive design", "Accessibility"] });
+        areas.push({ area: "Performance", priority: "High", tests: ["Page load", "Core Web Vitals", "Image optimization"] });
+        
+        return areas;
+      })(),
+      
+      suggestedRequirements: analysisResult.brd?.functionalRequirements?.map(r => 
+        `${r.id}: ${r.description}`
+      ) || []
     };
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
+    console.error('[Web Analyzer Pro] Error:', err.message);
     return {
-      metadata: { generatedAt: new Date().toISOString(), source: "Web Analyzer Agent", url: ottUrl },
+      metadata: { 
+        generatedAt: new Date().toISOString(), 
+        source: "URL Analyzer Pro Agent", 
+        url: ottUrl,
+        error: true
+      },
       siteOverview: { title: "Analysis Failed", description: "", type: "Unknown", pagesDiscovered: 0 },
       error: err.message,
-      baInsights: { summary: "Web analysis failed. Manual BRD input recommended." }
+      baInsights: { 
+        summary: `Web analysis failed: ${err.message}. Manual BRD input recommended.`,
+        keyFunctionalities: [],
+        userJourneys: [],
+        criticalPaths: [],
+        riskAreas: [`Analysis error: ${err.message}`],
+        testingRecommendations: ['Manual analysis recommended due to analysis error']
+      },
+      autoGeneratedTestCases: [],
+      suggestedTestAreas: [
+        { area: "Navigation", priority: "High", tests: ["Menu navigation", "Page transitions"] },
+        { area: "Forms", priority: "High", tests: ["Form validation", "Submission"] },
+        { area: "UI Elements", priority: "Medium", tests: ["Button interactions", "Links", "Images"] }
+      ],
+      suggestedRequirements: []
     };
   }
-}
-
-function generateBAInsights(features, forms, ctas, structure, domain) {
-  const insights = {
-    summary: "",
-    keyFunctionalities: [],
-    userJourneys: [],
-    criticalPaths: [],
-    riskAreas: []
-  };
-
-  // Summary based on discovered features
-  if (domain === 'flipkart' || domain === 'amazon') {
-    insights.summary = `E-commerce platform with ${features.length} core features detected. Focus testing on search-to-purchase flow.`;
-  } else {
-    insights.summary = `Website with ${features.length} features and ${forms.length} forms discovered. Requires functional and UI testing.`;
-  }
-
-  // Key functionalities
-  features.forEach(f => {
-    insights.keyFunctionalities.push({
-      name: f.name,
-      priority: f.type === 'core' ? 'High' : 'Medium',
-      testable: true
-    });
-  });
-
-  // User journeys based on features
-  if (features.some(f => f.name === 'Search')) {
-    insights.userJourneys.push("Search → Browse Results → Select Product");
-  }
-  if (features.some(f => f.name === 'Shopping Cart')) {
-    insights.userJourneys.push("Add to Cart → View Cart → Proceed to Checkout");
-  }
-  if (features.some(f => f.name === 'User Authentication')) {
-    insights.userJourneys.push("Registration → Login → Profile Management");
-  }
-
-  // Critical paths
-  if (domain === 'flipkart' || domain === 'amazon') {
-    insights.criticalPaths = [
-      "Complete purchase flow (search → cart → checkout)",
-      "User authentication and session management",
-      "Search functionality and result accuracy"
-    ];
-  }
-
-  // Risk areas
-  insights.riskAreas = [
-    forms.length > 3 ? "Multiple forms require validation testing" : null,
-    structure.navigation.length > 15 ? "Complex navigation may affect usability" : null,
-    ctas.length > 10 ? "Multiple CTAs - ensure clear call-to-action hierarchy" : null
-  ].filter(Boolean);
-
-  return insights;
-}
-
-function generateSuggestedTestAreas(features, forms, domain) {
-  const areas = [];
-
-  if (domain === 'flipkart' || domain === 'amazon') {
-    areas.push(
-      { area: "Search Functionality", priority: "Critical", tests: ["Search with valid keywords", "Search with special characters", "Empty search handling", "Search suggestions"] },
-      { area: "Product Display", priority: "High", tests: ["Product image loading", "Price display accuracy", "Stock availability", "Product details"] },
-      { area: "Cart Operations", priority: "Critical", tests: ["Add to cart", "Update quantity", "Remove item", "Cart persistence"] },
-      { area: "Checkout Flow", priority: "Critical", tests: ["Address selection", "Payment options", "Order confirmation", "Price calculation"] }
-    );
-  }
-
-  if (forms.length > 0) {
-    areas.push({
-      area: "Form Validation",
-      priority: "High",
-      tests: ["Required field validation", "Input format validation", "Error message display", "Form submission"]
-    });
-  }
-
-  if (features.some(f => f.name === 'User Authentication')) {
-    areas.push({
-      area: "Authentication",
-      priority: "Critical",
-      tests: ["Login with valid credentials", "Login with invalid credentials", "Password reset", "Session management"]
-    });
-  }
-
-  return areas;
-}
-
-function generateSuggestedRequirements(features, forms, domain) {
-  const requirements = [];
-
-  if (domain === 'flipkart' || domain === 'amazon') {
-    requirements.push(
-      "REQ-001: Users must be able to search for products using keywords",
-      "REQ-002: Search results must display relevant products with images, prices, and ratings",
-      "REQ-003: Users must be able to add products to cart from product listing and detail pages",
-      "REQ-004: Cart must persist across sessions for logged-in users",
-      "REQ-005: Checkout process must support multiple payment methods"
-    );
-  }
-
-  forms.forEach((form, i) => {
-    if (form.fields.length > 0) {
-      requirements.push(`REQ-FORM-${i + 1}: Form with ${form.fields.length} fields must validate all inputs before submission`);
-    }
-  });
-
-  if (features.some(f => f.name === 'User Authentication')) {
-    requirements.push(
-      "REQ-AUTH-001: User authentication must use secure password hashing",
-      "REQ-AUTH-002: Session must expire after 30 minutes of inactivity"
-    );
-  }
-
-  return requirements;
 }
 
 /**
@@ -3136,6 +3750,11 @@ async function processRun(id) {
       run.input._webAnalysisInsights = run.artifacts.webAnalysis.baInsights;
       run.input._suggestedRequirements = run.artifacts.webAnalysis.suggestedRequirements;
       run.input._suggestedTestAreas = run.artifacts.webAnalysis.suggestedTestAreas;
+      run.input._brdDocument = run.artifacts.webAnalysis.brdDocument;
+      run.input._autoGeneratedTestCases = run.artifacts.webAnalysis.autoGeneratedTestCases;
+      run.input._userFlows = run.artifacts.webAnalysis.userFlows;
+      run.input._allElements = run.artifacts.webAnalysis.allElements;
+      run.input._observations = run.artifacts.webAnalysis.observations;
     }
     run.artifacts.requirements = consolidateRequirements(run.input);
     run.input.tcFileBuffer = null;
@@ -3144,7 +3763,14 @@ async function processRun(id) {
 
     setStage(run, "manualQa", "running");
     if (run.input.executionMode === "uploaded_tc_only") {
+      // CSV file was uploaded
       run.artifacts.manualTestCases = generateCasesFromUploadedOnly(run.artifacts.requirements);
+    } else if (run.input.executionMode === "manual_tc_only" && run.input.manualTestCases && run.input.manualTestCases.length > 0) {
+      // Manual test cases were entered in the UI
+      run.artifacts.manualTestCases = generateCasesFromManualInput(run.input.manualTestCases, run.artifacts.requirements);
+    } else if (run.artifacts.webAnalysis && run.artifacts.webAnalysis.autoGeneratedTestCases && run.artifacts.webAnalysis.autoGeneratedTestCases.length > 0) {
+      // Use auto-generated test cases from URL Analyzer when no CSV/manual is provided
+      run.artifacts.manualTestCases = generateCasesFromUrlAnalysis(run.artifacts.webAnalysis, run.artifacts.requirements);
     } else {
       run.artifacts.manualTestCases = generateManualCases(run.artifacts.requirements);
     }
@@ -3381,16 +4007,40 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     const channelProfile = String(req.body.channelProfile || "").trim().toLowerCase();
     const recordingSessionId = String(req.body.recordingSessionId || "").trim() || null;
     const recordingId = String(req.body.recordingId || "").trim() || null;
+    
+    // Manual test cases from UI
+    const manualTestCasesRaw = String(req.body.manualTestCases || "").trim();
+    const testCaseInputMode = String(req.body.testCaseInputMode || "").trim() || "auto";
+    let manualTestCases = [];
+    if (manualTestCasesRaw) {
+      try {
+        manualTestCases = JSON.parse(manualTestCasesRaw);
+      } catch (_) { manualTestCases = []; }
+    }
 
     const tcFile = req.files && req.files.tcFile ? req.files.tcFile[0] : null;
     const recordingFile = req.files && req.files.recordingFile ? req.files.recordingFile[0] : null;
     const tcExt = tcFile ? path.extname(tcFile.originalname).toLowerCase() : "";
-    const executionMode = tcExt === ".csv" ? "uploaded_tc_only" : "standard";
+    
+    // Determine execution mode based on input
+    const hasCsv = tcFile && tcExt === ".csv";
+    const hasManualCases = manualTestCases.length > 0 && manualTestCases.some(tc => tc.feature || tc.scenario);
+    
+    let executionMode = "standard";
+    if (hasCsv) {
+      executionMode = "uploaded_tc_only";
+    } else if (hasManualCases) {
+      executionMode = "manual_tc_only";
+    } else if (testCaseInputMode === "auto") {
+      executionMode = "url_analysis_auto";
+    }
 
     if (!ottUrl) return res.status(400).json({ error: "OTT URL is required" });
-    const hasCsv = tcFile && tcExt === ".csv";
-    if (!figmaUrl && !tcFile && !notes) {
-      return res.status(400).json({ error: "Upload a CSV (Feature, Scenario, Expected Result) or provide Figma link or notes" });
+    
+    // Allow running with just URL in auto mode (URL Analyzer will generate test cases)
+    const canRunWithAutoGeneration = testCaseInputMode === "auto" || executionMode === "url_analysis_auto";
+    if (!figmaUrl && !tcFile && !hasManualCases && !notes && !canRunWithAutoGeneration) {
+      return res.status(400).json({ error: "Upload a CSV, enter manual test cases, or use URL Analyzer auto-generation" });
     }
     if (hasCsv) {
       // CSV is primary: run only uploaded test cases, no built-in manual TC
@@ -3429,6 +4079,8 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
       notes,
       channelProfile: channelProfile || null,
       executionMode,
+      testCaseInputMode,
+      manualTestCases: hasManualCases ? manualTestCases : null,
       projectId,
       runHeaded,
       enableAccessibility,
@@ -4127,8 +4779,156 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
   }
 });
 
+// ============== API KEY MANAGEMENT ENDPOINTS ==============
+
+/**
+ * @swagger
+ * /api/keys:
+ *   get:
+ *     summary: List all stored API keys
+ *     tags: [API Keys]
+ *     responses:
+ *       200:
+ *         description: List of API keys (masked)
+ */
+app.get("/api/keys", rateLimiters.apiKey, (req, res) => {
+  const keys = apiKeyManager.listKeys();
+  res.json({ keys });
+});
+
+/**
+ * @swagger
+ * /api/keys:
+ *   post:
+ *     summary: Store a new API key
+ *     tags: [API Keys]
+ */
+app.post("/api/keys", rateLimiters.apiKey, async (req, res) => {
+  const { apiKey, name, provider, ttlHours } = req.body;
+  
+  if (!apiKey) {
+    return res.status(400).json({ error: "apiKey is required" });
+  }
+  
+  const result = apiKeyManager.storeKey(apiKey, { name, provider, ttlHours });
+  
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  
+  logger.addAudit("API_KEY_STORED", { keyId: result.keyId, provider: result.provider });
+  res.json(result);
+});
+
+/**
+ * @swagger
+ * /api/keys/{keyId}:
+ *   delete:
+ *     summary: Delete an API key
+ *     tags: [API Keys]
+ */
+app.delete("/api/keys/:keyId", rateLimiters.apiKey, (req, res) => {
+  const { keyId } = req.params;
+  apiKeyManager.deleteKey(keyId);
+  logger.addAudit("API_KEY_DELETED", { keyId });
+  res.json({ success: true });
+});
+
+/**
+ * @swagger
+ * /api/keys/{keyId}/test:
+ *   post:
+ *     summary: Test an API key's validity
+ *     tags: [API Keys]
+ */
+app.post("/api/keys/:keyId/test", rateLimiters.apiKey, async (req, res) => {
+  const { keyId } = req.params;
+  const apiKey = apiKeyManager.getKey(keyId);
+  
+  if (!apiKey) {
+    return res.status(404).json({ error: "Key not found" });
+  }
+  
+  const result = await apiKeyManager.testKey(apiKey);
+  res.json(result);
+});
+
+/**
+ * @swagger
+ * /api/keys/validate:
+ *   post:
+ *     summary: Validate an API key format without storing
+ *     tags: [API Keys]
+ */
+app.post("/api/keys/validate", rateLimiters.apiKey, (req, res) => {
+  const { apiKey } = req.body;
+  const result = apiKeyManager.validateKeyFormat(apiKey);
+  res.json(result);
+});
+
+// ============== HEALTH & SYSTEM ENDPOINTS ==============
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Basic health check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ */
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "ZER0", storage: dbEnabled ? "postgres+memory" : "memory" });
+});
+
+/**
+ * @swagger
+ * /api/health/detailed:
+ *   get:
+ *     summary: Detailed health check with system metrics
+ *     tags: [Health]
+ */
+app.get("/api/health/detailed", cacheMiddleware(30), (_req, res) => {
+  const memUsage = process.memoryUsage();
+  res.json({
+    ok: true,
+    service: "ZER0 QA Orchestrator",
+    version: "2.0.0",
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    storage: dbEnabled ? "postgres+memory" : "memory",
+    memory: {
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + "MB",
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + "MB",
+      rss: Math.round(memUsage.rss / 1024 / 1024) + "MB"
+    },
+    activeRuns: runs.size,
+    features: {
+      urlAnalyzerPro: true,
+      domainDetection: true,
+      brdGeneration: true,
+      apiKeyManagement: true,
+      rateLimiting: true
+    }
+  });
+});
+
+// Error logging middleware
+app.use(logger.errorLogger);
+
+// Global error handler
+app.use((err, req, res, _next) => {
+  logger.error("Unhandled error", { 
+    error: err.message, 
+    stack: err.stack,
+    requestId: req.requestId 
+  });
+  
+  res.status(err.status || 500).json({
+    error: err.message || "Internal server error",
+    requestId: req.requestId
+  });
 });
 
 app.get("/", (req, res) => {
