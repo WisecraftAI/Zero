@@ -4953,32 +4953,34 @@ function tryListen(port) {
 const publicDir = path.join(__dirname, "public");
 
 // Local/Dedicated environments: start server listener
-fs.mkdir(artifactsRoot, { recursive: true })
-  .then(() => fs.mkdir(publicDir, { recursive: true }))
-  .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
-  .then(async () => {
-    let server = null;
-    let port = PORT;
-    for (let attempt = 0; attempt <= 5; attempt++) {
-      try {
-        server = await tryListen(port);
-        const uiUrl = `http://localhost:${port}`;
-        console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
-        break;
-      } catch (err) {
-        if (err.code === "EADDRINUSE" && attempt < 5) {
-          port = PORT + attempt + 1;
-          console.warn(`Port ${port - 1} in use, trying ${port}...`);
-        } else {
-          console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
-          process.exit(1);
+if (!process.env.VERCEL) {
+  fs.mkdir(artifactsRoot, { recursive: true })
+    .then(() => fs.mkdir(publicDir, { recursive: true }))
+    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
+    .then(async () => {
+      let server = null;
+      let port = PORT;
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          server = await tryListen(port);
+          const uiUrl = `http://localhost:${port}`;
+          console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
+          break;
+        } catch (err) {
+          if (err.code === "EADDRINUSE" && attempt < 5) {
+            port = PORT + attempt + 1;
+            console.warn(`Port ${port - 1} in use, trying ${port}...`);
+          } else {
+            console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
+            process.exit(1);
+          }
         }
       }
-    }
-  }).catch((error) => {
-    console.error("Unable to initialize artifacts directory", error);
-    process.exit(1);
-  });
+    }).catch((error) => {
+      console.error("Unable to initialize artifacts directory", error);
+      process.exit(1);
+    });
+}
 
 function buildArchitecturePictureSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">
