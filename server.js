@@ -446,8 +446,24 @@ function databaseConfigured() { return false; }
 async function initDatabase() { return; }
 
 async function persistRun(run) {
-  // Persistence disabled - using in-memory 'runs' Map only
-  return;
+  runs.set(run.id, run);
+
+  try {
+    const runPath = path.join(run.runDir, "run.json");
+    await fs.mkdir(run.runDir, { recursive: true });
+
+    // Exclude large temporary file buffers/contents from the persisted JSON to save disk/temp space
+    const storageRun = {
+      ...run,
+      input: {
+        ...run.input,
+        tcFileBuffer: undefined
+      }
+    };
+    await fs.writeFile(runPath, JSON.stringify(storageRun, null, 2), "utf8");
+  } catch (e) {
+    console.error(`Failed to write run.json for ${run.id}:`, e.message);
+  }
 }
 
 async function persistAssets(run) {
@@ -504,7 +520,21 @@ function toRunShape(row) {
 }
 
 async function getRun(id) {
-  return runs.get(id) || null;
+  if (runs.has(id)) return runs.get(id);
+
+  try {
+    const runPath = path.join(artifactsRoot, id, "run.json");
+    const data = await fs.readFile(runPath, "utf8");
+    const run = JSON.parse(data);
+
+    // Dynamic patch of runDir in case of absolute path mapping changes across deployment environments
+    run.runDir = path.join(artifactsRoot, id);
+
+    runs.set(id, run);
+    return run;
+  } catch (e) {
+    return null;
+  }
 }
 
 function createRun(input) {
@@ -4126,7 +4156,25 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
 });
 
 app.get("/api/runs", async (_req, res) => {
-  return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
+  try {
+    const files = await fs.readdir(artifactsRoot);
+    const loadedRuns = [];
+    for (const file of files) {
+      const runPath = path.join(artifactsRoot, file, "run.json");
+      try {
+        const data = await fs.readFile(runPath, "utf8");
+        const run = JSON.parse(data);
+        loadedRuns.push(run);
+      } catch (_) {
+        // ignore files/folders that don't contain a valid run.json
+      }
+    }
+    // Sort by createdAt descending
+    loadedRuns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return res.json({ source: "file", runs: loadedRuns.slice(0, 20) });
+  } catch (e) {
+    return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
+  }
 });
 
 app.get("/api/runs/:id", async (req, res) => {
