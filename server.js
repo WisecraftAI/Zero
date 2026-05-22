@@ -50,6 +50,8 @@ const urlAnalyzer = require("./lib/urlAnalyzer"); // Legacy fallback
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+const publicDir = path.join(__dirname, "public");
+const publicAssetsDir = path.join(publicDir, "assets");
 
 // Security middleware
 app.use(securityHeaders);
@@ -73,7 +75,8 @@ if (swaggerUi) {
 }
 
 app.use(express.json({ limit: "1mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use("/assets", express.static(publicAssetsDir, { immutable: true, maxAge: "1y" }));
+app.use(express.static(publicDir));
 
 const artifactsRoot = process.env.VERCEL
   ? path.join("/tmp", "artifacts")
@@ -4962,6 +4965,10 @@ app.get("/api/health/detailed", cacheMiddleware(30), (_req, res) => {
   });
 });
 
+app.use("/assets", (_req, res) => {
+  res.status(404).type("text/plain").send("Asset not found");
+});
+
 // Error logging middleware
 app.use(logger.errorLogger);
 
@@ -4997,8 +5004,6 @@ function tryListen(port) {
     });
   });
 }
-
-const publicDir = path.join(__dirname, "public");
 
 // Local/Dedicated environments: start server listener
 if (!process.env.VERCEL) {
