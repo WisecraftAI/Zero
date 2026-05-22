@@ -1,8 +1,0 @@
-[variables]
-PLAYWRIGHT_BROWSERS_PATH = "0"
-
-[phases.build]
-cmds = ["npm run production:build"]
-
-[start]
-cmd = "npm start"
