@@ -31,9 +31,11 @@ try {
 
 // Lazy-load Playwright to prevent cold-start serverless crash
 const chromium = {
-  launch: (options) => {
+  launch: (options = {}) => {
     const { chromium: pChromium } = require("playwright");
-    return pChromium.launch(options);
+    const defaultArgs = ["--no-sandbox", "--disable-setuid-sandbox"];
+    const args = [...new Set([...defaultArgs, ...(options.args || [])])];
+    return pChromium.launch({ ...options, args });
   }
 };
 const XLSX = require("xlsx");
