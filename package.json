@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "cd client && npm install && npm run build",
-    "production:build": "npm run build && npx playwright install --with-deps chromium",
+    "production:build": "npm run build && npx playwright install chromium",
     "client": "cd client && npm run dev",
     "set-db": "node scripts/set-database.js",
     "lint": "eslint .",
