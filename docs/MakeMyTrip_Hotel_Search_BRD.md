@@ -1,0 +1,108 @@
+# MakeMyTrip Hotel Search and Booking BRD
+
+## 1. Document Purpose
+This Business Requirements Document (BRD) defines the requirements for a hotel search and booking scenario on MakeMyTrip. The focus is on the user flow where a customer:
+
+- opens MakeMyTrip
+- searches for a destination using the search box
+- selects travel dates from the date picker
+- filters and reviews hotel results
+- selects a hotel for booking
+
+This document is intended for product managers, QA, developers, and stakeholders responsible for implementing and validating the hotel booking flow.
+
+## 2. Business Objective
+Enable users to quickly discover hotels at their destination, review availability for chosen dates, and select a hotel for booking.
+
+Successful completion should:
+- reduce search friction
+- improve hotel conversion
+- deliver a consistent booking experience
+- support automation validation for key hotel search journeys
+
+## 3. Scope
+### In scope
+- destination search input
+- date picker selection for check-in and check-out
+- triggering hotel search
+- viewing search results
+- selecting a hotel from the results page
+- verifying the hotel details page opens for booking
+
+### Out of scope
+- final payment processing
+- user login/registration
+- flight or package booking flows
+- advanced hotel filters beyond the basic search cycle
+
+## 4. Stakeholders
+- Product Owner
+- QA Lead
+- UI/UX Designer
+- Software Engineer
+- Automation Engineer
+- End users booking hotels
+
+## 5. Assumptions
+- The user starts on the MakeMyTrip homepage.
+- The hotel search flow is accessible from the main navigation or search area.
+- Browser date picker and hotel filters are present and functional.
+- Basic hotel search data exists for the selected destination and dates.
+
+## 6. Functional Requirements
+| ID | Requirement | Priority | Acceptance Criteria |
+|----|-------------|----------|---------------------|
+| FR-01 | Destination search box must accept a city, landmark, or hotel name and display suggestions. | High | User enters "Goa" and sees suggestion list; user can choose a suggestion. |
+| FR-02 | Date picker must allow selection of check-in and check-out dates. | High | User selects valid check-in and check-out dates; selected dates display clearly. |
+| FR-03 | Search button must initiate hotel results retrieval after destination and dates are chosen. | High | Clicking search loads hotel results page matching destination and date range. |
+| FR-04 | Search results page must display hotel cards with name, price, ratings, and availability. | High | At least one hotel card shows name, price, rating, and a booking/select button. |
+| FR-05 | Hotel selection must open the chosen hotel detail or booking page. | High | User clicks a hotel card/book button and navigates to hotel detail page. |
+| FR-06 | The flow should show an error if dates are invalid or missing. | Medium | If dates are missing/invalid, the system displays a validation message. |
+| FR-07 | The flow should permit changing the destination or dates and rerunning the search. | Medium | User updates destination/dates and clicks search again, results reload. |
+
+## 7. User Journey
+1. User arrives on the MakeMyTrip homepage.
+2. User enters a destination such as `Goa` in the hotel search box.
+3. System displays destination suggestions.
+4. User selects a suggestion from the list.
+5. User opens the date picker.
+6. User selects a valid check-in date and a valid check-out date.
+7. User clicks the search button.
+8. System loads hotel search results for the selected destination and dates.
+9. User reviews hotel cards and chooses a hotel.
+10. User clicks the hotel booking/select button.
+11. System navigates to the hotel detail/booking page.
+
+## 8. UI Elements
+- Hotel destination input field
+- Suggestion dropdown list
+- Date picker control
+- Check-in and check-out fields
+- Search button
+- Hotel result cards
+- Hotel select/book button
+- Validation/error messages
+
+## 9. Non-Functional Requirements
+- Performance: Search results should load within 5 seconds for valid query.
+- Usability: Destination suggestions should appear after typing 2 or more characters.
+- Compatibility: Flow should work in modern desktop browsers.
+- Reliability: Hotel selection navigation must reach the hotel detail page consistently.
+
+## 10. Acceptance Criteria
+- User can search for a hotel destination and select dates.
+- The search returns relevant hotel results.
+- The user can select a hotel from the results without error.
+- Invalid or missing dates show a clear validation message.
+- The flow can be repeated with updated destination or dates.
+
+## 11. Success Metrics
+- Hotel search flow completes successfully in >90% of automation runs.
+- Search suggestions appear for valid destinations.
+- Selected hotel card navigates to the booking page.
+
+## 12. Example Scenario
+- Destination: `Goa`
+- Check-in: 14 days from today
+- Check-out: 16 days from today
+- Expected result: Hotel results list appears and a hotel detail page opens after selection.

@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const crypto = require("crypto");
 const express = require("express");
 const fs = require("fs/promises");
 const path = require("path");
@@ -18,7 +19,10 @@ const {
   corsOptions, 
   requestId,
   cacheMiddleware,
-  invalidateCache
+  invalidateCache,
+  issueAuthToken,
+  optionalAuth,
+  requireAuth
 } = require("./lib/middleware");
 
 // Swagger UI (conditionally load)
@@ -29,16 +33,51 @@ try {
   logger.warn("swagger-ui-express not installed, API docs disabled");
 }
 
-// Lazy-load Playwright to prevent cold-start serverless crash
+// Lazy-load Playwright to prevent cold-start serverless crash.
+// Also guard against the common Windows failure where headless-shell is missing:
+// retry once in headed mode so runs execute instead of failing at runtime setup.
 const chromium = {
-  launch: (options = {}) => {
+  launch: async (options = {}) => {
     const { chromium: pChromium } = require("playwright");
-    const defaultArgs = ["--no-sandbox", "--disable-setuid-sandbox"];
-    const args = [...new Set([...defaultArgs, ...(options.args || [])])];
-    return pChromium.launch({ ...options, args });
+    try {
+      return await pChromium.launch(options);
+    } catch (error) {
+      const msg = String(error?.message || "");
+      const isMissingHeadlessShell =
+        msg.includes("chromium_headless_shell") ||
+        msg.includes("chrome-headless-shell") ||
+        msg.includes("Executable doesn't exist");
+      const canFallback = options.headless === true && process.env.ZERO_DISABLE_HEADED_FALLBACK !== "true";
+      if (!isMissingHeadlessShell || !canFallback) throw error;
+
+      logger.warn("Playwright managed browser missing; retrying launch in headed mode.");
+      const retryOptions = { ...options, headless: false, slowMo: Math.max(Number(options.slowMo || 0), 80) };
+      try {
+        return await pChromium.launch(retryOptions);
+      } catch (retryError) {
+        const retryMsg = String(retryError?.message || "");
+        const stillMissingExecutable = retryMsg.includes("Executable doesn't exist");
+        if (!stillMissingExecutable) throw retryError;
+
+        // Final fallback: use system browser channels (Edge/Chrome) so execution
+        // can proceed even if Playwright binaries failed to download.
+        const channelOrder = process.platform === "win32" ? ["msedge", "chrome"] : ["chrome"];
+        for (const channel of channelOrder) {
+          try {
+            logger.warn(`Retrying launch with system browser channel: ${channel}`);
+            return await pChromium.launch({ ...retryOptions, channel });
+          } catch {
+            // try next channel
+          }
+        }
+
+        throw retryError;
+      }
+    }
   }
 };
 const XLSX = require("xlsx");
+const mammoth = require("mammoth");
 const PDFDocument = require("pdfkit");
 const dbHelpers = require("./lib/db");
 const encryption = require("./lib/encryption");
@@ -46,20 +85,25 @@ const elementLogger = require("./lib/elementLogger");
 const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
 const javaSeleniumBuilder = require("./lib/javaSeleniumBuilder");
-const { detectDomain, getSelectors, getDomainConfig } = require("./lib/ecommerceSelectors");
+const { detectDomain, getSelectors, getDomainConfig, buildAdaptiveSelectors, isKnownDomain, universalSelectors } = require("./lib/ecommerceSelectors");
+const adaptiveExecutor = require("./lib/adaptiveExecutor");
 const urlAnalyzerPro = require("./lib/urlAnalyzerPro");
 const urlAnalyzer = require("./lib/urlAnalyzer"); // Legacy fallback
+const seniorQaTestLead = require("./lib/seniorQaTestLead"); // Senior QA Test Lead for comprehensive test case generation
+const domainTestStrategies = require("./lib/domainTestStrategies"); // Domain-specific test case generation (OTT, E-commerce, Travel, Banking, etc.)
+const aiTestGenerator = require("./lib/aiTestGenerator"); // Real LLM-based test generation, grounded in crawled page context
+const selectorVerifier = require("./lib/selectorVerifier"); // Confirms candidate selectors actually exist on the live page before scripting
+const pageObjectBuilder = require("./lib/pageObjectBuilder"); // Page Object Model Java generation from verified selectors
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
-const publicDir = path.join(__dirname, "public");
-const publicAssetsDir = path.join(publicDir, "assets");
 
 // Security middleware
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(compression());
 app.use(requestId);
+app.use(optionalAuth);
 
 // Request logging
 app.use(logger.requestLogger);
@@ -77,8 +121,7 @@ if (swaggerUi) {
 }
 
 app.use(express.json({ limit: "1mb" }));
-app.use("/assets", express.static(publicAssetsDir, { immutable: true, maxAge: "1y" }));
-app.use(express.static(publicDir));
+app.use(express.static(path.join(__dirname, "public")));
 
 const artifactsRoot = process.env.VERCEL
   ? path.join("/tmp", "artifacts")
@@ -99,13 +142,102 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 }
 });
 
+// ========== Stealth Browser Configuration ==========
+// Realistic user agents to avoid bot detection
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+];
+
+function getStealthBrowserConfig(headless = true, showBrowser = false) {
+  return {
+    headless,
+    slowMo: showBrowser ? 200 : 50, // Add realistic delays
+    args: [
+      // Anti-detection arguments
+      '--disable-blink-features=AutomationControlled',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-resources',
+      '--disable-sync',
+      '--disable-default-apps',
+      '--disable-plugins',
+      '--disable-plugins-power-saving-mode',
+      '--disable-java',
+      '--disable-extensions',
+      '--disable-component-extensions-with-background-pages',
+      '--disable-preconnect',
+      // HTTP/2 and security
+      '--disable-http2-server-push',
+      '--disable-quic',
+      // Disable headless indicator
+      '--hide-scrollbars'
+    ]
+  };
+}
+
+function getRandomUserAgent() {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+function getStealthContextOptions() {
+  return {
+    userAgent: getRandomUserAgent(),
+    extraHTTPHeaders: {
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1'
+    }
+  };
+}
+
+async function setupStealthPage(page) {
+  // Inject script to hide headless automation markers
+  try {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en'],
+      });
+    });
+  } catch (e) {
+    // Silently fail if already injected
+  }
+}
+
+function getRandomDelay(min = 500, max = 2000) {
+  return Math.random() * (max - min) + min;
+}
+
+async function addHumanDelay(page, min = 500, max = 1500) {
+  const delay = getRandomDelay(min, max);
+  await page.waitForTimeout(delay);
+}
+
 const runs = new Map();
+const memoryUsers = new Map(); // email -> { id, email, password_hash, name, created_at, updated_at }
 const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
 const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
 const runSecrets = new Map();
 const stageKeys = ["webAnalyzer", "ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "security", "manager", "delivery"];
 const optionalStageKeys = ["accessibility", "performance"];
 const selectorMemory = new Map();
+const aiGenerationCache = new Map(); // cacheKey -> { testCases, provider, model, ts } - avoids repeat paid LLM calls for unchanged pages
+const AI_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 // In-memory recording sessions (sessionId -> { ottUrl, events[], createdAt })
 const recordingSessions = new Map();
@@ -115,6 +247,63 @@ let recordingIdCounter = 0;
 
 let dbPool = null;
 let dbEnabled = false;
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function validEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const digest = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${digest}`;
+}
+
+function verifyPassword(password, storedHash) {
+  if (!storedHash || !storedHash.includes(":")) return false;
+  const [salt, saved] = storedHash.split(":");
+  const candidate = crypto.scryptSync(password, salt, 64).toString("hex");
+  const savedBuf = Buffer.from(saved, "hex");
+  const candidateBuf = Buffer.from(candidate, "hex");
+  if (savedBuf.length !== candidateBuf.length) return false;
+  return crypto.timingSafeEqual(savedBuf, candidateBuf);
+}
+
+async function getUserByEmailAddress(email) {
+  if (dbEnabled && dbPool) {
+    return dbHelpers.getUserByEmail(dbPool, email);
+  }
+  return memoryUsers.get(email) || null;
+}
+
+async function createUserAccount({ email, passwordHash, name }) {
+  if (dbEnabled && dbPool) {
+    return dbHelpers.createUser(dbPool, { email, passwordHash, name });
+  }
+  const now = new Date().toISOString();
+  const user = {
+    id: `usr_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+    email,
+    password_hash: passwordHash,
+    name: name || null,
+    created_at: now,
+    updated_at: now
+  };
+  memoryUsers.set(email, user);
+  return user;
+}
+
+function safeUserShape(user) {
+  return {
+    id: String(user.id),
+    email: user.email,
+    name: user.name || null,
+    createdAt: user.created_at || null
+  };
+}
 
 const appProfiles = {
   gray: {
@@ -446,56 +635,71 @@ function getRunSecret(runId) {
   return runSecrets.get(runId) || { username: "", password: "" };
 }
 
-// Database disabled by user request
-function databaseConfigured() { return false; }
-async function initDatabase() { return; }
+// Real Postgres persistence. Enabled automatically when DATABASE_URL or
+// individual PG* env vars are present. Falls back silently to the in-memory
+// `runs` Map (existing behavior) when no DB is configured, so local/dev use
+// still works with zero setup.
+function databaseConfigured() {
+  return Boolean(
+    process.env.DATABASE_URL ||
+    (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER)
+  );
+}
+
+async function initDatabase() {
+  if (!databaseConfigured()) {
+    logger.info("Postgres not configured (no DATABASE_URL/PG* env vars) - using in-memory run storage only");
+    return;
+  }
+  try {
+    dbPool = process.env.DATABASE_URL
+      ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined })
+      : new Pool();
+    await dbPool.query("SELECT 1");
+    await dbHelpers.initAllTables(dbPool);
+    dbEnabled = true;
+    logger.info("Postgres connected and schema verified - run history, locators, and AI cache will persist");
+  } catch (error) {
+    dbEnabled = false;
+    dbPool = null;
+    logger.error(`Postgres init failed, falling back to in-memory storage: ${error.message}`);
+  }
+}
 
 async function persistRun(run) {
-  runs.set(run.id, run);
-
+  if (!dbEnabled || !dbPool) return;
   try {
-    const runPath = path.join(run.runDir, "run.json");
-    await fs.mkdir(run.runDir, { recursive: true });
-
-    // Exclude large temporary file buffers/contents from the persisted JSON to save disk/temp space
-    const storageRun = {
-      ...run,
-      input: {
-        ...run.input,
-        tcFileBuffer: undefined
-      }
-    };
-    await fs.writeFile(runPath, JSON.stringify(storageRun, null, 2), "utf8");
-  } catch (e) {
-    console.error(`Failed to write run.json for ${run.id}:`, e.message);
+    await dbHelpers.upsertRun(dbPool, run);
+  } catch (error) {
+    logger.warn(`persistRun failed (continuing with in-memory copy): ${error.message}`);
   }
 }
 
 async function persistAssets(run) {
   if (!dbEnabled || !dbPool || !run.artifacts.automationBundle) return;
 
-  const script = run.artifacts.automationBundle.generatedPlaywrightScript || "";
-  const javaScript = run.artifacts.automationBundle.generatedSeleniumJava || "";
+  const bundle = run.artifacts.automationBundle;
   const manualTc = JSON.stringify(run.artifacts.manualTestCases || {}, null, 2);
   const manager = JSON.stringify(run.artifacts.managerReport || {}, null, 2);
 
-  await dbPool.query("DELETE FROM qa_assets WHERE run_id = $1", [run.id]);
-  const values = [
-    run.id, "manual_test_cases", "manual_test_cases.json", manualTc,
-    run.id, "automation_script", "generated.spec.ts", script,
-    run.id, "manager_report", "manager_report.json", manager
+  const assets = [
+    { type: "manual_test_cases", name: "manual_test_cases.json", content: manualTc },
+    { type: "automation_script", name: "generated.spec.ts", content: bundle.generatedPlaywrightScript || "" },
+    { type: "manager_report", name: "manager_report.json", content: manager }
   ];
-  if (javaScript) {
+  if (bundle.generatedSeleniumJava) {
+    assets.push({ type: "automation_script_java", name: "generated.java", content: bundle.generatedSeleniumJava });
+  }
+  if (bundle.pageObjectModel) {
+    assets.push({ type: "page_object_java", name: `${bundle.pageObjectModel.pageClassName}.java`, content: bundle.pageObjectModel.pageObjectSource });
+    assets.push({ type: "junit_test_java", name: `${bundle.pageObjectModel.testClassName}.java`, content: bundle.pageObjectModel.testClassSource });
+  }
+
+  await dbPool.query("DELETE FROM qa_assets WHERE run_id = $1", [run.id]);
+  for (const asset of assets) {
     await dbPool.query(
-      `INSERT INTO qa_assets (run_id, asset_type, asset_name, content_text)
-       VALUES ($1,$2,$3,$4),($1,$5,$6,$7),($1,$8,$9,$10),($1,$11,$12,$13)`,
-      [...values, run.id, "automation_script_java", "generated.java", javaScript]
-    );
-  } else {
-    await dbPool.query(
-      `INSERT INTO qa_assets (run_id, asset_type, asset_name, content_text)
-       VALUES ($1,$2,$3,$4),($1,$5,$6,$7),($1,$8,$9,$10)`,
-      values
+      "INSERT INTO qa_assets (run_id, asset_type, asset_name, content_text) VALUES ($1,$2,$3,$4)",
+      [run.id, asset.type, asset.name, asset.content]
     );
   }
 }
@@ -525,21 +729,17 @@ function toRunShape(row) {
 }
 
 async function getRun(id) {
-  if (runs.has(id)) return runs.get(id);
-
-  try {
-    const runPath = path.join(artifactsRoot, id, "run.json");
-    const data = await fs.readFile(runPath, "utf8");
-    const run = JSON.parse(data);
-
-    // Dynamic patch of runDir in case of absolute path mapping changes across deployment environments
-    run.runDir = path.join(artifactsRoot, id);
-
-    runs.set(id, run);
-    return run;
-  } catch (e) {
-    return null;
+  const inMemory = runs.get(id);
+  if (inMemory) return inMemory;
+  if (dbEnabled && dbPool) {
+    try {
+      const row = await dbHelpers.getRunById(dbPool, id);
+      if (row) return toRunShape(row);
+    } catch (error) {
+      logger.warn(`getRun DB fallback failed: ${error.message}`);
+    }
   }
+  return null;
 }
 
 function createRun(input) {
@@ -787,6 +987,324 @@ function extractUploadedCases(input) {
   }
 }
 
+function parseBRDText(text) {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const brd = {
+    title: null,
+    overview: null,
+    businessGoals: [],
+    functionalRequirements: [],
+    nonFunctionalRequirements: [],
+    userStories: [],
+    acceptanceCriteria: [],
+    userJourneys: [],
+    integrations: [],
+    dependencies: [],
+    assumptions: [],
+    risks: [],
+    constraints: [],
+    outOfScope: [],
+    figmaDesigns: null,
+    jiraEpic: null,
+    solutionDesign: null,
+    testable: true
+  };
+
+  const titleLine = lines.find((line) => line.trim().startsWith("#"));
+  if (titleLine) {
+    brd.title = titleLine.replace(/^#+\s*/, "").trim();
+  }
+
+  const sections = {};
+  let currentSection = null;
+  lines.forEach((line) => {
+    // Handle markdown headers (# ## ###)
+    const headerMatch = line.match(/^#{1,3}\s*(.+)$/);
+    // Handle numbered sections (1. 2. etc)
+    const numberedMatch = line.match(/^(\d+\.)\s*(.+)$/);
+
+    if (headerMatch) {
+      currentSection = headerMatch[1].trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+      sections[currentSection] = [];
+      return;
+    }
+
+    if (numberedMatch && !currentSection) {
+      currentSection = numberedMatch[2].trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+      sections[currentSection] = [];
+      return;
+    }
+
+    if (currentSection) {
+      sections[currentSection].push(line);
+    }
+  });
+
+  const parseRequirementTable = (sectionLines) => {
+    const rows = sectionLines.filter((line) => line.trim().startsWith("|"));
+    if (rows.length < 2) return [];
+    const dataRows = [];
+    for (let i = 2; i < rows.length; i += 1) {
+      const cols = rows[i].split("|").slice(1, -1).map((col) => col.trim());
+      if (cols.length < 3) continue;
+      const acceptanceText = cols[3] ? cols[3].replace(/\s*\|\s*/g, " ").trim() : "";
+      const acceptanceCriteria = acceptanceText
+        ? acceptanceText.split(/;|\.|\n/).map((item) => item.trim()).filter(Boolean)
+        : [];
+      dataRows.push({
+        id: cols[0] || `FR-${i - 1}`,
+        feature: cols[0] || "Requirement",
+        description: cols[1] || "",
+        priority: cols[2] || "Medium",
+        acceptanceCriteria,
+        testable: true
+      });
+    }
+    return dataRows;
+  };
+
+  const parseBullets = (sectionLines) => sectionLines
+    .map((line) => line.replace(/^[-*+•\s]+/, "").replace(/^\d+\.\s*/, "").trim())
+    .filter((line) => line && line.length > 2);
+
+  const parseUserStories = (sectionLines) => {
+    const stories = [];
+    let currentStory = null;
+
+    sectionLines.forEach((line) => {
+      const storyMatch = line.match(/^(US-\d+|STORY-\d+)\s*[:.-]?\s*(.+)$/i);
+      const asAMatch = line.match(/^As\s+(?:a|an)\s+(.+),?\s+I\s+want\s+(.+?),?\s+so\s+that\s+(.+)$/i);
+
+      if (storyMatch) {
+        if (currentStory) stories.push(currentStory);
+        currentStory = {
+          id: storyMatch[1],
+          description: storyMatch[2].trim(),
+          acceptanceCriteria: []
+        };
+      } else if (asAMatch) {
+        if (currentStory) stories.push(currentStory);
+        currentStory = {
+          id: `US-${String(stories.length + 1).padStart(3, '0')}`,
+          role: asAMatch[1].trim(),
+          action: asAMatch[2].trim(),
+          benefit: asAMatch[3].trim(),
+          description: line.trim(),
+          acceptanceCriteria: []
+        };
+      } else if (currentStory && line.trim().match(/^[-*•]\s*(AC\d*[:.-]?)?\s*/i)) {
+        currentStory.acceptanceCriteria.push(line.replace(/^[-*•]\s*(AC\d*[:.-]?)?\s*/i, '').trim());
+      }
+    });
+
+    if (currentStory) stories.push(currentStory);
+    return stories;
+  };
+
+  // Parse overview/introduction
+  const overviewKeys = ["overview", "introduction", "summary", "executive summary", "project overview"];
+  for (const key of overviewKeys) {
+    if (sections[key]) {
+      brd.overview = sections[key].join('\n').trim();
+      break;
+    }
+  }
+
+  // Parse business goals/objectives
+  const goalKeys = ["business goals", "businessgoals", "objectives", "goals", "business objectives"];
+  for (const key of goalKeys) {
+    if (sections[key]) {
+      brd.businessGoals = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse functional requirements
+  const frKeys = ["functional requirements", "functionalrequirements", "6 functional requirements", "requirements", "features"];
+  for (const key of frKeys) {
+    if (sections[key]) {
+      brd.functionalRequirements = parseRequirementTable(sections[key]);
+      // If table parsing didn't work, try bullet parsing
+      if (!brd.functionalRequirements.length) {
+        sections[key].forEach((line, i) => {
+          const match = line.match(/^(FR-\d+|REQ-\d+|[A-Z]+-\d+)\s*[:.-]?\s*(.+)$/i);
+          if (match) {
+            brd.functionalRequirements.push({
+              id: match[1],
+              feature: match[1],
+              description: match[2].trim(),
+              priority: "Medium",
+              acceptanceCriteria: [],
+              testable: true
+            });
+          } else if (line.trim() && !line.startsWith('|') && line.trim().length > 10) {
+            const bulletMatch = line.match(/^[-*•]\s*(.+)$/);
+            if (bulletMatch) {
+              brd.functionalRequirements.push({
+                id: `FR-${String(i + 1).padStart(3, '0')}`,
+                feature: `Requirement ${i + 1}`,
+                description: bulletMatch[1].trim(),
+                priority: "Medium",
+                acceptanceCriteria: [],
+                testable: true
+              });
+            }
+          }
+        });
+      }
+      break;
+    }
+  }
+
+  // Parse non-functional requirements
+  const nfrKeys = ["non functional requirements", "nonfunctional requirements", "nfr", "non-functional requirements"];
+  for (const key of nfrKeys) {
+    if (sections[key]) {
+      brd.nonFunctionalRequirements = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse user stories
+  const storyKeys = ["user stories", "userstories", "stories", "epics"];
+  for (const key of storyKeys) {
+    if (sections[key]) {
+      brd.userStories = parseUserStories(sections[key]);
+      break;
+    }
+  }
+
+  // Parse acceptance criteria
+  const acKeys = ["acceptance criteria", "acceptancecriteria", "acceptance"];
+  for (const key of acKeys) {
+    if (sections[key]) {
+      brd.acceptanceCriteria = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse user journeys/flows
+  const journeyKeys = ["user journey", "user journeys", "userjourneys", "user flow", "user flows", "userflows"];
+  for (const key of journeyKeys) {
+    if (sections[key]) {
+      brd.userJourneys = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse integrations
+  const intKeys = ["integrations", "integration", "integration points", "apis", "api endpoints"];
+  for (const key of intKeys) {
+    if (sections[key]) {
+      brd.integrations = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse dependencies
+  const depKeys = ["dependencies", "dependency", "dependent systems"];
+  for (const key of depKeys) {
+    if (sections[key]) {
+      brd.dependencies = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse assumptions
+  if (sections["assumptions"]) {
+    brd.assumptions = parseBullets(sections["assumptions"]);
+  }
+
+  // Parse risks
+  const riskKeys = ["risks", "risk", "risk assessment"];
+  for (const key of riskKeys) {
+    if (sections[key]) {
+      brd.risks = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse constraints
+  const constraintKeys = ["constraints", "constraint", "limitations"];
+  for (const key of constraintKeys) {
+    if (sections[key]) {
+      brd.constraints = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse out of scope
+  const oosKeys = ["out of scope", "outofscope", "exclusions", "not in scope"];
+  for (const key of oosKeys) {
+    if (sections[key]) {
+      brd.outOfScope = parseBullets(sections[key]);
+      break;
+    }
+  }
+
+  // Parse Figma/design links
+  const designKeys = ["figma", "designs", "ui designs", "ux designs", "figma designs", "prototype"];
+  for (const key of designKeys) {
+    if (sections[key]) {
+      const designText = sections[key].join(' ');
+      const urlMatch = designText.match(/(https?:\/\/[^\s]+)/);
+      if (urlMatch) {
+        brd.figmaDesigns = urlMatch[1];
+      }
+      break;
+    }
+  }
+
+  // Parse JIRA epic
+  const jiraKeys = ["jira", "jira epic", "epic", "tickets"];
+  for (const key of jiraKeys) {
+    if (sections[key]) {
+      const jiraText = sections[key].join(' ');
+      const jiraMatch = jiraText.match(/([A-Z]+-\d+)/);
+      if (jiraMatch) {
+        brd.jiraEpic = jiraMatch[1];
+      }
+      break;
+    }
+  }
+
+  // Parse solution design
+  const solKeys = ["solution design", "solutiondesign", "technical design", "architecture"];
+  for (const key of solKeys) {
+    if (sections[key]) {
+      brd.solutionDesign = sections[key].join('\n').trim();
+      break;
+    }
+  }
+
+  return brd;
+}
+
+async function extractBRDDocument(buffer, fileName) {
+  const ext = path.extname(fileName || "").toLowerCase();
+  if (!buffer) return null;
+
+  if (ext === ".md" || ext === ".txt") {
+    const text = buffer.toString("utf8");
+    return parseBRDText(text);
+  }
+
+  if (ext === ".docx") {
+    try {
+      const result = await mammoth.extractRawText({ buffer });
+      return parseBRDText(result.value || "");
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (looksBinary(buffer)) {
+    return null;
+  }
+
+  return parseBRDText(buffer.toString("utf8"));
+}
+
 function consolidateRequirements(input) {
   const assertions = safeList(input.assertions);
   const notes = safeList(input.notes);
@@ -794,9 +1312,10 @@ function consolidateRequirements(input) {
   const uploadedCases = extraction.cases;
   const testCaseRowsStructured = extraction.structured || [];
 
-  // Check for URL Analysis insights
-  const hasUrlAnalysis = input._webAnalysisInsights || input._brdDocument;
-  const brdDocument = input._brdDocument || null;
+  // Check for URL Analysis insights and uploaded BRD input
+  const brdDocument = input._brdDocument || input.brdDocument || null;
+  const hasUrlAnalysis = Boolean(input._webAnalysisInsights);
+  const hasBrdDocument = Boolean(brdDocument);
   const urlAnalysisInsights = input._webAnalysisInsights || {};
   const suggestedRequirements = input._suggestedRequirements || [];
   const suggestedTestAreas = input._suggestedTestAreas || [];
@@ -836,9 +1355,11 @@ function consolidateRequirements(input) {
     ? "figma-plus-user-input"
     : uploadedCases.length
       ? (testCaseRowsStructured.length ? "csv-test-cases-only" : "uploaded-test-cases-plus-user-input")
-      : hasUrlAnalysis
-        ? "url-analysis-auto-generated"
-        : "user-input-only";
+      : hasBrdDocument
+        ? "brd-uploaded"
+        : hasUrlAnalysis
+          ? "url-analysis-auto-generated"
+          : "user-input-only";
 
   // Generate domain-appropriate requirement statements
   let requirementStatements = [];
@@ -937,7 +1458,7 @@ function consolidateRequirements(input) {
       websiteType: detectedWebsiteType,
       websiteTypeConfidence,
       generatedAt: new Date().toISOString(),
-      source: hasUrlAnalysis ? "BA Agent + URL Analyzer Pro" : "BA Agent",
+      source: hasUrlAnalysis ? "BA Agent + URL Analyzer Pro" : hasBrdDocument ? "BA Agent + BRD Upload" : "BA Agent",
       sourceMode,
       sourceCaseCount: uploadedCases.length,
       hasUrlAnalysis,
@@ -993,6 +1514,7 @@ function generateManualCases(requirements) {
   const uploadedSeeds = requirements.testCaseSeedFromUpload || [];
   const assertions = requirements.assertionInputs || [];
   const journeys = requirements.userJourneys || [];
+  const url = requirements.ottUrl || "";
 
   const baseCatalog = profileScenarioCatalog[profileKey] || [];
   const testCases = baseCatalog.map((item, index) => ({
@@ -1065,6 +1587,53 @@ function generateManualCases(requirements) {
     });
   });
 
+  // ============= DOMAIN-AWARE TEST CASE GENERATION =============
+  // Detect domain and add domain-specific test cases for comprehensive coverage
+  let domainType = 'GENERIC';
+  let domainTestCases = [];
+  let automationGuidance = null;
+
+  if (url) {
+    // Auto-detect domain from URL
+    const domainInfo = domainTestStrategies.detectDomain(url, profile, profile);
+    domainType = domainInfo.domain;
+
+    if (domainType !== 'GENERIC' && domainInfo.confidence >= 1) {
+      // Generate domain-specific test cases
+      const domainSuite = domainTestStrategies.generateDomainAwareTestSuite(domainType, { title: profile }, null);
+
+      // Add domain-specific test cases that provide additional coverage
+      const existingScenarios = new Set(testCases.map(tc => tc.scenario?.toLowerCase().substring(0, 40)));
+
+      domainSuite.testCases.forEach((dtc, idx) => {
+        const scenarioKey = dtc.scenario?.toLowerCase().substring(0, 40);
+        if (!existingScenarios.has(scenarioKey)) {
+          testCases.push({
+            ...dtc,
+            id: `TC-${String(profileKey).toUpperCase()}-DOM-${String(idx + 1).padStart(3, "0")}`,
+            traceability: `Domain-Specific (${domainSuite.metadata.domainName})`
+          });
+          existingScenarios.add(scenarioKey);
+        }
+      });
+
+      domainTestCases = domainSuite.testCases;
+
+      // Get automation guidance
+      automationGuidance = {
+        domain: domainType,
+        domainName: domainSuite.metadata.domainName,
+        recommendedSelectors: domainTestStrategies.getDomainSelectors(domainType),
+        automationTips: domainTestStrategies.getDomainAutomationTips(domainType),
+        sampleCode: domainTestStrategies.getDomainAutomationCode(domainType, 'playwright'),
+        coreFeatures: domainSuite.metadata.coreFeatures,
+        criticalFlows: domainSuite.metadata.criticalFlows
+      };
+
+      logger.info(`Added ${domainTestCases.length} domain-specific test cases for ${domainType} (${domainSuite.metadata.domainName})`);
+    }
+  }
+
   const structuredRate = testCases.length
     ? Math.round((testCases.filter((tc) => tc.module && tc.scenario && tc.steps && tc.steps.length >= 3).length / testCases.length) * 100)
     : 0;
@@ -1072,16 +1641,174 @@ function generateManualCases(requirements) {
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
-      source: "Manual QA Agent",
+      source: domainType !== 'GENERIC' ? "Manual QA Agent + Domain Strategy" : "Manual QA Agent",
       profile,
       professionalMode: true,
+      domain: domainType,
+      domainName: automationGuidance?.domainName,
       qualityGate: {
         structureRate: `${structuredRate}%`,
         minAcceptedStructureRate: "90%"
-      }
+      },
+      totalCases: testCases.length,
+      domainSpecificCases: domainTestCases.length
     },
-    testCases
+    testCases,
+    automationGuidance
   };
+}
+
+// ============================================================================
+// HYBRID AI ENRICHMENT: grounded LLM generation on top of the deterministic
+// template baseline above. This is the fix for "generic test cases" - real
+// reasoning over the ACTUAL crawled page (run.artifacts.webAnalysis), not
+// hallucinated from a URL string. Every call is cached by page fingerprint
+// so an unchanged page never re-triggers a paid LLM call.
+// ============================================================================
+
+function dedupeTestCasesByScenario(existingCases, incomingCases) {
+  const seen = new Set(
+    (existingCases || []).map((tc) => String(tc.scenario || "").toLowerCase().replace(/\s+/g, " ").trim())
+  );
+  const out = [];
+  for (const tc of incomingCases || []) {
+    const key = String(tc.scenario || "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(tc);
+  }
+  return out;
+}
+
+async function getCachedAIResult(cacheKey) {
+  const mem = aiGenerationCache.get(cacheKey);
+  if (mem && Date.now() - mem.ts < AI_CACHE_TTL_MS) return mem;
+  if (dbEnabled && dbPool) {
+    try {
+      const row = await dbHelpers.getAICache(dbPool, cacheKey);
+      if (row) {
+        aiGenerationCache.set(cacheKey, { ...row, ts: Date.now() });
+        return row;
+      }
+    } catch (error) {
+      logger.warn(`AI cache DB read failed: ${error.message}`);
+    }
+  }
+  return null;
+}
+
+async function setCachedAIResult(cacheKey, host, data) {
+  aiGenerationCache.set(cacheKey, { ...data, ts: Date.now() });
+  if (dbEnabled && dbPool) {
+    await dbHelpers.setAICache(dbPool, {
+      cacheKey,
+      host,
+      provider: data.provider,
+      model: data.model,
+      resultJson: data
+    }).catch((error) => logger.warn(`AI cache DB write failed: ${error.message}`));
+  }
+}
+
+async function getStoredProviderKey(userEmail, provider) {
+  if (!provider) return null;
+  if (dbEnabled && dbPool) {
+    try {
+      const encrypted = await dbHelpers.getEncryptedProviderKey(dbPool, userEmail, provider);
+      if (encrypted) return encryption.decrypt(encrypted);
+    } catch {
+      // fallback to memory map below
+    }
+  }
+
+  const mem = memoryProviderKeys.get(`${userEmail}:${provider}`);
+  if (mem?.encrypted_key) {
+    try {
+      return encryption.decrypt(mem.encrypted_key);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Provider keys are stored encrypted in API settings. aiTestGenerator reads env
+// vars, so hydrate env vars at run-time from the secure store before generation.
+async function hydrateAIEnvFromProviderStore(userEmail) {
+  const u = userEmail || "default@local";
+  const openai = await getStoredProviderKey(u, "openai");
+  const claude = await getStoredProviderKey(u, "claude");
+  const gemini = await getStoredProviderKey(u, "gemini");
+
+  if (openai && !process.env.OPENAI_API_KEY) process.env.OPENAI_API_KEY = openai;
+  if (claude && !process.env.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = claude;
+  if (gemini && !process.env.GEMINI_API_KEY) process.env.GEMINI_API_KEY = gemini;
+}
+
+/**
+ * Enrich (not replace) the deterministic manual test cases with real,
+ * LLM-generated cases grounded in the crawled page context. Falls back
+ * silently to template-only output if no provider is configured or the
+ * call fails - the pipeline never breaks because AI is unavailable.
+ */
+async function enrichManualCasesWithAI(run) {
+  await hydrateAIEnvFromProviderStore(run.input?.userEmail);
+  if (!aiTestGenerator.isAIAvailable()) {
+    if (run.artifacts.manualTestCases?.metadata) {
+      run.artifacts.manualTestCases.metadata.aiEnrichment = "skipped (no AI provider API key configured)";
+    }
+    return;
+  }
+
+  try {
+    const context = aiTestGenerator.buildContextFromWebAnalysis(
+      run.artifacts.webAnalysis,
+      run.artifacts.requirements,
+      { url: run.input.ottUrl }
+    );
+    if (!context.url) return;
+
+    const host = hostFromUrl(context.url);
+    const hasBaseline = Boolean(run.artifacts.manualTestCases?.testCases?.length);
+    // Ask for fewer cases when we already have a deterministic/CSV/BRD baseline
+    // (supplementary coverage only) to keep token spend proportional to need.
+    const expectedCaseCount = hasBaseline ? 20 : 40;
+    const cacheKey = `${aiTestGenerator.buildContextCacheKey(context)}:${expectedCaseCount}`;
+
+    let aiResult = await getCachedAIResult(cacheKey);
+    const fromCache = Boolean(aiResult);
+    if (!aiResult) {
+      aiResult = await aiTestGenerator.generateTestCasesWithAI(context, { expectedCaseCount });
+      if (aiResult) await setCachedAIResult(cacheKey, host, aiResult);
+    }
+    if (!aiResult || !aiResult.testCases?.length) return;
+
+    if (!run.artifacts.manualTestCases) {
+      run.artifacts.manualTestCases = {
+        metadata: { generatedAt: new Date().toISOString(), source: "AI Test Generator", totalCases: 0 },
+        testCases: []
+      };
+    }
+
+    const existing = run.artifacts.manualTestCases.testCases || [];
+    const newCases = dedupeTestCasesByScenario(existing, aiResult.testCases);
+    run.artifacts.manualTestCases.testCases = [...existing, ...newCases];
+    run.artifacts.manualTestCases.metadata.totalCases = run.artifacts.manualTestCases.testCases.length;
+    run.artifacts.manualTestCases.metadata.aiEnrichment = {
+      provider: aiResult.provider,
+      model: aiResult.model,
+      fromCache,
+      addedCases: newCases.length,
+      totalCases: run.artifacts.manualTestCases.testCases.length
+    };
+
+    logger.info(`AI enrichment: +${newCases.length} grounded test case(s) for ${host} (cache ${fromCache ? "hit" : "miss"})`);
+  } catch (error) {
+    logger.warn(`AI enrichment failed, continuing with template-based test cases only: ${error.message}`);
+    if (run.artifacts.manualTestCases?.metadata) {
+      run.artifacts.manualTestCases.metadata.aiEnrichment = { error: error.message };
+    }
+  }
 }
 
 function generateCasesFromUploadedOnly(requirements) {
@@ -1095,7 +1822,8 @@ function generateCasesFromUploadedOnly(requirements) {
     return { feature: parts[0] || "General", scenario: parts[1] || "Scenario", expectedResult: parts[2] || "Expected" };
   });
 
-  const testCases = source.map((row, i) => {
+  // Convert CSV test cases to enhanced format
+  const csvTestCases = source.map((row, i) => {
     const feature = row.feature || "General";
     const scenario = row.scenario || `Scenario ${i + 1}`;
     const expected = row.expectedResult || "Expected behavior from uploaded test case";
@@ -1104,30 +1832,510 @@ function generateCasesFromUploadedOnly(requirements) {
       module: feature,
       scenario,
       title: `${feature}: ${scenario}`,
-      type: "CSV",
+      type: "Functional",
       priority: "High",
-      preconditions: "OTT URL loaded; preconditions as per test case",
-      testData: "Uploaded CSV (Feature, Scenario, Expected Result)",
-      steps: [
-        `Navigate to relevant area for: ${feature}`,
-        `Execute: ${scenario}`,
-        `Verify: ${expected.slice(0, 120)}${expected.length > 120 ? "…" : ""}`
-      ],
+      severity: "Major",
+      preconditions: `Application is accessible\nUser has appropriate permissions\n${feature} module is available`,
+      testData: "As specified in test case requirements",
+      steps: generateDetailedSteps(feature, scenario, expected),
       expectedResult: expected,
-      traceability: "Uploaded CSV"
+      traceability: `CSV Import: Row ${i + 1}`,
+      automationCandidate: true
     };
+  });
+
+  // Extract unique features/modules from CSV for Senior QA analysis
+  const features = [...new Set(source.map(s => s.feature))].filter(f => f && f !== "General");
+  const scenarios = source.map(s => s.scenario?.toLowerCase() || "");
+  
+  // Use Senior QA Test Lead to generate additional comprehensive test cases
+  const additionalTestCases = generateSeniorQATestCases(features, scenarios, profile);
+  
+  // Combine CSV test cases with Senior QA generated cases
+  const allTestCases = [...csvTestCases, ...additionalTestCases];
+  
+  // Calculate quality metrics
+  const structuredRate = allTestCases.length
+    ? Math.round((allTestCases.filter(tc => tc.module && tc.scenario && tc.steps && tc.steps.length >= 3).length / allTestCases.length) * 100)
+    : 0;
+
+  // Generate coverage analysis
+  const coverageBreakdown = {};
+  allTestCases.forEach(tc => {
+    coverageBreakdown[tc.type] = (coverageBreakdown[tc.type] || 0) + 1;
   });
 
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
-      source: "CSV (Feature, Scenario, Expected Result)",
+      source: "Senior QA Test Lead + CSV Import",
       profile,
       professionalMode: true,
-      mode: "uploaded_tc_only",
-      totalCases: testCases.length
+      mode: "csv_enhanced_with_senior_qa",
+      methodology: "AI-Assisted Test Case Generation with Enterprise QA Standards",
+      totalCases: allTestCases.length,
+      csvCases: csvTestCases.length,
+      generatedCases: additionalTestCases.length,
+      qualityGate: {
+        structureRate: `${structuredRate}%`,
+        minAcceptedStructureRate: "90%"
+      },
+      coverageBreakdown
     },
-    testCases
+    testCases: allTestCases,
+    riskAssessment: generateRiskAssessmentFromCSV(features, source),
+    gapAnalysis: generateGapAnalysisFromCSV(features, scenarios),
+    testLeadSummary: generateTestLeadSummaryFromCSV(allTestCases, features)
+  };
+}
+
+/**
+ * Generate detailed test steps from feature, scenario, and expected result
+ */
+function generateDetailedSteps(feature, scenario, expected) {
+  const steps = [];
+  const lowerScenario = scenario.toLowerCase();
+  const lowerFeature = feature.toLowerCase();
+  
+  // Navigation step
+  if (lowerFeature.includes("home") || lowerFeature.includes("page")) {
+    steps.push("Step 1: Navigate to the application URL");
+  } else {
+    steps.push(`Step 1: Navigate to the ${feature} section/module`);
+  }
+  
+  // Pre-condition verification
+  steps.push("Step 2: Verify page/section is fully loaded");
+  
+  // Main action based on scenario
+  if (lowerScenario.includes("verify") && lowerScenario.includes("visible")) {
+    steps.push(`Step 3: Locate the element described: ${scenario.replace(/verify|is visible|is present/gi, '').trim()}`);
+    steps.push("Step 4: Verify element is visible and accessible");
+  } else if (lowerScenario.includes("click") || lowerScenario.includes("button")) {
+    steps.push(`Step 3: Locate the clickable element: ${scenario}`);
+    steps.push("Step 4: Click on the element");
+    steps.push("Step 5: Wait for response/navigation");
+  } else if (lowerScenario.includes("search") || lowerScenario.includes("input")) {
+    steps.push("Step 3: Locate the input field");
+    steps.push("Step 4: Enter test data into the field");
+    steps.push("Step 5: Submit/trigger the action");
+  } else if (lowerScenario.includes("login") || lowerScenario.includes("sign in")) {
+    steps.push("Step 3: Enter valid credentials in the form");
+    steps.push("Step 4: Click the submit/login button");
+    steps.push("Step 5: Wait for authentication response");
+  } else {
+    steps.push(`Step 3: Execute action: ${scenario}`);
+    steps.push("Step 4: Wait for system response");
+  }
+  
+  // Verification step
+  steps.push(`Step ${steps.length + 1}: Verify: ${expected.slice(0, 150)}${expected.length > 150 ? '...' : ''}`);
+  steps.push(`Step ${steps.length + 1}: Capture screenshot evidence`);
+  
+  return steps;
+}
+
+/**
+ * Generate additional test cases using Senior QA Test Lead methodology
+ */
+function generateSeniorQATestCases(features, existingScenarios, profile) {
+  const additionalCases = [];
+  let tcCounter = 100;
+  
+  const generateId = (type) => {
+    const id = `TC-${type}-${String(tcCounter).padStart(3, '0')}`;
+    tcCounter++;
+    return id;
+  };
+  
+  // Check which test types are missing and add them
+  const hasNegativeTests = existingScenarios.some(s => s.includes("invalid") || s.includes("error") || s.includes("negative"));
+  const hasSecurityTests = existingScenarios.some(s => s.includes("security") || s.includes("auth") || s.includes("permission"));
+  const hasAccessibilityTests = existingScenarios.some(s => s.includes("accessibility") || s.includes("wcag") || s.includes("a11y"));
+  const hasPerformanceTests = existingScenarios.some(s => s.includes("performance") || s.includes("load time") || s.includes("speed"));
+  const hasEdgeCaseTests = existingScenarios.some(s => s.includes("boundary") || s.includes("edge") || s.includes("limit"));
+  
+  // 1. Add Negative/Validation Test Cases if missing
+  if (!hasNegativeTests) {
+    features.forEach(feature => {
+      if (['Search', 'Sign In', 'Account', 'Cart'].includes(feature)) {
+        additionalCases.push({
+          id: generateId('NEG'),
+          module: feature,
+          scenario: `${feature} - Invalid Input Handling`,
+          title: `${profile}: ${feature} - Negative Testing`,
+          type: 'Negative',
+          priority: 'High',
+          severity: 'Major',
+          preconditions: `${feature} functionality is accessible`,
+          testData: 'Invalid data: empty values, special characters, SQL injection attempts, XSS payloads',
+          steps: [
+            `Step 1: Navigate to ${feature} area`,
+            'Step 2: Enter invalid/malformed data',
+            'Step 3: Attempt to submit or execute action',
+            'Step 4: Verify error handling behavior',
+            'Step 5: Verify no system crash or security breach',
+            'Step 6: Capture error messages displayed'
+          ],
+          expectedResult: 'System handles invalid input gracefully with appropriate error messages, no data corruption',
+          traceability: 'Senior QA Test Lead - Negative Testing Strategy',
+          automationCandidate: true
+        });
+      }
+    });
+  }
+  
+  // 2. Add Security Test Cases if missing
+  if (!hasSecurityTests) {
+    additionalCases.push({
+      id: generateId('SEC'),
+      module: 'Security',
+      scenario: 'Authentication Security Verification',
+      title: `${profile}: Security - Authentication Testing`,
+      type: 'Security',
+      priority: 'Critical',
+      severity: 'Blocker',
+      preconditions: 'Application login functionality is accessible',
+      testData: 'Invalid credentials, SQL injection payloads, brute force attempts',
+      steps: [
+        'Step 1: Navigate to login page',
+        'Step 2: Attempt login with invalid credentials multiple times',
+        'Step 3: Check for account lockout mechanism',
+        'Step 4: Verify error messages do not reveal sensitive information',
+        'Step 5: Test for SQL injection in login fields',
+        'Step 6: Verify password field masking'
+      ],
+      expectedResult: 'Authentication is secure with proper lockout, no information leakage',
+      traceability: 'Senior QA Test Lead - Security Testing',
+      automationCandidate: true
+    });
+    
+    additionalCases.push({
+      id: generateId('SEC'),
+      module: 'Security',
+      scenario: 'Session Management Verification',
+      title: `${profile}: Security - Session Management`,
+      type: 'Security',
+      priority: 'Critical',
+      severity: 'Blocker',
+      preconditions: 'User can login to the application',
+      testData: 'Valid user session',
+      steps: [
+        'Step 1: Login to the application',
+        'Step 2: Note the session token/cookie',
+        'Step 3: Verify session timeout behavior',
+        'Step 4: Test session invalidation on logout',
+        'Step 5: Verify concurrent session handling',
+        'Step 6: Check secure cookie flags (HttpOnly, Secure)'
+      ],
+      expectedResult: 'Session management follows security best practices',
+      traceability: 'Senior QA Test Lead - Security Testing',
+      automationCandidate: false
+    });
+  }
+  
+  // 3. Add Accessibility Test Cases if missing
+  if (!hasAccessibilityTests) {
+    additionalCases.push({
+      id: generateId('ACC'),
+      module: 'Accessibility',
+      scenario: 'Keyboard Navigation Verification',
+      title: `${profile}: Accessibility - Keyboard Navigation`,
+      type: 'Accessibility',
+      priority: 'High',
+      severity: 'Major',
+      preconditions: 'Application is loaded, no mouse available',
+      testData: 'Keyboard-only navigation through all interactive elements',
+      steps: [
+        'Step 1: Navigate to application using Tab key only',
+        'Step 2: Verify focus indicators are visible on all focusable elements',
+        'Step 3: Test all interactive elements using Enter/Space keys',
+        'Step 4: Verify Skip Navigation link is present',
+        'Step 5: Test dropdown menus and modals with keyboard',
+        'Step 6: Verify logical tab order'
+      ],
+      expectedResult: 'All functionality accessible via keyboard with visible focus indicators',
+      traceability: 'Senior QA Test Lead - WCAG 2.1 AA Compliance',
+      automationCandidate: true
+    });
+    
+    additionalCases.push({
+      id: generateId('ACC'),
+      module: 'Accessibility',
+      scenario: 'Screen Reader Compatibility',
+      title: `${profile}: Accessibility - Screen Reader Testing`,
+      type: 'Accessibility',
+      priority: 'High',
+      severity: 'Major',
+      preconditions: 'Screen reader software available (NVDA/JAWS/VoiceOver)',
+      testData: 'Complete user journey using screen reader',
+      steps: [
+        'Step 1: Enable screen reader',
+        'Step 2: Navigate to application',
+        'Step 3: Verify all images have meaningful alt text',
+        'Step 4: Verify form labels are properly associated',
+        'Step 5: Verify ARIA landmarks are present',
+        'Step 6: Complete a key user flow using screen reader only'
+      ],
+      expectedResult: 'Application is fully usable with screen reader',
+      traceability: 'Senior QA Test Lead - WCAG 2.1 AA Compliance',
+      automationCandidate: false
+    });
+  }
+  
+  // 4. Add Edge Case and Boundary Tests if missing
+  if (!hasEdgeCaseTests) {
+    additionalCases.push({
+      id: generateId('EDGE'),
+      module: 'Edge Cases',
+      scenario: 'Boundary Value Testing - Input Fields',
+      title: `${profile}: Edge Case - Boundary Value Analysis`,
+      type: 'Boundary',
+      priority: 'High',
+      severity: 'Major',
+      preconditions: 'Application forms are accessible',
+      testData: 'Min/Max values, empty strings, very long strings (>1000 chars), special characters',
+      steps: [
+        'Step 1: Identify all input fields',
+        'Step 2: Test with empty values',
+        'Step 3: Test with minimum boundary values',
+        'Step 4: Test with maximum boundary values',
+        'Step 5: Test with values exceeding maximum',
+        'Step 6: Document all validation behaviors'
+      ],
+      expectedResult: 'All input validations work correctly at boundaries',
+      traceability: 'Senior QA Test Lead - Edge Case Discovery',
+      automationCandidate: true
+    });
+    
+    additionalCases.push({
+      id: generateId('EDGE'),
+      module: 'Edge Cases',
+      scenario: 'Network Conditions Testing',
+      title: `${profile}: Edge Case - Network Resilience`,
+      type: 'Edge Case',
+      priority: 'Medium',
+      severity: 'Major',
+      preconditions: 'Network throttling tools available',
+      testData: 'Slow 3G, Offline, Intermittent connectivity',
+      steps: [
+        'Step 1: Enable network throttling (Slow 3G)',
+        'Step 2: Perform key user actions',
+        'Step 3: Verify loading indicators are displayed',
+        'Step 4: Test offline behavior',
+        'Step 5: Verify error messages for network failures',
+        'Step 6: Test recovery when connection restored'
+      ],
+      expectedResult: 'Application handles poor network conditions gracefully',
+      traceability: 'Senior QA Test Lead - Edge Case Discovery',
+      automationCandidate: false
+    });
+  }
+  
+  // 5. Add Performance Test Cases if sparse
+  if (!hasPerformanceTests || existingScenarios.filter(s => s.includes("performance")).length < 2) {
+    additionalCases.push({
+      id: generateId('PERF'),
+      module: 'Performance',
+      scenario: 'Core Web Vitals Assessment',
+      title: `${profile}: Performance - Core Web Vitals`,
+      type: 'Performance',
+      priority: 'High',
+      severity: 'Major',
+      preconditions: 'Performance monitoring tools available (Lighthouse/DevTools)',
+      testData: 'Fresh browser session, cleared cache',
+      steps: [
+        'Step 1: Clear browser cache and cookies',
+        'Step 2: Open browser DevTools Performance tab',
+        'Step 3: Navigate to application',
+        'Step 4: Record Largest Contentful Paint (LCP) - target < 2.5s',
+        'Step 5: Record First Input Delay (FID) - target < 100ms',
+        'Step 6: Record Cumulative Layout Shift (CLS) - target < 0.1'
+      ],
+      expectedResult: 'All Core Web Vitals metrics meet "Good" thresholds',
+      traceability: 'Senior QA Test Lead - Performance Testing',
+      automationCandidate: true
+    });
+  }
+  
+  // 6. Add Integration Test Cases based on features
+  if (features.includes('Cart') || features.includes('Product Page')) {
+    additionalCases.push({
+      id: generateId('INT'),
+      module: 'Integration',
+      scenario: 'Cart-Product Integration Flow',
+      title: `${profile}: Integration - Add to Cart Flow`,
+      type: 'Integration',
+      priority: 'Critical',
+      severity: 'Critical',
+      preconditions: 'Products are available, user can access product pages',
+      testData: 'Various product types (single, bundle, out-of-stock)',
+      steps: [
+        'Step 1: Browse to a product page',
+        'Step 2: Verify product details are loaded correctly',
+        'Step 3: Add product to cart',
+        'Step 4: Verify cart count updates immediately',
+        'Step 5: Navigate to cart page',
+        'Step 6: Verify product appears in cart with correct details',
+        'Step 7: Modify quantity and verify price updates'
+      ],
+      expectedResult: 'End-to-end add-to-cart flow works seamlessly',
+      traceability: 'Senior QA Test Lead - Integration Testing',
+      automationCandidate: true
+    });
+  }
+  
+  // 7. Add Regression Test Case
+  additionalCases.push({
+    id: generateId('REG'),
+    module: 'Regression',
+    scenario: 'Critical Path Regression Suite',
+    title: `${profile}: Regression - Critical User Journeys`,
+    type: 'Regression',
+    priority: 'Critical',
+    severity: 'Critical',
+    preconditions: 'Application deployed to test environment',
+    testData: 'Standard regression test data set',
+    steps: [
+      'Step 1: Execute homepage load verification',
+      'Step 2: Execute search functionality test',
+      'Step 3: Execute navigation flow tests',
+      'Step 4: Execute user authentication flow (if applicable)',
+      'Step 5: Execute cart/transaction flow (if applicable)',
+      'Step 6: Execute account management flow (if applicable)',
+      'Step 7: Document any deviations from baseline'
+    ],
+    expectedResult: 'All critical paths function as expected with no regression',
+    traceability: 'Senior QA Test Lead - Regression Impact Analysis',
+    automationCandidate: true
+  });
+  
+  return additionalCases;
+}
+
+/**
+ * Generate risk assessment from CSV analysis
+ */
+function generateRiskAssessmentFromCSV(features, testCases) {
+  const risks = [];
+  
+  // Check for missing critical test coverage
+  const hasLoginTests = testCases.some(tc => tc.scenario?.toLowerCase().includes('sign in') || tc.scenario?.toLowerCase().includes('login'));
+  const hasCartTests = testCases.some(tc => tc.feature?.toLowerCase().includes('cart'));
+  const hasPaymentTests = testCases.some(tc => tc.scenario?.toLowerCase().includes('payment') || tc.scenario?.toLowerCase().includes('checkout'));
+  
+  if (hasLoginTests && !testCases.some(tc => tc.scenario?.toLowerCase().includes('invalid'))) {
+    risks.push({
+      category: 'Security Risk',
+      description: 'Login functionality tested but no negative/invalid credential tests found',
+      severity: 'High',
+      recommendation: 'Add test cases for invalid login attempts, account lockout, SQL injection'
+    });
+  }
+  
+  if (hasCartTests && !hasPaymentTests) {
+    risks.push({
+      category: 'Coverage Risk',
+      description: 'Cart functionality tested but payment/checkout tests not found',
+      severity: 'High',
+      recommendation: 'Add end-to-end checkout flow test cases'
+    });
+  }
+  
+  if (!testCases.some(tc => tc.scenario?.toLowerCase().includes('mobile') || tc.scenario?.toLowerCase().includes('responsive'))) {
+    risks.push({
+      category: 'UX Risk',
+      description: 'No mobile/responsive testing identified in test cases',
+      severity: 'Medium',
+      recommendation: 'Add responsive design test cases for various viewport sizes'
+    });
+  }
+  
+  if (!testCases.some(tc => tc.scenario?.toLowerCase().includes('error') || tc.scenario?.toLowerCase().includes('fail'))) {
+    risks.push({
+      category: 'Robustness Risk',
+      description: 'Limited error handling test coverage identified',
+      severity: 'Medium',
+      recommendation: 'Add error scenario test cases for all features'
+    });
+  }
+  
+  return {
+    totalRisks: risks.length,
+    highRiskCount: risks.filter(r => r.severity === 'High').length,
+    risks
+  };
+}
+
+/**
+ * Generate gap analysis from CSV test cases
+ */
+function generateGapAnalysisFromCSV(features, scenarios) {
+  const gaps = [];
+  
+  // Standard test types that should be present
+  const requiredTestTypes = [
+    { type: 'Positive/Happy Path', keywords: ['verify', 'display', 'load', 'show'] },
+    { type: 'Negative Testing', keywords: ['invalid', 'error', 'fail', 'incorrect'] },
+    { type: 'Boundary Testing', keywords: ['max', 'min', 'limit', 'boundary'] },
+    { type: 'Security Testing', keywords: ['security', 'auth', 'permission', 'role'] },
+    { type: 'Accessibility Testing', keywords: ['accessibility', 'a11y', 'screen reader', 'keyboard'] },
+    { type: 'Performance Testing', keywords: ['performance', 'load time', 'speed', 'latency'] },
+    { type: 'Integration Testing', keywords: ['integration', 'api', 'service', 'end-to-end'] }
+  ];
+  
+  requiredTestTypes.forEach(testType => {
+    const hasType = scenarios.some(s => testType.keywords.some(kw => s.includes(kw)));
+    if (!hasType) {
+      gaps.push({
+        type: 'Missing Test Type',
+        category: testType.type,
+        recommendation: `Add ${testType.type} test cases to improve coverage`,
+        priority: testType.type.includes('Security') || testType.type.includes('Negative') ? 'High' : 'Medium'
+      });
+    }
+  });
+  
+  return {
+    totalGaps: gaps.length,
+    gaps,
+    coverageCompleteness: gaps.length <= 2 ? 'High' : gaps.length <= 4 ? 'Medium' : 'Low'
+  };
+}
+
+/**
+ * Generate test lead summary for CSV-based generation
+ */
+function generateTestLeadSummaryFromCSV(testCases, features) {
+  const totalCases = testCases.length;
+  const functionalCases = testCases.filter(tc => tc.type === 'Functional' || tc.type === 'CSV').length;
+  const nonFunctionalCases = testCases.filter(tc => ['Security', 'Performance', 'Accessibility'].includes(tc.type)).length;
+  
+  return {
+    releaseReadiness: totalCases >= 30 && nonFunctionalCases >= 5 ? 'CONDITIONAL GO' : 'REVIEW REQUIRED',
+    testSuiteSummary: {
+      totalTestCases: totalCases,
+      functionalCoverage: functionalCases,
+      nonFunctionalCoverage: nonFunctionalCases,
+      featuresTestedCount: features.length
+    },
+    qualityRisks: [
+      nonFunctionalCases < 5 ? 'Non-functional test coverage may need enhancement' : null,
+      functionalCases < 20 ? 'Functional test coverage may be insufficient' : null
+    ].filter(Boolean),
+    uatFocusRecommendations: [
+      'Focus on critical user journeys (Home → Search → Product → Cart)',
+      'Validate authentication flows thoroughly',
+      'Test edge cases for form inputs',
+      'Verify responsive behavior on mobile devices'
+    ],
+    automationCandidates: testCases.filter(tc => tc.automationCandidate).length,
+    regressionSuiteRecommendations: [
+      'Include all homepage verification tests',
+      'Include search functionality tests',
+      'Include cart operations tests',
+      'Add critical path smoke tests'
+    ]
   };
 }
 
@@ -1212,18 +2420,70 @@ function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
     });
   }
 
+  // ============= DOMAIN-AWARE TEST CASE GENERATION =============
+  // Detect domain type and add domain-specific test cases
+  let domainType = 'GENERIC';
+  let domainTestCases = [];
+
+  // Get domain from web analysis if available
+  if (webAnalysis.websiteType?.type) {
+    domainType = webAnalysis.websiteType.type;
+  } else if (webAnalysis.url) {
+    // Auto-detect from URL
+    const domainInfo = domainTestStrategies.detectDomain(
+      webAnalysis.url,
+      webAnalysis.siteOverview?.title || '',
+      profile
+    );
+    domainType = domainInfo.domain;
+  }
+
+  // Generate domain-specific test cases if a specific domain was detected
+  if (domainType !== 'GENERIC') {
+    const domainSuite = domainTestStrategies.generateDomainAwareTestSuite(domainType, {}, webAnalysis);
+
+    // Add domain-specific test cases that aren't duplicates
+    const existingScenarios = new Set(testCases.map(tc => tc.scenario?.toLowerCase().substring(0, 50)));
+
+    domainSuite.testCases.forEach(dtc => {
+      const scenarioKey = dtc.scenario?.toLowerCase().substring(0, 50);
+      if (!existingScenarios.has(scenarioKey)) {
+        testCases.push({
+          ...dtc,
+          id: `TC-DOM-${testCases.length + 1}`,
+          traceability: `Domain-Specific (${domainSuite.metadata.domainName}): ${dtc.scenario}`
+        });
+        existingScenarios.add(scenarioKey);
+      }
+    });
+
+    domainTestCases = domainSuite.testCases;
+    logger.info(`Added ${domainTestCases.length} domain-specific test cases for ${domainType}`);
+  }
+
   // Calculate quality metrics
   const structuredRate = testCases.length
     ? Math.round((testCases.filter(tc => tc.module && tc.scenario && tc.steps && tc.steps.length >= 2).length / testCases.length) * 100)
     : 0;
 
+  // Get domain automation guidance
+  const automationGuidance = domainType !== 'GENERIC' ? {
+    domain: domainType,
+    domainName: domainTestStrategies.getDomainStrategy(domainType).name,
+    recommendedSelectors: domainTestStrategies.getDomainSelectors(domainType),
+    automationTips: domainTestStrategies.getDomainAutomationTips(domainType),
+    sampleCode: domainTestStrategies.getDomainAutomationCode(domainType, 'playwright')
+  } : null;
+
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
-      source: "URL Analyzer Agent",
+      source: "URL Analyzer Agent + Domain Strategy",
       profile,
       professionalMode: true,
       mode: "url_analysis",
+      domain: domainType,
+      domainName: automationGuidance?.domainName || 'Generic Website',
       totalCases: testCases.length,
       qualityGate: {
         structureRate: `${structuredRate}%`,
@@ -1233,13 +2493,15 @@ function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
         autoGeneratedCount: autoTestCases.length,
         brdRequirementCount: brd.functionalRequirements?.length || 0,
         featureCount: webAnalysis.features?.length || 0,
-        userFlowCount: userFlows.length
+        userFlowCount: userFlows.length,
+        domainSpecificCount: domainTestCases.length
       }
     },
     testCases,
     brdDocument: brd,
     observations: webAnalysis.observations || [],
-    warnings: webAnalysis.warnings || []
+    warnings: webAnalysis.warnings || [],
+    automationGuidance
   };
 }
 
@@ -1297,6 +2559,314 @@ function generateCasesFromManualInput(manualTestCases, requirements) {
   };
 }
 
+/**
+ * Generate comprehensive test cases from BRD using Senior QA Test Lead methodology
+ * 
+ * This implements the AI-Assisted Test Case Generation and Review Process:
+ * - Requirement validation and gap analysis
+ * - Coverage analysis and ambiguity detection
+ * - Edge-case discovery and risk assessment
+ * - UX validation and business flow validation
+ * - Regression impact analysis
+ * - Negative testing strategy
+ * - Integration and dependency validation
+ */
+function generateCasesFromBRD(brdDocument, webAnalysis, existingTestCases, requirements) {
+  const profile = requirements?.metadata?.profile || brdDocument?.title || webAnalysis?.siteOverview?.title || "Application";
+  
+  // Parse BA requirements from BRD document
+  const baRequirements = seniorQaTestLead.parseBARequirements(brdDocument);
+  
+  // Enhance with web analysis data if available
+  if (webAnalysis) {
+    // Add discovered features
+    if (webAnalysis.features) {
+      baRequirements.discoveredFeatures = webAnalysis.features;
+    }
+    // Add discovered user flows
+    if (webAnalysis.userFlows?.length && !baRequirements.userJourneys?.length) {
+      baRequirements.userJourneys = webAnalysis.userFlows.map(f => f.description || f.name || f);
+    }
+    // Add integration points from web analysis
+    if (webAnalysis.apiEndpoints) {
+      baRequirements.integrations = baRequirements.integrations || [];
+      baRequirements.integrations.push(...webAnalysis.apiEndpoints.map(api => `API: ${api.method} ${api.url}`));
+    }
+  }
+  
+  // Generate comprehensive test cases using Senior QA Test Lead approach
+  const result = seniorQaTestLead.generateComprehensiveTestCases(
+    baRequirements,
+    webAnalysis,
+    existingTestCases || []
+  );
+  
+  // Add comparison report if existing test cases were provided
+  if (existingTestCases?.length) {
+    result.comparisonReport = seniorQaTestLead.compareTestCases(
+      result.testCases,
+      existingTestCases
+    );
+  }
+  
+  // Enhance metadata with BRD context
+  result.metadata = {
+    ...result.metadata,
+    profile,
+    brdTitle: brdDocument?.title,
+    brdOverview: brdDocument?.overview?.slice(0, 500),
+    methodology: 'Senior QA Test Lead - AI-Assisted Test Case Generation',
+    prompt: seniorQaTestLead.SENIOR_QA_TEST_LEAD_PROMPT.slice(0, 500) + '...'
+  };
+  
+  logger.info(`Generated ${result.testCases.length} comprehensive test cases from BRD using Senior QA Test Lead methodology`);
+  
+  return result;
+}
+
+/**
+ * Generate comprehensive test cases from detailed BA requirements using Senior QA Test Lead methodology
+ * This function handles the structured BA prompt format with modules, userJourneys, requirementStatements, etc.
+ * 
+ * DOMAIN-AWARE: Automatically detects and generates domain-specific test cases for:
+ * - OTT/Streaming (Netflix, Hotstar, Prime Video, etc.)
+ * - E-commerce (Amazon, Flipkart, Myntra, etc.)
+ * - Travel/Booking (MakeMyTrip, Booking.com, etc.)
+ * - Banking/Finance (HDFC, ICICI, Paytm, etc.)
+ * - Healthcare/Pharma (Apollo, 1mg, Practo, etc.)
+ * - Food Delivery (Swiggy, Zomato, etc.)
+ * - And more...
+ */
+function generateCasesFromDetailedBARequirements(requirements, webAnalysis, existingTestCases) {
+  const profile = requirements?.metadata?.profile || webAnalysis?.siteOverview?.title || "Application";
+  const url = requirements?.ottUrl || webAnalysis?.url || "";
+  
+  // Parse BA requirements from the structured format
+  const baRequirements = seniorQaTestLead.parseBARequirements(requirements);
+  
+  // DOMAIN DETECTION - Detect the domain type from URL and content
+  let domainType = 'GENERIC';
+  let domainInfo = null;
+  
+  // Check if domain/industry is specified in channelContext
+  if (requirements?.channelContext?.domain || requirements?.channelContext?.industry) {
+    const specifiedDomain = (requirements.channelContext.domain || requirements.channelContext.industry).toLowerCase();
+    
+    // Map to our domain types
+    if (specifiedDomain.includes('ott') || specifiedDomain.includes('streaming') || specifiedDomain.includes('video')) {
+      domainType = 'OTT_STREAMING';
+    } else if (specifiedDomain.includes('ecommerce') || specifiedDomain.includes('shopping') || specifiedDomain.includes('retail')) {
+      domainType = 'ECOMMERCE';
+    } else if (specifiedDomain.includes('travel') || specifiedDomain.includes('booking') || specifiedDomain.includes('hotel') || specifiedDomain.includes('flight')) {
+      domainType = 'TRAVEL_BOOKING';
+    } else if (specifiedDomain.includes('bank') || specifiedDomain.includes('finance') || specifiedDomain.includes('payment')) {
+      domainType = 'BANKING_FINANCE';
+    } else if (specifiedDomain.includes('health') || specifiedDomain.includes('pharma') || specifiedDomain.includes('medical')) {
+      domainType = 'HEALTHCARE_PHARMA';
+    } else if (specifiedDomain.includes('food') || specifiedDomain.includes('delivery') || specifiedDomain.includes('restaurant')) {
+      domainType = 'FOOD_DELIVERY';
+    } else if (specifiedDomain.includes('education') || specifiedDomain.includes('learning') || specifiedDomain.includes('course')) {
+      domainType = 'EDUCATION';
+    } else if (specifiedDomain.includes('news') || specifiedDomain.includes('media')) {
+      domainType = 'NEWS_MEDIA';
+    } else if (specifiedDomain.includes('social')) {
+      domainType = 'SOCIAL_MEDIA';
+    }
+    
+    logger.info(`Domain detected from channelContext: ${domainType}`);
+  } else if (url) {
+    // Auto-detect from URL
+    domainInfo = domainTestStrategies.detectDomain(url, baRequirements.rawText || '', profile);
+    domainType = domainInfo.domain;
+    logger.info(`Domain auto-detected from URL: ${domainType} (confidence: ${domainInfo.confidence})`);
+  }
+  
+  // Enhance with web analysis data if available
+  if (webAnalysis) {
+    if (webAnalysis.features) {
+      baRequirements.discoveredFeatures = webAnalysis.features;
+    }
+    if (webAnalysis.userFlows?.length && !baRequirements.userJourneys?.length) {
+      baRequirements.userJourneys = webAnalysis.userFlows.map(f => f.description || f.name || f);
+    }
+    if (webAnalysis.websiteType?.type) {
+      // Use detected website type from URL analysis
+      domainType = webAnalysis.websiteType.type;
+      logger.info(`Domain from web analysis: ${domainType}`);
+    }
+  }
+  
+  // Generate comprehensive test cases using Senior QA Test Lead approach
+  const seniorQaResult = seniorQaTestLead.generateComprehensiveTestCases(
+    baRequirements,
+    webAnalysis,
+    existingTestCases || []
+  );
+  
+  // Generate domain-specific test cases
+  const domainTestSuite = domainTestStrategies.generateDomainAwareTestSuite(
+    domainType,
+    baRequirements,
+    webAnalysis
+  );
+  
+  // Merge test cases - Senior QA + Domain-specific
+  const allTestCases = [
+    ...seniorQaResult.testCases,
+    ...domainTestSuite.testCases.filter(dtc => {
+      // Avoid duplicates by checking scenario similarity
+      return !seniorQaResult.testCases.some(stc => 
+        stc.scenario?.toLowerCase().includes(dtc.scenario?.toLowerCase().substring(0, 30)) ||
+        dtc.scenario?.toLowerCase().includes(stc.scenario?.toLowerCase().substring(0, 30))
+      );
+    })
+  ];
+  
+  // Get domain-specific automation guidance
+  const automationGuidance = {
+    domain: domainType,
+    domainName: domainTestSuite.metadata.domainName,
+    recommendedSelectors: domainTestStrategies.getDomainSelectors(domainType),
+    automationTips: domainTestStrategies.getDomainAutomationTips(domainType),
+    sampleCode: domainTestStrategies.getDomainAutomationCode(domainType, 'playwright'),
+    coreFeatures: domainTestSuite.metadata.coreFeatures,
+    criticalFlows: domainTestSuite.metadata.criticalFlows
+  };
+  
+  // Combine metadata
+  const result = {
+    metadata: {
+      ...seniorQaResult.metadata,
+      profile,
+      domain: domainType,
+      domainName: domainTestSuite.metadata.domainName,
+      methodology: 'Senior QA Test Lead - Domain-Aware AI-Assisted Test Case Generation',
+      totalCases: allTestCases.length,
+      seniorQaCases: seniorQaResult.testCases.length,
+      domainSpecificCases: domainTestSuite.testCases.length,
+      coverageBreakdown: {
+        ...seniorQaResult.metadata.coverageBreakdown,
+        domainSpecific: domainTestSuite.coverageReport
+      }
+    },
+    testCases: allTestCases,
+    riskAssessment: seniorQaResult.riskAssessment,
+    gapAnalysis: seniorQaResult.gapAnalysis,
+    testLeadSummary: {
+      ...seniorQaResult.testLeadSummary,
+      domainSpecificRecommendations: automationGuidance.automationTips
+    },
+    automationGuidance,
+    domainStrategy: {
+      coreFeatures: domainTestSuite.metadata.coreFeatures,
+      criticalFlows: domainTestSuite.metadata.criticalFlows
+    }
+  };
+  
+  // Add comparison report if existing test cases were provided
+  if (existingTestCases?.length) {
+    result.comparisonReport = seniorQaTestLead.compareTestCases(
+      allTestCases,
+      existingTestCases
+    );
+  }
+  
+  logger.info(`Generated ${allTestCases.length} test cases using domain-aware Senior QA methodology for ${domainType}`);
+  
+  return result;
+}
+
+/**
+ * Determine the best test case generation strategy based on available inputs
+ */
+function selectTestCaseGenerationStrategy(input, requirements, webAnalysis) {
+  const hasBrd = Boolean(input._brdDocument || requirements?.urlAnalysis?.brdDocument);
+  const hasWebAnalysis = Boolean(webAnalysis || requirements?.urlAnalysis);
+  const hasManualTestCases = Boolean(input.manualTestCases?.length);
+  const hasCsvUpload = Boolean(requirements?.testCaseRowsStructured?.length || requirements?.testCaseSeedFromUpload?.length);
+  
+  // Check for detailed BA requirements in prompt format (modules, userJourneys, requirementStatements)
+  const hasDetailedBARequirements = Boolean(
+    (requirements?.modules?.length >= 2) ||
+    (requirements?.requirementStatements?.length >= 3) ||
+    (requirements?.userJourneys?.length >= 2 && requirements?.modules?.length >= 1) ||
+    (requirements?.channelContext?.domain || requirements?.channelContext?.industry) ||
+    (input._detailedBARequirements)
+  );
+
+  // Priority order:
+  // 1. BRD with Senior QA Test Lead approach (most comprehensive)
+  // 2. Detailed BA Requirements in prompt format (Senior QA methodology)
+  // 3. Web Analysis auto-generation
+  // 4. Manual test cases from UI
+  // 5. CSV upload
+  // 6. Default profile-based generation
+
+  if (hasBrd) {
+    return 'brd_comprehensive';
+  }
+  
+  // Use Senior QA methodology when detailed BA requirements are detected
+  if (hasDetailedBARequirements) {
+    logger.info('Detected detailed BA requirements in prompt format - using Senior QA Test Lead methodology');
+    return 'detailed_ba_comprehensive';
+  }
+
+  if (hasWebAnalysis && (webAnalysis?.autoGeneratedTestCases?.length || requirements?.urlAnalysis?.autoGeneratedTestCases?.length)) {
+    return 'url_analysis_auto';
+  }
+  
+  if (hasManualTestCases) {
+    return 'manual_entry';
+  }
+  
+  if (hasCsvUpload) {
+    return 'csv_upload';
+  }
+  
+  return 'profile_default';
+}
+
+/**
+ * Unified test case generation with strategy selection
+ */
+function generateTestCasesWithStrategy(input, requirements, webAnalysis) {
+  const strategy = selectTestCaseGenerationStrategy(input, requirements, webAnalysis);
+  
+  logger.info(`Test case generation strategy: ${strategy}`);
+  
+  switch (strategy) {
+    case 'brd_comprehensive': {
+      const brdDocument = input._brdDocument || requirements?.urlAnalysis?.brdDocument;
+      const existingTestCases = requirements?.testCaseRowsStructured || [];
+      return generateCasesFromBRD(brdDocument, webAnalysis, existingTestCases, requirements);
+    }
+    
+    case 'detailed_ba_comprehensive': {
+      // Use Senior QA Test Lead methodology for detailed BA requirements
+      const existingTestCases = requirements?.testCaseRowsStructured || [];
+      return generateCasesFromDetailedBARequirements(requirements, webAnalysis, existingTestCases);
+    }
+
+    case 'url_analysis_auto': {
+      return generateCasesFromUrlAnalysis(webAnalysis || requirements?.urlAnalysis, requirements);
+    }
+    
+    case 'manual_entry': {
+      return generateCasesFromManualInput(input.manualTestCases, requirements);
+    }
+    
+    case 'csv_upload': {
+      return generateCasesFromUploadedOnly(requirements);
+    }
+    
+    case 'profile_default':
+    default: {
+      return generateManualCases(requirements);
+    }
+  }
+}
+
 function mergeSelectorCandidates(host, profileSelectors) {
   const learned = selectorMemory.get(host) || {};
   const merged = {};
@@ -1312,7 +2882,32 @@ async function generateAutomationBundle(input, manualCases, requirements) {
   const profileKey = inferProfile(input.ottUrl, input.channelProfile);
   const profileSelectors = appProfiles[profileKey].selectorCandidates;
   const memorySelectors = selectorMemory.get(host) || {};
-  const selectors = await locatorRegistry.getMergedSelectors(dbPool, host, profileSelectors, memorySelectors);
+  const rawSelectors = await locatorRegistry.getMergedSelectors(dbPool, host, profileSelectors, memorySelectors);
+
+  // Ground the script in reality: verify candidate selectors against the LIVE
+  // page before letting them into generated code. This is the fix for
+  // "generated code doesn't work" - we never ship a selector we didn't
+  // confirm exists. Best-effort: if the browser/site is unreachable, we fall
+  // back to the unverified candidates exactly as before (no pipeline break).
+  let verificationReport = null;
+  let selectors = rawSelectors;
+  let browser = null;
+  try {
+    const headless = !(input.runHeaded || process.env.RUN_HEADED === "true");
+    browser = await chromium.launch(getStealthBrowserConfig(headless));
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ...getStealthContextOptions() });
+    const page = await context.newPage();
+    await setupStealthPage(page);
+    await page.goto(input.ottUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+    const verification = await selectorVerifier.verifySelectorMap(page, rawSelectors);
+    verificationReport = verification.report;
+    selectors = verification.orderedSelectors;
+  } catch (error) {
+    logger.warn(`Selector verification skipped (browser/page unavailable): ${error.message}`);
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+
   const useCsvScript = input.executionMode === "uploaded_tc_only" && manualCases.testCases && manualCases.testCases.length > 0;
   const script = useCsvScript
     ? scriptBuilder.buildPlaywrightSpecFromTestCases(input.ottUrl, manualCases, selectors)
@@ -1322,6 +2917,22 @@ async function generateAutomationBundle(input, manualCases, requirements) {
   const locatorsByKey = Object.fromEntries(Object.entries(selectors).map(([k, v]) => [k, (v || []).map((s) => (typeof s === "string" ? { selectorValue: s, selectorType: "css" } : s))]));
   const generatedSeleniumJava = javaSeleniumBuilder.buildSeleniumJavaClass(projectName, manualCases.testCases || [], locatorsByKey, input.ottUrl);
 
+  // Page Object Model (higher-quality, reviewable Java output) - only built
+  // from selectors we actually attempted to verify; each locator is clearly
+  // flagged VERIFIED or UNVERIFIED in the generated source.
+  let pageObjectModel = null;
+  if (verificationReport) {
+    const pageObj = pageObjectBuilder.buildPageObjectClass(projectName, verificationReport, input.ottUrl);
+    const testObj = pageObjectBuilder.buildJUnitTestClass(projectName, pageObj.className, manualCases.testCases || [], input.ottUrl);
+    pageObjectModel = {
+      pageClassName: pageObj.className,
+      pageObjectSource: pageObj.source,
+      testClassName: testObj.className,
+      testClassSource: testObj.source,
+      verificationSummary: selectorVerifier.summarize(verificationReport)
+    };
+  }
+
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
@@ -1329,10 +2940,12 @@ async function generateAutomationBundle(input, manualCases, requirements) {
       scriptingLanguage: "Java",
       framework: "Selenium (Java); Playwright (runtime)",
       profile: requirements.metadata.profile,
-      strategy: "adaptive-locator-candidates+db-registry"
+      strategy: verificationReport ? "verified-selectors+page-object-model" : "adaptive-locator-candidates+db-registry",
+      selectorVerification: verificationReport ? selectorVerifier.summarize(verificationReport) : null
     },
     mappedManualCaseIds: manualCases.testCases.map((tc) => tc.id),
     selectorCandidates: selectors,
+    pageObjectModel,
     assertionFormatGuide: [
       "selector:.class-or-[data-testid='id']",
       "text:Exact or partial visible text"
@@ -1502,6 +3115,14 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
   // Build domain-specific tests from auto-generated test cases
   function buildDomainSpecificTests() {
+    // Get discovered elements from web analysis for adaptive execution
+    const discoveredElements = webAnalysis.allElements || {};
+    const adaptiveSelectors = buildAdaptiveSelectors(discoveredElements, run.input.ottUrl);
+    const isKnownSite = isKnownDomain(run.input.ottUrl);
+
+    console.log(`[Execution] Site type: ${isKnownSite ? 'Known' : 'Unknown/Generic'}`);
+    console.log(`[Execution] Discovered elements: ${JSON.stringify(Object.keys(discoveredElements))}`);
+
     // If we have auto-generated test cases from URL analysis, use those
     if (autoGeneratedTestCases.length > 0) {
       return autoGeneratedTestCases.slice(0, 10).map((tc, idx) => ({
@@ -1513,47 +3134,83 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
             await page.waitForLoadState("domcontentloaded");
             await page.waitForTimeout(2000);
+
+            // Dismiss popups using adaptive executor
+            await adaptiveExecutor.dismissPopups(page, trace);
           }
           
           const body = page.locator("body");
           await body.waitFor({ state: "visible", timeout: 15000 });
           
+          // Parse the action adaptively
+          const adaptiveAction = adaptiveExecutor.parseAdaptiveAction(
+            tc.scenario || '',
+            tc.expectedResult || '',
+            discoveredElements
+          );
+
           // Execute based on test case module/type
           const module = (tc.module || "").toLowerCase();
           const scenario = (tc.scenario || "").toLowerCase();
           const type = (tc.type || "").toLowerCase();
           
+          // For unknown sites, always use adaptive execution
+          if (!isKnownSite) {
+            trace.push(`adaptive:${adaptiveAction.type}`);
+            await adaptiveExecutor.executeAdaptiveAction(page, adaptiveAction, adaptiveSelectors, trace);
+            return;
+          }
+
           // Navigation tests
           if (module.includes("nav") || scenario.includes("navigation") || scenario.includes("menu")) {
-            const nav = page.locator("nav, [role='navigation'], header nav, .navbar, .nav-menu").first();
-            if (await nav.isVisible({ timeout: 5000 }).catch(() => false)) {
-              trace.push("nav:verified");
-              // Try clicking a nav item
-              const navItems = page.locator("nav a, header a, .nav-link, .nav-item a").first();
-              if (await navItems.isVisible({ timeout: 3000 }).catch(() => false)) {
-                trace.push("nav-items:found");
+            const navSelectors = adaptiveSelectors.navigation.length > 0
+              ? adaptiveSelectors.navigation
+              : ["nav, [role='navigation'], header nav, .navbar, .nav-menu"];
+
+            let found = false;
+            for (const sel of navSelectors) {
+              const nav = page.locator(sel).first();
+              if (await nav.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`nav:verified:${sel}`);
+                break;
               }
-            } else {
-              trace.push("nav:body-visible-only");
             }
+            if (!found) trace.push("nav:body-visible-only");
             return;
           }
           
           // Footer tests
           if (module.includes("footer") || scenario.includes("footer")) {
-            const footer = page.locator("footer, [role='contentinfo'], .footer").first();
-            if (await footer.isVisible({ timeout: 5000 }).catch(() => false)) {
-              trace.push("footer:verified");
-            } else {
+            const footerSelectors = adaptiveSelectors.footer.length > 0
+              ? adaptiveSelectors.footer
+              : ["footer, [role='contentinfo'], .footer"];
+
+            let found = false;
+            for (const sel of footerSelectors) {
+              const footer = page.locator(sel).first();
+              if (await footer.isVisible({ timeout: 5000 }).catch(() => false)) {
+                found = true;
+                trace.push(`footer:verified:${sel}`);
+                break;
+              }
+            }
+
+            if (!found) {
               // Scroll to bottom to find footer
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
               await page.waitForTimeout(1000);
-              if (await footer.isVisible({ timeout: 5000 }).catch(() => false)) {
-                trace.push("footer:found-after-scroll");
-              } else {
-                trace.push("footer:not-visible");
+              for (const sel of footerSelectors) {
+                const footer = page.locator(sel).first();
+                if (await footer.isVisible({ timeout: 3000 }).catch(() => false)) {
+                  found = true;
+                  trace.push(`footer:found-after-scroll:${sel}`);
+                  break;
+                }
               }
             }
+
+            if (!found) trace.push("footer:not-visible");
             return;
           }
           
@@ -1596,41 +3253,104 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
           
           // Media/Image tests
           if (scenario.includes("media") || scenario.includes("image") || scenario.includes("video")) {
-            const media = page.locator("img, video, [class*='media'], [class*='gallery']").first();
-            if (await media.isVisible({ timeout: 5000 }).catch(() => false)) {
-              trace.push("media:found");
-            } else {
-              trace.push("media:none-visible");
+            const mediaSelectors = [
+              ...adaptiveSelectors.images,
+              ...adaptiveSelectors.videos,
+              "img, video, [class*='media'], [class*='gallery']"
+            ];
+
+            let found = false;
+            for (const sel of mediaSelectors.slice(0, 5)) {
+              const media = page.locator(sel).first();
+              if (await media.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`media:found:${sel}`);
+                break;
+              }
             }
+            if (!found) trace.push("media:none-visible");
             return;
           }
           
           // Search tests
           if (scenario.includes("search")) {
-            const searchInput = page.locator("input[type='search'], input[name*='search'], input[placeholder*='search'], .search-input").first();
-            if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-              trace.push("search:found");
-            } else {
-              trace.push("search:not-visible");
+            const searchSelectors = adaptiveSelectors.searchInput.length > 0
+              ? adaptiveSelectors.searchInput
+              : ["input[type='search'], input[name*='search'], input[placeholder*='search'], .search-input"];
+
+            let found = false;
+            for (const sel of searchSelectors) {
+              const searchInput = page.locator(sel).first();
+              if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`search:found:${sel}`);
+                break;
+              }
             }
+            if (!found) trace.push("search:not-visible");
             return;
           }
           
           // Form tests
           if (scenario.includes("form") || module.includes("form")) {
-            const forms = page.locator("form, [role='form']").first();
-            if (await forms.isVisible({ timeout: 5000 }).catch(() => false)) {
-              trace.push("form:found");
-            } else {
-              trace.push("form:not-visible");
+            const formSelectors = adaptiveSelectors.forms.length > 0
+              ? adaptiveSelectors.forms
+              : ["form, [role='form']"];
+
+            let found = false;
+            for (const sel of formSelectors) {
+              const forms = page.locator(sel).first();
+              if (await forms.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`form:found:${sel}`);
+                break;
+              }
             }
+            if (!found) trace.push("form:not-visible");
+            return;
+          }
+
+          // Button/Interactive tests
+          if (scenario.includes("button") || scenario.includes("click")) {
+            const buttonSelectors = adaptiveSelectors.buttons.length > 0
+              ? adaptiveSelectors.buttons
+              : ["button, [role='button'], .btn"];
+
+            let found = false;
+            for (const sel of buttonSelectors.slice(0, 5)) {
+              const btn = page.locator(sel).first();
+              if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`button:found:${sel}`);
+                break;
+              }
+            }
+            if (!found) trace.push("button:none-visible");
+            return;
+          }
+
+          // Tab tests
+          if (scenario.includes("tab")) {
+            const tabSelectors = adaptiveSelectors.tabs.length > 0
+              ? adaptiveSelectors.tabs
+              : ["[role='tab'], .tab, [class*='tab']"];
+
+            let found = false;
+            for (const sel of tabSelectors) {
+              const tab = page.locator(sel).first();
+              if (await tab.isVisible({ timeout: 3000 }).catch(() => false)) {
+                found = true;
+                trace.push(`tab:found:${sel}`);
+                break;
+              }
+            }
+            if (!found) trace.push("tab:not-visible");
             return;
           }
           
-          // Default: verify page loaded
-          const visible = await body.isVisible();
-          if (!visible) throw new Error("Page did not load properly");
-          trace.push(`generic-test:${tc.module || 'page'}:verified`);
+          // Default: use adaptive execution
+          trace.push(`adaptive:default:${adaptiveAction.type}`);
+          await adaptiveExecutor.executeAdaptiveAction(page, adaptiveAction, adaptiveSelectors, trace);
         }
       }));
     }
@@ -1645,15 +3365,24 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
             await page.waitForLoadState("domcontentloaded");
             await page.waitForTimeout(2000);
+            await adaptiveExecutor.dismissPopups(page, trace);
           }
           const body = page.locator("body");
           await body.waitFor({ state: "visible", timeout: 15000 });
-          trace.push(`flow:${flow.name}:page-loaded`);
+
+          // Execute flow steps if available
+          if (flow.steps && flow.steps.length > 0) {
+            for (const step of flow.steps.slice(0, 5)) {
+              const stepAction = adaptiveExecutor.parseAdaptiveAction(step.action || step, '', discoveredElements);
+              await adaptiveExecutor.executeAdaptiveAction(page, stepAction, adaptiveSelectors, trace);
+            }
+          }
+          trace.push(`flow:${flow.name}:completed`);
         }
       }));
     }
     
-    // Ultimate fallback: basic page verification
+    // Ultimate fallback: comprehensive page verification with discovered elements
     return [{
       id: "AUTO-001",
       title: `Verify ${websiteTypeName} loads correctly`,
@@ -1661,11 +3390,41 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
         await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(2000);
+        await adaptiveExecutor.dismissPopups(page, trace);
+
         const body = page.locator("body");
         await body.waitFor({ state: "visible", timeout: 15000 });
         const visible = await body.isVisible();
         if (!visible) throw new Error("Page did not load: body not visible.");
-        trace.push("page:loaded");
+
+        // Verify key structural elements using discovered selectors
+        const checks = [];
+
+        // Check header
+        for (const sel of adaptiveSelectors.header.slice(0, 3)) {
+          if (await page.locator(sel).first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            checks.push('header');
+            break;
+          }
+        }
+
+        // Check navigation
+        for (const sel of adaptiveSelectors.navigation.slice(0, 3)) {
+          if (await page.locator(sel).first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            checks.push('navigation');
+            break;
+          }
+        }
+
+        // Check main content
+        for (const sel of adaptiveSelectors.mainContent.slice(0, 3)) {
+          if (await page.locator(sel).first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            checks.push('main-content');
+            break;
+          }
+        }
+
+        trace.push(`page:loaded:elements-verified:${checks.join(',')}`);
       }
     }];
   }
@@ -1876,6 +3635,16 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
   function buildUploadedTcExecutionTests() {
     const list = (run.artifacts.manualTestCases && run.artifacts.manualTestCases.testCases) || [];
 
+    // Check if this is an unknown website that needs adaptive execution
+    const isKnownSite = isKnownDomain(ottUrl);
+    const discoveredElements = webAnalysis.allElements || {};
+    const adaptiveSelectors = buildAdaptiveSelectors(discoveredElements, ottUrl);
+
+    if (!isKnownSite) {
+      console.log(`[Execution] Unknown website detected - using adaptive execution mode`);
+      console.log(`[Execution] Discovered element categories: ${Object.keys(discoveredElements).join(', ')}`);
+    }
+
     return list.map((tc, index) => {
       const scenario = tc.scenario || tc.title || "";
       const expected = tc.expectedResult || "";
@@ -1883,11 +3652,17 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
       const action = parseAction(scenario, expected);
       const searchTerm = extractSearchTerm(scenario) || extractSearchTerm(expected);
 
+      // For unknown sites, parse action adaptively
+      const adaptiveAction = !isKnownSite
+        ? adaptiveExecutor.parseAdaptiveAction(scenario, expected, discoveredElements)
+        : null;
+
       return {
         id: `EXEC-${tc.id}`,
         title: tc.title || scenario,
         tcIndex: index,
         action,
+        adaptiveAction,
         searchTerm,
         execute: async (page, trace) => {
           // Initialize page only once for the first test case
@@ -1899,47 +3674,15 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await page.waitForTimeout(2000);
 
             // Anti-bot / Captcha / Blocked page detection
-            const pageContent = await page.content();
-            const pageTitle = await page.title();
-            const bodyText = await page.locator("body").textContent().catch(() => "");
-            
-            const blockedIndicators = [
-              // Captcha/bot detection
-              "captcha",
-              "recaptcha",
-              "hcaptcha",
-              "challenge-running",
-              "cf-browser-verification",
-              "cloudflare",
-              "ddos-guard",
-              // Access denied messages
-              "user validation required",
-              "access denied",
-              "blocked",
-              "forbidden",
-              "not allowed",
-              "please verify",
-              "human verification",
-              "bot detection",
-              "automated access",
-              "security check",
-              "prove you're human",
-              "suspicious activity",
-              // Rate limiting
-              "too many requests",
-              "rate limit",
-              "try again later"
-            ];
-            
-            const contentLower = (pageContent + " " + pageTitle + " " + bodyText).toLowerCase();
-            const isBlocked = blockedIndicators.some(indicator => contentLower.includes(indicator));
-            
+            const isBlocked = await adaptiveExecutor.detectBlockedPage(page);
+
             if (isBlocked) {
               trace.push("error:page-blocked-anti-bot");
               throw new Error("Page blocked by anti-bot protection, captcha, or access restriction. Cannot run automated tests on this website.");
             }
 
             // Verify page has meaningful content (not just error page)
+            const bodyText = await page.locator("body").textContent().catch(() => "");
             const hasMinimalContent = bodyText.length > 100;
             const hasValidStructure = await page.$("nav, header, main, footer, [role='main'], [role='navigation']").catch(() => null);
             
@@ -1949,6 +3692,9 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             }
             
             trace.push("validation:page-content-valid");
+
+            // Use adaptive popup dismissal for any site
+            await adaptiveExecutor.dismissPopups(page, trace);
 
             // Dismiss common popups/modals (especially Flipkart login popup)
             const domain = detectDomain(ottUrl);
@@ -2010,6 +3756,25 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
             await body.waitFor({ state: "visible", timeout: 10000 });
             trace.push("minimal:page-visible");
             return;
+          }
+
+          // For UNKNOWN websites: use adaptive execution for all non-standard actions
+          if (!isKnownSite) {
+            // For known e-commerce actions (search, cart, etc.) - still try domain-aware approach
+            const ecommerceActions = [
+              'search_enter', 'search_click', 'verify_search_results', 'click_product',
+              'verify_product_title', 'verify_price', 'verify_add_to_cart_button',
+              'click_add_to_cart', 'verify_cart_count', 'open_cart'
+            ];
+
+            // For completely non-standard actions, use adaptive execution
+            if (!ecommerceActions.includes(action) || action === 'generic' || action === 'verify_element' || action === 'navigate') {
+              trace.push(`adaptive-mode:unknown-site:${adaptiveAction?.type || action}`);
+              if (adaptiveAction) {
+                await adaptiveExecutor.executeAdaptiveAction(page, adaptiveAction, adaptiveSelectors, trace);
+                return;
+              }
+            }
           }
 
           // Execute based on parsed action type
@@ -2756,7 +4521,14 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
             case "verify_element":
             default: {
-              // Generic verification - look for key text from expected result
+              // For unknown sites, use adaptive execution
+              if (!isKnownSite && adaptiveAction) {
+                trace.push(`adaptive:executing:${adaptiveAction.type}`);
+                await adaptiveExecutor.executeAdaptiveAction(page, adaptiveAction, adaptiveSelectors, trace);
+                break;
+              }
+
+              // Generic verification for known sites - look for key text from expected result
               const searchTerms = expected.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 3);
               let found = false;
 
@@ -2811,13 +4583,10 @@ async function generateExecutionReport(run, rerunFailedOnly = false) {
 
   try {
     const headless = !(run.input.runHeaded || process.env.RUN_HEADED === "true");
-    browser = await chromium.launch({
-      headless,
-      slowMo: headless ? 0 : 300,
-      args: headless ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"] : []
-    });
+    browser = await chromium.launch(getStealthBrowserConfig(headless, run.input.runHeaded));
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
     const page = await context.newPage();
+    await setupStealthPage(page);
 
     // For CSV upload mode (e-commerce flows), skip OTT-specific locator analysis
     // to avoid unnecessary page reloads
@@ -2967,9 +4736,10 @@ async function generateWebAnalysis(run) {
   let browser = null;
 
   try {
-    browser = await chromium.launch({ headless, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    browser = await chromium.launch(getStealthBrowserConfig(headless));
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     const page = await context.newPage();
+    await setupStealthPage(page);
 
     // Use the PRO URL Analyzer for comprehensive professional analysis
     const analysisResult = await urlAnalyzerPro.analyzeUrlPro(page, ottUrl, { headless });
@@ -3148,9 +4918,10 @@ async function generateSecurityReport(run) {
   const recommendations = [];
 
   try {
-    browser = await chromium.launch({ headless, args: ["--no-sandbox"] });
+    browser = await chromium.launch(getStealthBrowserConfig(headless));
     const context = await browser.newContext();
     const page = await context.newPage();
+    await setupStealthPage(page);
 
     // Capture security headers from response
     let securityHeaders = {};
@@ -3356,12 +5127,13 @@ async function generateAccessibilityReport(run) {
   const checks = [];
 
   try {
-    browser = await chromium.launch({ headless });
+    browser = await chromium.launch(getStealthBrowserConfig(headless));
     const context = await browser.newContext();
     const page = await context.newPage();
+    await setupStealthPage(page);
 
     await page.goto(ottUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(2000);
+    await addHumanDelay(page, 1000, 2000);
 
     // Check 1: Images without alt text
     const imagesWithoutAlt = await page.$$eval("img:not([alt]), img[alt='']", (imgs) =>
@@ -3465,9 +5237,10 @@ async function generatePerformanceReport(run) {
   let browser = null;
 
   try {
-    browser = await chromium.launch({ headless });
+    browser = await chromium.launch(getStealthBrowserConfig(headless));
     const context = await browser.newContext();
     const page = await context.newPage();
+    await setupStealthPage(page);
 
     // Enable request tracking
     const requests = [];
@@ -3797,7 +5570,22 @@ async function processRun(id) {
     await persistRun(run);
 
     setStage(run, "manualQa", "running");
-    if (run.input.executionMode === "uploaded_tc_only") {
+
+    // Check for BRD document with detailed requirements - use Senior QA Test Lead approach
+    const hasBrdDocument = Boolean(run.input._brdDocument || run.artifacts.webAnalysis?.brdDocument);
+
+    if (hasBrdDocument) {
+      // Use comprehensive Senior QA Test Lead methodology for BRD-based generation
+      logger.info("Using Senior QA Test Lead methodology for comprehensive test case generation from BRD");
+      const brdDocument = run.input._brdDocument || run.artifacts.webAnalysis?.brdDocument;
+      const existingTestCases = run.artifacts.requirements?.testCaseRowsStructured || [];
+      run.artifacts.manualTestCases = generateCasesFromBRD(
+        brdDocument,
+        run.artifacts.webAnalysis,
+        existingTestCases,
+        run.artifacts.requirements
+      );
+    } else if (run.input.executionMode === "uploaded_tc_only") {
       // CSV file was uploaded
       run.artifacts.manualTestCases = generateCasesFromUploadedOnly(run.artifacts.requirements);
     } else if (run.input.executionMode === "manual_tc_only" && run.input.manualTestCases && run.input.manualTestCases.length > 0) {
@@ -3809,6 +5597,11 @@ async function processRun(id) {
     } else {
       run.artifacts.manualTestCases = generateManualCases(run.artifacts.requirements);
     }
+
+    // Hybrid step: ground the template baseline with real LLM reasoning over
+    // the actually-crawled page (adds cases, never replaces the baseline).
+    await enrichManualCasesWithAI(run);
+
     setStage(run, "manualQa", "done");
     await persistRun(run);
 
@@ -4031,7 +5824,7 @@ app.get("/record", (req, res) => {
   });
 });
 
-app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }]), async (req, res) => {
+app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }, { name: "brdFile", maxCount: 1 }]), async (req, res) => {
   try {
     const ottUrl = String(req.body.ottUrl || "").trim();
     const figmaUrl = String(req.body.figmaUrl || "").trim();
@@ -4054,12 +5847,15 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     }
 
     const tcFile = req.files && req.files.tcFile ? req.files.tcFile[0] : null;
+    const brdFile = req.files && req.files.brdFile ? req.files.brdFile[0] : null;
     const recordingFile = req.files && req.files.recordingFile ? req.files.recordingFile[0] : null;
     const tcExt = tcFile ? path.extname(tcFile.originalname).toLowerCase() : "";
+    const brdExt = brdFile ? path.extname(brdFile.originalname).toLowerCase() : "";
     
     // Determine execution mode based on input
     const hasCsv = tcFile && tcExt === ".csv";
     const hasManualCases = manualTestCases.length > 0 && manualTestCases.some(tc => tc.feature || tc.scenario);
+    const hasBrdUpload = Boolean(brdFile);
     
     let executionMode = "standard";
     if (hasCsv) {
@@ -4074,8 +5870,8 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     
     // Allow running with just URL in auto mode (URL Analyzer will generate test cases)
     const canRunWithAutoGeneration = testCaseInputMode === "auto" || executionMode === "url_analysis_auto";
-    if (!figmaUrl && !tcFile && !hasManualCases && !notes && !canRunWithAutoGeneration) {
-      return res.status(400).json({ error: "Upload a CSV, enter manual test cases, or use URL Analyzer auto-generation" });
+    if (!figmaUrl && !tcFile && !hasManualCases && !notes && !hasBrdUpload && !canRunWithAutoGeneration) {
+      return res.status(400).json({ error: "Upload a CSV, enter manual test cases, upload a BRD, or use URL Analyzer auto-generation" });
     }
     if (hasCsv) {
       // CSV is primary: run only uploaded test cases, no built-in manual TC
@@ -4103,12 +5899,14 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
       }
     }
 
+    const brdDocument = brdFile ? await extractBRDDocument(brdFile.buffer, brdFile.originalname) : null;
     const projectId = String(req.body.projectId || "").trim() || null;
     const runHeaded = req.body.runHeaded === "true" || req.body.runHeaded === "on" || process.env.RUN_HEADED === "true";
     const enableAccessibility = req.body.enableAccessibility === "true" || req.body.enableAccessibility === "on";
     const enablePerformance = req.body.enablePerformance === "true" || req.body.enablePerformance === "on";
     const input = {
       ottUrl,
+      userEmail: getUserEmail(req),
       figmaUrl: figmaUrl || null,
       assertions,
       notes,
@@ -4127,13 +5925,19 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
       },
       tcFileName: tcFile ? tcFile.originalname : null,
       tcFileContent: tcFile ? tcFile.buffer.toString("utf8") : null,
-      tcFileBuffer: tcFile ? tcFile.buffer : null
+      tcFileBuffer: tcFile ? tcFile.buffer : null,
+      brdFileName: brdFile ? brdFile.originalname : null,
+      brdFileBuffer: brdFile ? brdFile.buffer : null,
+      _brdDocument: brdDocument
     };
 
     const run = createRun(input);
     await fs.mkdir(run.runDir, { recursive: true });
     if (tcFile) {
       await fs.writeFile(path.join(run.runDir, tcFile.originalname), tcFile.buffer);
+    }
+    if (brdFile) {
+      await fs.writeFile(path.join(run.runDir, brdFile.originalname), brdFile.buffer);
     }
     if (recording) {
       run.artifacts.recording = recording;
@@ -4161,25 +5965,28 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
 });
 
 app.get("/api/runs", async (_req, res) => {
-  try {
-    const files = await fs.readdir(artifactsRoot);
-    const loadedRuns = [];
-    for (const file of files) {
-      const runPath = path.join(artifactsRoot, file, "run.json");
-      try {
-        const data = await fs.readFile(runPath, "utf8");
-        const run = JSON.parse(data);
-        loadedRuns.push(run);
-      } catch (_) {
-        // ignore files/folders that don't contain a valid run.json
-      }
+  if (dbEnabled && dbPool) {
+    try {
+      const rows = await dbHelpers.listRuns(dbPool, 30);
+      const dbRuns = rows.map((r) => ({
+        id: r.id,
+        status: r.status,
+        createdAt: new Date(r.created_at).toISOString(),
+        updatedAt: new Date(r.updated_at).toISOString(),
+        input: r.input_json || {}
+      }));
+      // Prefer live in-memory copies (more up to date mid-run) over the DB row for the same id.
+      const memRuns = Array.from(runs.values());
+      const memIds = new Set(memRuns.map((r) => r.id));
+      const merged = [...memRuns, ...dbRuns.filter((r) => !memIds.has(r.id))]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 20);
+      return res.json({ source: "postgres+memory", runs: merged });
+    } catch (error) {
+      logger.warn(`Listing runs from DB failed, falling back to memory: ${error.message}`);
     }
-    // Sort by createdAt descending
-    loadedRuns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return res.json({ source: "file", runs: loadedRuns.slice(0, 20) });
-  } catch (e) {
-    return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
   }
+  return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
 });
 
 app.get("/api/runs/:id", async (req, res) => {
@@ -4489,15 +6296,68 @@ app.post("/api/element-log", async (req, res) => {
   }
 });
 
+/* ─── Auth (register/login) ──────────────────────────────── */
+app.post("/api/auth/register", rateLimiters.auth, async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const password = String(req.body?.password || "");
+    const name = String(req.body?.name || "").trim() || null;
+
+    if (!validEmail(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    const existing = await getUserByEmailAddress(email);
+    if (existing) {
+      return res.status(409).json({ error: "Account already exists for this email." });
+    }
+
+    const user = await createUserAccount({ email, passwordHash: hashPassword(password), name });
+    const token = issueAuthToken({ id: user.id, email: user.email, name: user.name });
+    return res.status(201).json({ token, user: safeUserShape(user) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/auth/login", rateLimiters.auth, async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const password = String(req.body?.password || "");
+
+    if (!validEmail(email) || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const user = await getUserByEmailAddress(email);
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    const token = issueAuthToken({ id: user.id, email: user.email, name: user.name });
+    return res.json({ token, user: safeUserShape(user) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/auth/me", requireAuth, (req, res) => {
+  return res.json({ user: { id: req.user.id, email: req.user.email, name: req.user.name || null } });
+});
+
 /* ─── Provider API Keys ──────────────────────────────────── */
 const ALLOWED_PROVIDERS = ["claude", "openai", "gemini"];
 
 function getUserEmail(req) {
+  if (req.user?.email) return req.user.email;
   const h = req.get("X-User-Email") || req.get("x-user-email");
   return (h && String(h).trim().toLowerCase()) || "default@local";
 }
 
-app.get("/api/provider-keys", async (req, res) => {
+app.get("/api/provider-keys", requireAuth, async (req, res) => {
   try {
     const userEmail = getUserEmail(req);
     let rows = [];
@@ -4531,7 +6391,7 @@ app.get("/api/provider-keys", async (req, res) => {
   }
 });
 
-app.put("/api/provider-keys/:provider", async (req, res) => {
+app.put("/api/provider-keys/:provider", requireAuth, async (req, res) => {
   const provider = String(req.params.provider || "").toLowerCase();
   if (!ALLOWED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ error: `Unknown provider. Use one of: ${ALLOWED_PROVIDERS.join(", ")}` });
@@ -4564,7 +6424,7 @@ app.put("/api/provider-keys/:provider", async (req, res) => {
   }
 });
 
-app.delete("/api/provider-keys/:provider", async (req, res) => {
+app.delete("/api/provider-keys/:provider", requireAuth, async (req, res) => {
   const provider = String(req.params.provider || "").toLowerCase();
   if (!ALLOWED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ error: "Unknown provider." });
@@ -4585,7 +6445,7 @@ app.delete("/api/provider-keys/:provider", async (req, res) => {
 /* ─── Agent Settings (model + prompt per LLM-driven agent) ── */
 const ALLOWED_AGENTS = ["ba", "manualQa", "automationQa", "manager"];
 
-app.get("/api/agent-settings", async (req, res) => {
+app.get("/api/agent-settings", requireAuth, async (req, res) => {
   try {
     const userEmail = getUserEmail(req);
     let rows = [];
@@ -4613,7 +6473,7 @@ app.get("/api/agent-settings", async (req, res) => {
   }
 });
 
-app.put("/api/agent-settings/:agent", async (req, res) => {
+app.put("/api/agent-settings/:agent", requireAuth, async (req, res) => {
   const agent = String(req.params.agent || "");
   if (!ALLOWED_AGENTS.includes(agent)) {
     return res.status(400).json({ error: `Unknown agent. Use one of: ${ALLOWED_AGENTS.join(", ")}` });
@@ -4728,16 +6588,13 @@ app.post("/api/capture-cms-screenshot", express.json({ limit: "32kb" }), async (
   const absPath = path.join(cmsCaptureDir, fileName);
   let browser;
   try {
-    browser = await chromium.launch({
-      headless: !showBrowser,
-      slowMo: showBrowser ? 200 : 0,
-      args: showBrowser ? [] : ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
-    });
+    browser = await chromium.launch(getStealthBrowserConfig(!showBrowser, showBrowser));
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       deviceScaleFactor: 1
     });
     const page = await context.newPage();
+    await setupStealthPage(page);
     await cmsCaptureSignalPage(page, url, waitMs, streamTab);
     await page.screenshot({ path: absPath, fullPage });
     await browser.close();
@@ -4780,16 +6637,13 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
   const results = [];
   let browser;
   try {
-    browser = await chromium.launch({
-      headless: !showBrowser,
-      slowMo: showBrowser ? 150 : 0,
-      args: showBrowser ? [] : ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
-    });
+    browser = await chromium.launch(getStealthBrowserConfig(!showBrowser, showBrowser));
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       deviceScaleFactor: 1
     });
     const page = await context.newPage();
+    await setupStealthPage(page);
     const ts = Date.now();
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
@@ -4967,10 +6821,6 @@ app.get("/api/health/detailed", cacheMiddleware(30), (_req, res) => {
   });
 });
 
-app.use("/assets", (_req, res) => {
-  res.status(404).type("text/plain").send("Asset not found");
-});
-
 // Error logging middleware
 app.use(logger.errorLogger);
 
@@ -5007,35 +6857,36 @@ function tryListen(port) {
   });
 }
 
+const publicDir = path.join(__dirname, "public");
+
 // Local/Dedicated environments: start server listener
-if (!process.env.VERCEL) {
-  fs.mkdir(artifactsRoot, { recursive: true })
-    .then(() => fs.mkdir(publicDir, { recursive: true }))
-    .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
-    .then(async () => {
-      let server = null;
-      let port = PORT;
-      for (let attempt = 0; attempt <= 5; attempt++) {
-        try {
-          server = await tryListen(port);
-          const uiUrl = `http://localhost:${port}`;
-          console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
-          break;
-        } catch (err) {
-          if (err.code === "EADDRINUSE" && attempt < 5) {
-            port = PORT + attempt + 1;
-            console.warn(`Port ${port - 1} in use, trying ${port}...`);
-          } else {
-            console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
-            process.exit(1);
-          }
+initDatabase()
+  .then(() => fs.mkdir(artifactsRoot, { recursive: true }))
+  .then(() => fs.mkdir(publicDir, { recursive: true }))
+  .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
+  .then(async () => {
+    let server = null;
+    let port = PORT;
+    for (let attempt = 0; attempt <= 5; attempt++) {
+      try {
+        server = await tryListen(port);
+        const uiUrl = `http://localhost:${port}`;
+        console.log(`ZER0 running. Open the UI at: ${uiUrl}`);
+        break;
+      } catch (err) {
+        if (err.code === "EADDRINUSE" && attempt < 5) {
+          port = PORT + attempt + 1;
+          console.warn(`Port ${port - 1} in use, trying ${port}...`);
+        } else {
+          console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3001` : err.message);
+          process.exit(1);
         }
       }
-    }).catch((error) => {
-      console.error("Unable to initialize artifacts directory", error);
-      process.exit(1);
-    });
-}
+    }
+  }).catch((error) => {
+    console.error("Unable to initialize artifacts directory", error);
+    process.exit(1);
+  });
 
 function buildArchitecturePictureSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">

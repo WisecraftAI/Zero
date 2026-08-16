@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import './Sidebar.css';
+import ZeroLogo from './ZeroLogo';
 
 /* ── Icons (inline SVG, 16×16 viewport) ─────────────────── */
 const Icons = {
@@ -132,8 +133,7 @@ export default function Sidebar({ activeView, onNavigate }) {
       {/* Z Logo (Always Top Left) */}
       <div className="sidebar-head">
         <button className="sidebar-logo" onClick={() => onNavigate('dashboard')} title="ZERO Platform">
-          <span className="sidebar-z">Z</span>
-          <span className="sidebar-brand-text">ZERO</span>
+          <ZeroLogo size={30} showWordmark={isExpanded} />
         </button>
       </div>
 

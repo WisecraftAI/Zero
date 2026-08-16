@@ -15,7 +15,7 @@ function WisecraftLogoIcon({ className, size = 36 }) {
       {/* Speech bubble shape */}
       <path
         d="M8 6h28a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6H18l-8 8v-8H8a6 6 0 0 1-6-6V12a6 6 0 0 1 6-6z"
-        fill="#2563eb"
+        fill="#8b5cf6"
       />
       {/* Bird head/face - simplified parrot profile */}
       <ellipse cx="26" cy="20" rx="10" ry="12" fill="white" />
@@ -25,7 +25,7 @@ function WisecraftLogoIcon({ className, size = 36 }) {
         fill="white"
       />
       {/* Eye */}
-      <circle cx="28" cy="17" r="3" fill="#2563eb" />
+      <circle cx="28" cy="17" r="3" fill="#8b5cf6" />
       <circle cx="29" cy="16" r="1" fill="white" />
     </svg>
   );

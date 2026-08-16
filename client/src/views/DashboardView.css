@@ -16,12 +16,15 @@
 
 .dash-hero--active {
   background: var(--accent-bg);
-  border-color: var(--green-border);
+  border-color: var(--accent-border);
+  box-shadow: var(--glow-accent);
 }
 .dash-hero--active:hover { border-color: var(--accent); }
 
 .dash-hero--idle {
-  background: var(--surface);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(139, 92, 246, 0.10), transparent 45%),
+    var(--surface);
 }
 
 .dash-hero-left { display: flex; flex-direction: column; gap: 6px; }
@@ -87,10 +90,17 @@
 }
 .dash-hero-right { flex-shrink: 0; }
 
-/* Stat card values with color */
-.stat-value--green  { color: var(--green) !important; }
-.stat-value--red    { color: var(--red) !important; }
-.stat-value--amber  { color: var(--amber) !important; }
+/* Stat card values with color (reset gradient clip from .stat-value) */
+.stat-value--green,
+.stat-value--red,
+.stat-value--amber {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+}
+.stat-value--green  { color: var(--green) !important; -webkit-text-fill-color: var(--green) !important; }
+.stat-value--red    { color: var(--red) !important; -webkit-text-fill-color: var(--red) !important; }
+.stat-value--amber  { color: var(--amber) !important; -webkit-text-fill-color: var(--amber) !important; }
 
 /* Card header */
 .card-header {
@@ -148,9 +158,13 @@ tr:hover .dash-view-btn { opacity: 1; }
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  transition: border-color var(--transition);
+  transition: border-color var(--transition), box-shadow 0.25s ease, transform 0.2s ease;
 }
-.dash-cap-card:hover { border-color: var(--border-md); }
+.dash-cap-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: var(--glow-accent);
+  transform: translateY(-1px);
+}
 
 .dash-cap-icon {
   width: 32px;

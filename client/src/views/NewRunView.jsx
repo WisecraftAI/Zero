@@ -90,6 +90,7 @@ export default function NewRunView({ onSubmit }) {
   const [recordingId, setRecordingId] = useState(null);
   const [ottUrl, setOttUrl] = useState('');
   const [hasFile, setHasFile]   = useState(false);
+  const [hasBrdFile, setHasBrdFile] = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
   
   // Test case input mode: 'auto' | 'csv' | 'manual'
@@ -393,6 +394,22 @@ export default function NewRunView({ onSubmit }) {
                   </div>
                 </div>
               )}
+
+              <Field label="Upload BRD document" hint="Optional — markdown or text BRD file for automated requirement analysis">
+                <div className="file-drop-zone">
+                  <input
+                    name="brdFile"
+                    type="file"
+                    accept=".md,.txt,.docx"
+                    className="file-input"
+                    id="brdFile"
+                    onChange={e => setHasBrdFile(!!e.target.files?.[0])}
+                  />
+                  <label htmlFor="brdFile" className={`file-drop-label${hasBrdFile ? ' file-drop-label--filled' : ''}`}>
+                    {hasBrdFile ? <><CheckIcon /> BRD file selected</> : <><UploadIcon /> Drop BRD here or click to browse</>}
+                  </label>
+                </div>
+              </Field>
 
               <Field label="Assertions" hint="One per line — text:Sign In  or  selector:[data-testid='play']">
                 <textarea

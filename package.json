@@ -45,7 +45,8 @@
     "swagger-ui-express": "^5.0.1",
     "uuid": "^10.0.0",
     "winston": "^3.17.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "mammoth": "^1.4.19"
   },
   "devDependencies": {
     "eslint": "^9.15.0",

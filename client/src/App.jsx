@@ -8,7 +8,10 @@ import LocatorsView from './views/LocatorsView';
 import ApiKeysView from './views/ApiKeysView';
 import AgentsView from './views/AgentsView';
 import IntegrationsView from './views/IntegrationsView';
+import AuthView from './views/AuthView';
 import './App.css';
+
+const AUTH_TOKEN_KEY = 'zero-auth-token';
 
 /* Topbar config per view */
 function getTopbarProps(view, run) {
@@ -47,6 +50,28 @@ export default function App() {
   const [activeRun, setActiveRun] = useState(null);
   const [runs, setRuns] = useState([]);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      setAuthLoading(false);
+      return;
+    }
+
+    fetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Session expired');
+        const data = await res.json();
+        setAuthUser(data.user || null);
+      })
+      .catch(() => {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        setAuthUser(null);
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
 
   const navigate = useCallback((to, runId = null) => {
     setView(to);
@@ -131,11 +156,32 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return <div className="app-loading">Checking session...</div>;
+  }
+
+  if (!authUser) {
+    return <AuthView onAuthenticated={setAuthUser} />;
+  }
+
   return (
     <AppShell
       activeView={view}
       onNavigate={navigate}
-      topbarProps={getTopbarProps(view, activeRun)}
+      topbarProps={{
+        ...getTopbarProps(view, activeRun),
+        actions: (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              localStorage.removeItem(AUTH_TOKEN_KEY);
+              setAuthUser(null);
+            }}
+          >
+            Logout {authUser?.name || authUser?.email}
+          </button>
+        ),
+      }}
     >
       {renderView()}
     </AppShell>

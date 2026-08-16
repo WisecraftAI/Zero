@@ -1,0 +1,13 @@
+.space-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Hide the animated space layer in light mode */
+[data-theme="light"] .space-bg {
+  display: none;
+}

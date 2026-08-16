@@ -1,0 +1,21 @@
+.zero-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zero-logo svg {
+  filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.45));
+}
+
+.zero-logo-wordmark {
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  background: linear-gradient(110deg, #f4f2ff 40%, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+}
+

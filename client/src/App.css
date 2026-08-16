@@ -9,8 +9,8 @@
   border-radius: var(--radius-sm);
   font-size: 0.82rem;
   font-weight: 500;
-  border: 1px solid transparent;
-  transition: all var(--transition);
+  border: 1px solid var(--border-md);
+  transition: all 0.16s ease;
   white-space: nowrap;
   line-height: 1.4;
   font-family: var(--font);
@@ -20,26 +20,30 @@
 .btn:hover { text-decoration: none; }
 .btn:disabled { opacity: 0.35; pointer-events: none; }
 
-/* Primary — solid accent, light text */
+.btn:active { transform: translateY(1px); }
+
+/* Primary — violet glow */
 .btn-primary {
-  background: var(--accent);
-  color: #fcfcfc;
-  border-color: var(--accent);
+  background: linear-gradient(120deg, #8b5cf6, #6d28d9);
+  color: #f5f3ff;
+  border-color: rgba(167, 139, 250, 0.6);
   font-weight: 600;
+  box-shadow: 0 10px 24px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(221, 214, 254, 0.28);
 }
 .btn-primary:hover {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
-  color: #fcfcfc;
+  background: linear-gradient(120deg, #a78bfa, #7c3aed);
+  border-color: rgba(196, 181, 253, 0.9);
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(237, 233, 254, 0.35);
 }
 
 /* Secondary — dark outlined */
 .btn-secondary {
-  background: transparent;
-  color: var(--text-2);
-  border-color: var(--border-md);
+  background: rgba(139, 92, 246, 0.10);
+  color: #d6ceef;
+  border-color: rgba(139, 92, 246, 0.32);
 }
-.btn-secondary:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+.btn-secondary:hover { background: rgba(139, 92, 246, 0.20); color: #f3f0ff; border-color: rgba(167, 139, 250, 0.65); }
 
 /* Ghost */
 .btn-ghost {
@@ -173,19 +177,45 @@
 
 /* ── Card ─────────────────────────────────────────────────── */
 .card {
-  background: var(--surface);
+  background: linear-gradient(165deg, rgba(17, 17, 39, 0.85), rgba(12, 12, 24, 0.8));
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: 0 12px 26px rgba(0, 0, 8, 0.35), inset 0 1px 0 rgba(167, 139, 250, 0.06);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s ease, box-shadow 0.25s ease;
+}
+.card:hover {
+  border-color: var(--border-light, #2a2a50);
+  box-shadow: 0 14px 32px rgba(0, 0, 8, 0.45), 0 0 24px rgba(139, 92, 246, 0.08), inset 0 1px 0 rgba(167, 139, 250, 0.1);
 }
 .card-padded { padding: 18px 20px; }
 
 /* ── Stat card ────────────────────────────────────────────── */
 .stat-card {
-  background: var(--surface);
+  background: linear-gradient(165deg, rgba(17, 17, 39, 0.85), rgba(12, 12, 24, 0.8));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 20px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
 }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.stat-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: var(--glow-accent);
+  transform: translateY(-1px);
+}
+.stat-card:hover::before { opacity: 1; }
 .stat-label {
   font-family: var(--font-mono);
   font-size: 0.65rem;
@@ -198,10 +228,18 @@
 .stat-value {
   font-size: 1.7rem;
   font-weight: 700;
-  color: var(--text);
   line-height: 1;
+  background: linear-gradient(120deg, #e4e4f0, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.stat-value.green { color: var(--green); }
+.stat-value.green {
+  background: linear-gradient(120deg, #34d399, #10b981);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
 /* ── Page layout ──────────────────────────────────────────── */
 .view      { padding: 28px 32px; }
@@ -216,9 +254,13 @@
   flex-wrap: wrap;
 }
 .view-title {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text);
+  letter-spacing: -0.01em;
+  background: linear-gradient(110deg, #f4f2ff 30%, #a78bfa 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .view-subtitle {
   font-size: 0.8rem;
@@ -266,6 +308,14 @@
   text-transform: uppercase;
   color: var(--text-3);
   margin-bottom: 12px;
+}
+
+.app-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  font-size: 0.95rem;
 }
 
 @media (max-width: 768px) {

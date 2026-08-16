@@ -1,9 +1,14 @@
 import './Topbar.css';
+import ZeroLogo from './ZeroLogo';
 
 export default function Topbar({ title, breadcrumb, statusBadge, actions }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        <div className="topbar-brand" title="ZERO Command Center">
+          <ZeroLogo size={20} showWordmark={false} />
+          <span>ZERO</span>
+        </div>
         {breadcrumb ? (
           <div className="topbar-breadcrumb">
             {breadcrumb.map((crumb, i) => (

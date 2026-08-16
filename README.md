@@ -1,14 +1,27 @@
 # ZER0 (Web)
 
-Architect-level QA orchestration workflow in one UI.
+Architect-level QA orchestration workflow in one UI. Works against **any website**, not just OTT platforms.
 
 Pipeline:
 
-1. BA Agent builds channel-specific requirements from OTT URL + Figma (optional) + uploaded test cases (optional) + notes.
-2. Manual QA Agent creates app-oriented manual test cases (not generic templates).
-3. Automation QA Agent builds adaptive locator candidates using profile + learned selectors.
+1. BA Agent builds channel-specific requirements from URL + Figma (optional) + uploaded test cases (optional) + notes.
+2. Manual QA Agent creates app-oriented manual test cases from a deterministic template baseline, then **enriches them with real LLM-generated cases grounded in the actually-crawled page** (see "AI-grounded test generation" below) - not generic templates.
+3. Automation QA Agent builds adaptive locator candidates using profile + learned selectors, **verifies each candidate against the live page with Playwright**, and generates both a Playwright script and a Java **Page Object Model** (locators flagged VERIFIED/UNVERIFIED).
 4. Execution Service runs Playwright checks with retries and screenshot evidence.
 5. Manager Agent produces an executive review with root cause analysis and action plan.
+
+## AI-grounded test generation (real LLM, not templates)
+
+Set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY` (see `.env.example`) to enable real LLM-based test case generation (`lib/aiTestGenerator.js`). When configured:
+
+- The Manual QA stage sends the LLM a **grounded context** built from the page actually crawled during Web Analysis (`lib/urlAnalyzerPro.js`) - real headings, discovered elements, forms, and user flows - never a bare URL. This is what prevents hallucinated/generic test cases.
+- Results are **cached by a content fingerprint** of the page (`lib/aiTestGenerator.js#buildContextCacheKey`), in-memory and in Postgres (`ai_generation_cache` table) when configured, so re-running against an unchanged page costs zero additional tokens.
+- Token-cost controls: dynamic `max_tokens` sized to the expected output (not a flat 8000), strict JSON response mode where supported, and a cheap-model repair pass instead of a full expensive re-generation if the first response isn't valid JSON.
+- Without any key configured, the pipeline **still runs end-to-end** using only the deterministic template baseline (previous behavior) - AI is additive, never a hard dependency.
+
+## Selector verification + Page Object Model
+
+Before scripts are generated, `lib/selectorVerifier.js` opens the live target page and checks every candidate selector for actual visibility. Verified selectors are promoted first; the Java output (`lib/pageObjectBuilder.js`) is a proper **Page Object Model** class with each locator clearly commented `VERIFIED` or `UNVERIFIED - TODO: confirm manually`, plus a JUnit test class that consumes it. This replaces "guessed selectors that don't work" with code grounded in what's actually on the page.
 
 ## Run locally
 
@@ -66,6 +79,9 @@ Stored entities:
 - manual test cases + generated automation script + manager report (`qa_assets`)
 - **element_locators** – per-host reusable locators (from element logs + learned at runtime); used when generating Playwright scripts
 - **element_logs** – raw element log snapshots (URL + elements) for traceability
+- **ai_generation_cache** – fingerprinted LLM test-generation results, so an unchanged page never triggers a repeat paid API call
+
+Tables are created automatically on startup (`lib/db.js#initAllTables`) - no manual migration step needed.
 
 When Postgres is enabled, the framework merges **profile selectors + in-memory learned selectors + DB-stored locators** so generated scripts reuse stable locators across runs.
 
