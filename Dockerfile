@@ -5,10 +5,8 @@
 FROM node:20-bookworm AS web
 WORKDIR /src
 COPY package.json package-lock.json ./
-COPY apps ./apps
-COPY packages ./packages
 COPY web ./web
-RUN npm ci
+RUN npm ci --workspace @zero/web --include-workspace-root
 RUN npm run build -w @zero/web
 
 # ---------- runtime (Node, no Chromium) ----------
@@ -22,14 +20,13 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-COPY apps ./apps
-COPY packages ./packages
-COPY web/package.json ./web/
-RUN npm ci --omit=dev
+COPY apps/api ./apps/api
+COPY packages/cloud ./packages/cloud
+COPY packages/db ./packages/db
+COPY packages/domain ./packages/domain
+COPY packages/locators ./packages/locators
+RUN npm ci --omit=dev --workspace @zero/api --include-workspace-root
 
-COPY server.js ./
-COPY workers ./workers
-COPY scripts/ ./scripts/
 COPY --from=web /src/public ./public/
 
 RUN mkdir -p /app/artifacts /app/logs \
@@ -45,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["node", "apps/api/server.js"]

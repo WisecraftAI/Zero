@@ -8,7 +8,7 @@
 const { stageKeys } = require("@zero/domain");
 
 function createProcessRun(deps) {
-  async function processRun(id) {
+  async function processRun(id, request = {}) {
     const {
       getRun,
       persistRun,
@@ -36,6 +36,46 @@ function createProcessRun(deps) {
     try {
       run.status = "running";
       await persistRun(run);
+
+      if (request.rerunFailedOnly) {
+        setStage(run, "execution", "running");
+        run.artifacts.executionReport = await enqueueExecution(run.id, {
+          kind: "execution",
+          rerunFailedOnly: true
+        });
+        setStage(run, "execution", "done");
+        await persistRun(run);
+
+        setStage(run, "manager", "running");
+        run.artifacts.managerReport = await applyLlm(
+          "manager",
+          generateManagerReport(
+            run.artifacts.requirements,
+            run.artifacts.manualTestCases,
+            run.artifacts.automationBundle,
+            run.artifacts.executionReport,
+            run.artifacts.accessibilityReport,
+            run.artifacts.performanceReport,
+            run.artifacts.securityReport
+          ),
+          run,
+          {
+            verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals,
+            ottUrl: run.input.ottUrl
+          }
+        );
+        setStage(run, "manager", "done");
+
+        run.artifacts.deliveryReport = generateDeliveryReport(
+          run.artifacts.requirements,
+          run.artifacts.managerReport,
+          run.artifacts.executionReport
+        );
+        run.status = "completed";
+        await persistRun(run);
+        await persistAssets(run);
+        return;
+      }
 
       // Optional: Web Analyzer Agent (runs when no test document provided)
       if (run.stages.webAnalyzer) {
@@ -183,7 +223,7 @@ function createProcessRun(deps) {
       run.status = "failed";
       run.error = error.message;
       for (const key of stageKeys) {
-        if (run.stages[key].status === "running") {
+        if (run.stages[key] && run.stages[key].status === "running") {
           setStage(run, key, "failed");
           break;
         }

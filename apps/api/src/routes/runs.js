@@ -324,35 +324,17 @@ module.exports = function registerRunsRoutes(app, ctx) {
     if (run.status === "running") return res.status(409).json({ error: "Run is already in progress" });
 
     try {
-      run.status = "running";
-      ctx.setStage(run, "execution", "running");
+      run.status = "queued";
+      if (run.stages.execution) {
+        run.stages.execution.status = "pending";
+        run.stages.execution.startedAt = null;
+        run.stages.execution.finishedAt = null;
+      }
       await ctx.persistRun(run);
-      run.artifacts.executionReport = await ctx.enqueueExecution(run.id, true);
-      ctx.setStage(run, "execution", "done");
-      await ctx.persistRun(run);
-
-      ctx.setStage(run, "manager", "running");
-      run.artifacts.managerReport = await ctx.applyLlm(
-        "manager",
-        ctx.generateManagerReport(
-          run.artifacts.requirements,
-          run.artifacts.manualTestCases,
-          run.artifacts.automationBundle,
-          run.artifacts.executionReport
-        ),
-        run,
-        { verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals }
-      );
-      ctx.setStage(run, "manager", "done");
-
-      run.status = "completed";
-      run.updatedAt = new Date().toISOString();
-      await ctx.persistRun(run);
-      await ctx.persistAssets(run);
-      return res.json({ ok: true, runId: run.id });
+      await ctx.enqueueRun(run.id, { rerunFailedOnly: true });
+      return res.status(202).json({ ok: true, runId: run.id, status: "queued" });
     } catch (error) {
       run.status = "failed";
-      ctx.setStage(run, "execution", "failed");
       await ctx.persistRun(run);
       return res.status(500).json({ error: error.message });
     }

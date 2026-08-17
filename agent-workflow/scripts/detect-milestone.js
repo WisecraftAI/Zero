@@ -51,20 +51,19 @@ function readJson(rel) {
 }
 
 function listCloudProviders() {
-  const dirs = ['packages/cloud', 'lib/cloud'].map((d) => path.join(ROOT, d));
-  const found = dirs.find((dir) => fs.existsSync(dir));
-  if (!found) return [];
+  const dir = path.join(ROOT, 'packages/cloud');
+  if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(found, { withFileTypes: true })
+    .readdirSync(dir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
-    .filter((d) => fs.existsSync(path.join(found, d.name, 'index.js')))
+    .filter((d) => fs.existsSync(path.join(dir, d.name, 'index.js')))
     .map((d) => d.name);
 }
 
 const checks = {
   M1() {
-    const server = readAny('apps/api/server.js', 'server.js');
-    const db = readAny('packages/db/index.js', 'lib/db.js');
+    const server = read('apps/api/server.js');
+    const db = read('packages/db/index.js');
     const hardOff = /function\s+databaseConfigured\s*\(\s*\)\s*\{\s*return\s+false\s*;\s*\}/.test(server);
     const hasRuns = /CREATE TABLE IF NOT EXISTS qa_runs\b/.test(db);
     const hasAssets = /CREATE TABLE IF NOT EXISTS qa_assets\b/.test(db);
@@ -79,26 +78,23 @@ const checks = {
   },
 
   M2() {
-    const index = readAny('packages/cloud/index.js', 'lib/cloud/index.js');
-    const types = readAny('packages/cloud/index.d.ts', 'lib/cloud/index.d.ts');
-    const server = readAny('apps/api/server.js', 'server.js');
-    const routes = readAny('packages/cloud/http.js', 'lib/cloud/http.js', 'lib/routes/cloud.js');
+    const index = read('packages/cloud/index.js');
+    const types = read('packages/cloud/index.d.ts');
+    const server = read('apps/api/server.js');
+    const routes = read('packages/cloud/http.js');
     const hasPresign =
       /presignPut/.test(index + types) && /presignGet/.test(index + types);
     const hasLocalStore = existsAny(
       'packages/cloud/local/storage.js',
-      'packages/cloud/local/objectStore.js',
-      'lib/cloud/local/storage.js',
-      'lib/cloud/local/objectStore.js'
+      'packages/cloud/local/objectStore.js'
     );
     const wired =
-      /@zero\/cloud|require\(['"]\.\/lib\/cloud['"]\)|require\(['"]\.\/cloud['"]\)|presignPut|objectStore/.test(
-        server + routes
-      ) && /\/api\/cloud|presignPut|objectStore/.test(server + routes);
+      /@zero\/cloud|presignPut|objectStore/.test(server + routes) &&
+      /\/api\/cloud|presignPut|objectStore/.test(server + routes);
     return {
-      pass: hasPresign && hasLocalStore && existsAny('packages/cloud/index.js', 'lib/cloud/index.js') && wired,
+      pass: hasPresign && hasLocalStore && exists('packages/cloud/index.js') && wired,
       details: {
-        cloudIndex: existsAny('packages/cloud/index.js', 'lib/cloud/index.js'),
+        cloudIndex: exists('packages/cloud/index.js'),
         presignMethods: hasPresign,
         localObjectStore: hasLocalStore,
         apiWiredToObjectStore: wired,
@@ -107,26 +103,10 @@ const checks = {
   },
 
   M3() {
-    const cloud = readAny(
-      'packages/cloud/index.js',
-      'packages/cloud/local/queue.js',
-      'lib/cloud/index.js',
-      'lib/cloud/local/queue.js'
-    );
-    const server = readAny('apps/api/server.js', 'server.js');
-    const worker = existsAny(
-      'apps/orchestrator/index.js',
-      'apps/orchestrator/worker.js',
-      'workers/orchestrator.js',
-      'lib/orchestrator/index.js',
-      'lib/orchestrator.js'
-    );
-    const orch = readAny(
-      'apps/orchestrator/index.js',
-      'apps/orchestrator/worker.js',
-      'lib/orchestrator/index.js',
-      'workers/orchestrator.js'
-    );
+    const cloud = readAny('packages/cloud/index.js', 'packages/cloud/local/queue.js');
+    const server = read('apps/api/server.js');
+    const worker = existsAny('apps/orchestrator/index.js', 'apps/orchestrator/worker.js');
+    const orch = readAny('apps/orchestrator/index.js', 'apps/orchestrator/worker.js');
     const publishes =
       /runs\.requested/.test(server + cloud + orch) ||
       /topic:\s*['"]runs\.requested['"]/.test(server + cloud + orch) ||
@@ -142,19 +122,10 @@ const checks = {
       'apps/api/server.js',
       'apps/executor/worker.js',
       'apps/executor/main.js',
-      'apps/orchestrator/index.js',
-      'server.js',
-      'workers/execution.js',
-      'lib/execution/worker.js',
-      'workers/orchestrator.js'
+      'apps/orchestrator/index.js'
     );
     const hasTopic = /execution\.requested/.test(blobs);
-    const hasWorker = existsAny(
-      'apps/executor/worker.js',
-      'apps/executor/main.js',
-      'workers/execution.js',
-      'lib/execution/worker.js'
-    );
+    const hasWorker = existsAny('apps/executor/worker.js', 'apps/executor/main.js');
     return {
       pass: hasTopic && hasWorker,
       details: { executionWorker: hasWorker, executionRequestedTopic: hasTopic },
@@ -162,23 +133,15 @@ const checks = {
   },
 
   M5() {
-    const server = readAny('apps/api/server.js', 'server.js');
-    const authLib = readAny(
-      'apps/api/auth.js',
-      'apps/api/middleware/auth.js',
-      'lib/auth.js',
-      'lib/middleware/auth.js'
-    );
+    const server = read('apps/api/server.js');
+    const authLib = readAny('apps/api/auth.js', 'apps/api/middleware/auth.js');
     const anyKey =
       /apiKeyAuth[\s\S]{0,400}x-api-key[\s\S]{0,200}(any|non-empty|truthy)/i.test(server) ||
-      /if\s*\(\s*!apiKey\s*\)/.test(server) && /x-api-key/i.test(server) && !/provider_keys|stored.*key|verifyApiKey/.test(server + authLib);
+      (/if\s*\(\s*!apiKey\s*\)/.test(server) &&
+        /x-api-key/i.test(server) &&
+        !/provider_keys|stored.*key|verifyApiKey/.test(server + authLib));
     const recordingStar = /Access-Control-Allow-Origin['":\s]*\*/.test(server);
-    const hasAuthModule = existsAny(
-      'apps/api/auth.js',
-      'apps/api/middleware/auth.js',
-      'lib/auth.js',
-      'lib/middleware/auth.js'
-    );
+    const hasAuthModule = existsAny('apps/api/auth.js', 'apps/api/middleware/auth.js');
     return {
       pass: hasAuthModule && !recordingStar,
       details: {
@@ -190,18 +153,14 @@ const checks = {
   },
 
   M6() {
-    const server = readAny('apps/api/server.js', 'server.js');
-    const orch = readAny(
-      'apps/orchestrator/index.js',
-      'apps/orchestrator/worker.js',
-      'lib/orchestrator/index.js',
-      'workers/orchestrator.js'
-    );
-    const llm = readAny('apps/orchestrator/llm/index.js', 'lib/llm/index.js', 'lib/providers/index.js');
+    const server = read('apps/api/server.js');
+    const orch = readAny('apps/orchestrator/index.js', 'apps/orchestrator/worker.js');
+    const llm = read('apps/orchestrator/llm/index.js');
     const wired =
       /openai|anthropic|generativelanguage|bedrock|callProvider|chat\.completions/i.test(
         server + orch + llm
-      ) && (existsAny('apps/orchestrator/llm/index.js', 'lib/llm/index.js', 'lib/providers/index.js') || /provider-keys|providerKeys/.test(orch));
+      ) &&
+      (exists('apps/orchestrator/llm/index.js') || /provider-keys|providerKeys/.test(orch));
     return {
       pass: Boolean(wired),
       details: { llmClientPresent: Boolean(wired) },
@@ -285,19 +244,38 @@ const checks = {
 
   S4() {
     const apiPkg = readJson('apps/api/package.json') || {};
-    const deps = { ...(apiPkg.dependencies || {}), ...(apiPkg.devDependencies || {}) };
-    const noPlaywright = !deps.playwright;
+    const orchPkg = readJson('apps/orchestrator/package.json') || {};
+    const apiDeps = { ...(apiPkg.dependencies || {}), ...(apiPkg.devDependencies || {}) };
+    const orchDeps = { ...(orchPkg.dependencies || {}), ...(orchPkg.devDependencies || {}) };
+    const noPlaywright = !apiDeps.playwright;
+    const noExecutorDependency = !apiDeps['@zero/executor'] && !orchDeps['@zero/executor'];
     const dockerfile = exists('apps/executor/Dockerfile');
     const compose = read('docker-compose.yml');
     const composeHasExec = /^\s+executor:\s*$/m.test(compose);
-    const noLaunch = !/chromium\.launch/.test(read('apps/api/server.js'));
+    const apiServer = read('apps/api/server.js');
+    const noLaunch = !/chromium\.launch/.test(apiServer);
+    const apiDoesNotImportWorkers = !/@zero\/(?:executor|orchestrator)/.test(apiServer);
+    const apiDocker = read('Dockerfile');
+    const scopedApiImage =
+      /--workspace\s+@zero\/api/.test(apiDocker) &&
+      !/COPY\s+apps\s+\.\/apps/.test(apiDocker);
     return {
-      pass: dockerfile && composeHasExec && noPlaywright && noLaunch,
+      pass:
+        dockerfile &&
+        composeHasExec &&
+        noPlaywright &&
+        noExecutorDependency &&
+        noLaunch &&
+        apiDoesNotImportWorkers &&
+        scopedApiImage,
       details: {
         executorDockerfile: dockerfile,
         composeExecutorService: composeHasExec,
         apiHasNoPlaywright: noPlaywright,
+        apiAndOrchestratorDoNotDependOnExecutor: noExecutorDependency,
         apiHasNoChromiumLaunch: noLaunch,
+        apiDoesNotImportWorkers,
+        apiImageUsesScopedInstall: scopedApiImage,
       },
     };
   },
@@ -307,23 +285,57 @@ const checks = {
     const composeHasOrch = /^\s+orchestrator:\s*$/m.test(read('docker-compose.yml'));
     const worker = readAny('apps/orchestrator/worker.js', 'apps/orchestrator/src/worker.js');
     const notBootApi = !/require\(\s*['"]\.\.\/api\/server/.test(worker);
+    const apiServer = read('apps/api/server.js');
+    const apiIsHttpOnly =
+      !/startOrchestrator|createProcessRun|ensureOrchestrator|startExecutionWorker|ensureExecutionWorker/.test(apiServer);
+    const orchDocker = read('apps/orchestrator/Dockerfile');
+    const scopedOrchestratorImage =
+      /--workspace\s+@zero\/orchestrator/.test(orchDocker) &&
+      !/COPY\s+apps\s+\.\/apps/.test(orchDocker) &&
+      !/playwright/i.test(orchDocker);
     return {
-      pass: dockerfile && composeHasOrch && notBootApi && worker.length > 0,
+      pass:
+        dockerfile &&
+        composeHasOrch &&
+        notBootApi &&
+        worker.length > 0 &&
+        apiIsHttpOnly &&
+        scopedOrchestratorImage,
       details: {
         orchestratorDockerfile: dockerfile,
         composeOrchestratorService: composeHasOrch,
         workerDoesNotBootApi: notBootApi,
+        apiDoesNotBootWorkers: apiIsHttpOnly,
+        orchestratorImageUsesScopedInstall: scopedOrchestratorImage,
       },
     };
   },
 
   S6() {
-    const azure = exists('packages/cloud/azure/index.js');
-    const vercel = exists('packages/cloud/vercel/index.js');
-    const conformance = listJs('packages/cloud/conformance').length > 0;
+    const azureText = read('packages/cloud/azure/index.js');
+    const vercelText = read('packages/cloud/vercel/index.js');
+    const adapterShape = (text) =>
+      ['objectStore', 'queue', 'secrets', 'cache'].every((name) =>
+        new RegExp(`\\b${name}\\b`).test(text)
+      );
+    const azure = Boolean(azureText) && adapterShape(azureText);
+    const vercel = Boolean(vercelText) && adapterShape(vercelText);
+    const gate9 = readAny(
+      'packages/cloud/conformance/gate9.js',
+      'test/cloud.conformance.test.js'
+    );
+    const conformance =
+      /objectStore/.test(gate9) &&
+      /queue/.test(gate9) &&
+      /secrets/.test(gate9) &&
+      /cache/.test(gate9);
     return {
       pass: azure && vercel && conformance,
-      details: { azureAdapter: azure, vercelAdapter: vercel, conformanceSuite: conformance },
+      details: {
+        azureAdapterContract: azure,
+        vercelAdapterContract: vercel,
+        gate9CoversAllPrimitives: conformance
+      },
     };
   },
 };

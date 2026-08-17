@@ -9,14 +9,10 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@zero/analyzer": "*",
-    "@zero/builders": "*",
     "@zero/cloud": "*",
     "@zero/db": "*",
     "@zero/domain": "*",
-    "@zero/executor": "*",
     "@zero/locators": "*",
-    "@zero/orchestrator": "*",
     "axios": "^1.16.0",
     "cloudinary": "^2.10.0",
     "compression": "^1.7.4",

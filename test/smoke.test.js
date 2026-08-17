@@ -136,7 +136,7 @@ describe("S1 HTTP smoke", () => {
     if (databaseUrl) env.DATABASE_URL = databaseUrl;
     delete env.VERCEL;
 
-    child = spawn(process.execPath, ["server.js"], {
+    child = spawn(process.execPath, ["scripts/local-stack.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]

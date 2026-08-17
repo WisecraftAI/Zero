@@ -2,9 +2,7 @@
 /**
  * Playwright executor — consumes execution.requested. No HTTP server.
  *
- *   EXECUTION_WORKER_ONLY=1 node apps/executor/main.js
- *
- * Local in-process queue is used when REDIS_URL is unset (npm start co-locates
+ * Local in-process queue is used when REDIS_URL is unset (npm run start:all
  * this worker). Compose sets REDIS_URL so this process receives jobs from the API.
  */
 
@@ -12,15 +10,13 @@
 
 require("dotenv").config();
 
-process.env.EXECUTION_WORKER_ONLY = process.env.EXECUTION_WORKER_ONLY || "1";
-
 const { Pool } = require("pg");
 const dbHelpers = require("@zero/db");
+const { createRunStore } = require("@zero/db/runStore");
 const cloud = require("@zero/cloud");
 const urlAnalyzerPro = require("@zero/analyzer/urlAnalyzerPro");
 const { startExecutionWorker } = require("./worker");
 const { createJobs } = require("./jobs");
-const { createRunStore } = require("./runStore");
 const { captureCmsScreenshot, captureCmsSignalBulk } = require("./cmsCapture");
 
 function hostFromUrl(value) {
@@ -32,7 +28,7 @@ function hostFromUrl(value) {
 }
 
 const selectorMemory = new Map();
-const store = createRunStore();
+const store = createRunStore({ cloud });
 
 const jobs = createJobs({
   cloud,

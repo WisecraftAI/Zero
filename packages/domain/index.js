@@ -8,6 +8,7 @@
 const stageKeys = ["webAnalyzer", "ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "security", "manager", "delivery"];
 
 const optionalStageKeys = ["accessibility", "performance"];
+const RUNS_REQUESTED = "runs.requested";
 
 const appProfiles = {
   gray: {
@@ -226,5 +227,6 @@ const appProfiles = {
 module.exports = {
   stageKeys,
   optionalStageKeys,
-  appProfiles
+  appProfiles,
+  RUNS_REQUESTED
 };

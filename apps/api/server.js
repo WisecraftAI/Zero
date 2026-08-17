@@ -32,18 +32,11 @@ try {
 const dbHelpers = require("@zero/db");
 const cloud = require("@zero/cloud");
 const cloudHttp = require("@zero/cloud/http");
-const { startOrchestrator, TOPIC: RUNS_REQUESTED, createProcessRun } = require("@zero/orchestrator");
-const { setStage, hostFromUrl, createPipeline } = require("@zero/orchestrator/pipeline");
-const { createApplyLlm } = require("@zero/orchestrator/applyLlm");
-const {
-  startExecutionWorker,
-  requestExecution,
-  REQUESTED: EXECUTION_REQUESTED
-} = require("@zero/executor");
+const { RUNS_REQUESTED } = require("@zero/domain");
+const { requestExecution } = require("@zero/domain/execution");
 const encryption = require("./encryption");
 const auth = require("./auth");
 const elementLogger = require("@zero/locators/elementLogger");
-const javaSeleniumBuilder = require("@zero/builders/javaSeleniumBuilder");
 const registerRecordingRoutes = require("./src/routes/recordings");
 const registerRunsRoutes = require("./src/routes/runs");
 const registerLocatorRoutes = require("./src/routes/locators");
@@ -115,19 +108,6 @@ const runs = new Map();
 const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
 const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
 
-const selectorMemory = new Map();
-
-const pipeline = createPipeline({
-  selectorMemory,
-  get dbPool() { return dbPool; }
-});
-const applyLlm = createApplyLlm({
-  get dbPool() { return dbPool; },
-  get dbEnabled() { return dbEnabled; },
-  memoryProviderKeys,
-  memoryAgentSettings
-});
-
 // In-memory recording sessions (sessionId -> { ottUrl, events[], createdAt })
 const recordingSessions = new Map();
 const recordingsById = new Map(); // recordingId -> { sessionId, ottUrl, events, createdAt }
@@ -136,9 +116,6 @@ let recordingIdCounter = 0;
 
 let dbPool = null;
 let dbEnabled = false;
-let orchestratorHandle = null;
-let executionHandle = null;
-let processRun = null;
 
 
 
@@ -151,19 +128,13 @@ function maskLogin(value) {
 
 async function setRunSecret(runId, secret) {
   if (!secret || (!secret.username && !secret.password)) {
-    runSecrets.delete(runId);
     return;
   }
-  runSecrets.set(runId, secret);
   try {
     await cloud.cache.set(`runSecret.${runId}`, secret, 7200);
   } catch {
     // executor reads this when Chromium is in another process
   }
-}
-
-function getRunSecret(runId) {
-  return runSecrets.get(runId) || { username: "", password: "" };
 }
 
 function databaseConfigured() {
@@ -201,8 +172,6 @@ if (process.env.VERCEL) {
     if (!dbPool && databaseConfigured()) {
       initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
     }
-    ensureOrchestrator();
-    if (process.env.API_ONLY !== "1" && process.env.SKIP_EXECUTION_WORKER !== "1") ensureExecutionWorker();
     next();
   });
 }
@@ -263,108 +232,12 @@ async function publishRunState(run) {
   }
 }
 
-async function enqueueRun(runId) {
+async function enqueueRun(runId, options = {}) {
   await cloud.queue.publish(RUNS_REQUESTED, {
     runId,
-    requestedAt: new Date().toISOString()
+    requestedAt: new Date().toISOString(),
+    rerunFailedOnly: Boolean(options.rerunFailedOnly)
   });
-}
-
-function ensureOrchestrator() {
-  if (orchestratorHandle) return orchestratorHandle;
-  orchestratorHandle = startOrchestrator({
-    queue: cloud.queue,
-    cache: cloud.cache,
-    processRun,
-    maxConcurrent: Number(process.env.ZERO_ORCH_CONCURRENCY || 2)
-  });
-  return orchestratorHandle;
-}
-
-let playwrightJobs = null;
-function getPlaywrightJobs() {
-  if (!playwrightJobs) {
-    const { createJobs } = require("@zero/executor/jobs");
-    const urlAnalyzerPro = require("@zero/analyzer/urlAnalyzerPro");
-    playwrightJobs = createJobs({
-      cloud,
-      selectorMemory,
-      getRunSecret,
-      urlAnalyzerPro,
-      dbHelpers,
-      hostFromUrl,
-      get dbPool() {
-        return dbPool;
-      }
-    });
-  }
-  return playwrightJobs;
-}
-
-async function runExecutionJob(job) {
-  const kind = job.kind || "execution";
-  if (kind === "cms-screenshot" || kind === "cms-bulk") {
-    const cms = require("@zero/executor/cmsCapture");
-    const deps = { cloud, artifactsRoot };
-    return kind === "cms-bulk"
-      ? cms.captureCmsSignalBulk(job, deps)
-      : cms.captureCmsScreenshot(job, deps);
-  }
-  const run = await getRun(job.runId);
-  if (!run) throw new Error(`Run not found: ${job.runId}`);
-  const jobs = getPlaywrightJobs();
-  let result;
-  if (kind === "webAnalyzer") {
-    result = await jobs.generateWebAnalysis(run);
-    run.artifacts.webAnalysis = result;
-  } else if (kind === "accessibility") {
-    result = await jobs.generateAccessibilityReport(run);
-    run.artifacts.accessibilityReport = result;
-  } else if (kind === "performance") {
-    result = await jobs.generatePerformanceReport(run);
-    run.artifacts.performanceReport = result;
-  } else if (kind === "security") {
-    result = await jobs.generateSecurityReport(run);
-    run.artifacts.securityReport = result;
-  } else {
-    result = await jobs.generateExecutionReport(run, Boolean(job.rerunFailedOnly));
-    run.artifacts.executionReport = result;
-  }
-  await persistRun(run);
-  return result;
-}
-
-function ensureExecutionWorker() {
-  if (executionHandle) return executionHandle;
-  executionHandle = startExecutionWorker({
-    queue: cloud.queue,
-    runJob: runExecutionJob,
-    maxConcurrent: Number(process.env.ZERO_EXEC_CONCURRENCY || 2),
-    maxAttempts: Number(process.env.ZERO_EXEC_ATTEMPTS || 2)
-  });
-  return executionHandle;
-}
-
-async function enqueueExecution(runId, opts = false) {
-  const options = opts && typeof opts === "object" ? opts : { rerunFailedOnly: Boolean(opts) };
-  return requestExecution(
-    cloud.queue,
-    {
-      runId,
-      rerunFailedOnly: Boolean(options.rerunFailedOnly),
-      kind: options.kind || "execution"
-    },
-    { timeoutMs: Number(process.env.ZERO_EXEC_TIMEOUT_MS || 300000) }
-  );
-}
-
-async function persistAssets(run) {
-  if (!dbEnabled || !dbPool) return;
-  try {
-    await dbHelpers.replaceAssets(dbPool, run);
-  } catch (e) {
-    console.error(`Failed to persist assets for ${run.id}:`, e.message);
-  }
 }
 
 function toRunShape(row) {
@@ -402,8 +275,6 @@ async function loadRunForRequest(req, res) {
 }
 
 async function getRun(id) {
-  if (runs.has(id)) return runs.get(id);
-
   if (dbEnabled && dbPool) {
     try {
       const row = await dbHelpers.getRunById(dbPool, id);
@@ -428,7 +299,7 @@ async function getRun(id) {
     runs.set(id, run);
     return run;
   } catch (e) {
-    return null;
+    return runs.get(id) || null;
   }
 }
 
@@ -502,30 +373,6 @@ function createRun(input) {
   runs.set(id, run);
   return run;
 }
-
-
-processRun = createProcessRun({
-  getRun,
-  persistRun,
-  persistAssets,
-  setStage,
-  applyLlm,
-  consolidateRequirements: pipeline.consolidateRequirements,
-  generateCasesFromUploadedOnly: pipeline.generateCasesFromUploadedOnly,
-  generateCasesFromManualInput: pipeline.generateCasesFromManualInput,
-  generateCasesFromUrlAnalysis: pipeline.generateCasesFromUrlAnalysis,
-  generateManualCases: pipeline.generateManualCases,
-  generateAutomationBundle: pipeline.generateAutomationBundle,
-  hostFromUrl,
-  enqueueExecution,
-  generateManagerReport: pipeline.generateManagerReport,
-  generateDeliveryReport: pipeline.generateDeliveryReport,
-  javaSeleniumBuilder,
-  dbHelpers,
-  get dbEnabled() { return dbEnabled; },
-  get dbPool() { return dbPool; }
-});
-
 const routeCtx = {
   get dbEnabled() { return dbEnabled; },
   get dbPool() { return dbPool; },
@@ -553,16 +400,11 @@ const routeCtx = {
   requestExecution,
   persistRun,
   enqueueRun,
-  enqueueExecution,
   loadRunForRequest,
   createRun,
   setRunSecret,
   maskLogin,
-  toRunShape,
-  setStage,
-  applyLlm,
-  generateManagerReport: pipeline.generateManagerReport,
-  persistAssets
+  toRunShape
 };
 
 registerRecordingRoutes(app, routeCtx);
@@ -622,28 +464,6 @@ if (!process.env.VERCEL) {
         console.log("Postgres configured but unavailable; using memory/file persistence");
       } else {
         console.log("Postgres not configured. Running with memory/file persistence");
-      }
-
-      const apiOnly = process.env.API_ONLY === "1";
-      const orchOnly = process.env.ORCHESTRATOR_ONLY === "1";
-      const execOnly = process.env.EXECUTION_WORKER_ONLY === "1";
-
-      if (execOnly) {
-        ensureExecutionWorker();
-        console.log("Execution-worker-only mode — subscribed to execution.requested, no HTTP listen");
-        return;
-      }
-
-      if (!apiOnly) ensureOrchestrator();
-      if (!apiOnly && !orchOnly && process.env.SKIP_EXECUTION_WORKER !== "1") ensureExecutionWorker();
-
-      if (orchOnly) {
-        console.log("Orchestrator-only mode — subscribed to runs.requested, no HTTP listen");
-        return;
-      }
-
-      if (apiOnly) {
-        console.log("API-only mode — publishes runs.requested, does not subscribe to execution");
       }
 
       let server = null;
@@ -730,8 +550,4 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
-module.exports.processRun = processRun;
 module.exports.enqueueRun = enqueueRun;
-module.exports.enqueueExecution = enqueueExecution;
-module.exports.ensureOrchestrator = ensureOrchestrator;
-module.exports.ensureExecutionWorker = ensureExecutionWorker;

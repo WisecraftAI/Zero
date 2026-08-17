@@ -22,9 +22,9 @@ npm start
 - Dev UI: `npm run client` (Vite `:5173`, proxies `/api` to `:3000`)
 - Health: `GET /health`
 
-### Docker (V3 S4 — API image without Chromium + Playwright executor)
+### Docker (V3 S6 — split API, orchestrator, and executor)
 
-S5: compose splits API (`API_ONLY=1`), orchestrator (`orchestrator` service), and executor (`SKIP_EXECUTION_WORKER=1` on app). `npm start` still co-locates orchestrator + executor when those flags are unset.
+Compose runs three independent, workspace-scoped images. Playwright is installed only in the executor image. `npm start` is API-only; `npm run start:all` is the explicit no-Redis local compatibility launcher.
 
 ```bash
 docker compose up --build
@@ -35,7 +35,7 @@ docker compose up --build
 
 # Hybrid — infra in Docker, app on host:
 docker compose up -d postgres redis minio
-# then set DATABASE_URL=postgres://zero:zero@localhost:5432/zero and npm start
+# then set DATABASE_URL=postgres://zero:zero@localhost:5432/zero and npm run start:all
 
 # Docs (Vite, bind-mounted — no rebuild on edit) or workflow only:
 docker compose up docs
@@ -89,17 +89,17 @@ Prefer ZERO for: CSV → requirements → TCs → Java scripts → Manager repor
 
 **Object store (M2):** `ZERO_CLOUD=local` stores blobs under `artifacts/cloud-store` with HMAC-signed `/api/cloud/local` URLs. `POST /api/runs` can return presigned `uploads[]`; `POST /api/runs/:id/commit` starts the run. `/artifacts` is not statically served.
 
-**Queue (M3):** `POST /api/runs` publishes `runs.requested`; `@zero/orchestrator` consumes it in-process (`ZERO_ORCH_CONCURRENCY`, default 2). Standalone: `npm run orchestrator`. SSE: `GET /api/runs/:id/stream`.
+**Queue (M3):** `POST /api/runs` publishes `runs.requested`; standalone `@zero/orchestrator` consumes it (`ZERO_ORCH_CONCURRENCY`, default 2). Local all-in-one: `npm run start:all`. SSE: `GET /api/runs/:id/stream`.
 
-**Execution farm (M4):** Orchestrator publishes `execution.requested` and waits for `execution.completed`. Worker: `@zero/executor` / `npm run execution`. Caps: `ZERO_EXEC_CONCURRENCY`, `ZERO_EXEC_ATTEMPTS`. `API_ONLY=1` never subscribes to execution.
+**Execution farm (M4):** Orchestrator publishes `execution.requested` and waits for `execution.completed`. Worker: `@zero/executor` / `npm run execution`. Caps: `ZERO_EXEC_CONCURRENCY`, `ZERO_EXEC_ATTEMPTS`. The API never subscribes to execution.
 
 **Auth + ACL (M5):** Verified `x-api-key` (`ZERO_API_KEYS` / `ZERO_DEV_API_KEY`) or Bearer JWT. `X-User-Email` is not identity. Runs are tenant-scoped. `ZERO_AUTH=on` (forced in production). Recording CORS is an explicit origin allowlist. Production boot fails without `KEY_ENC_SECRET`.
 
 **LLM (M6):** `@zero/orchestrator/llm` calls OpenAI / Claude / Gemini from BA, Manual, Automation, and Manager when a decrypted key exists. Templates always remain the base. Caps: `ZERO_LLM_RPM`, `ZERO_LLM_MAX_USD_PER_RUN`. `ZERO_LLM=off` forces templates.
 
-**Multi-cloud (M7):** `ZERO_CLOUD=local|aws|gcp`. AWS = S3/SQS/Secrets Manager/Redis; GCP = GCS/Pub/Sub/Secret Manager/Redis. Vendor SDKs only under `@zero/cloud` (`packages/cloud/`). IaC in `infra/aws` and `infra/gcp`. CI: `.github/workflows/ci.yml`.
+**Multi-cloud (M7/S6):** `ZERO_CLOUD=local|aws|gcp|azure|vercel`. Vendor SDKs live only under `@zero/cloud`; GATE-9 checks object store, queue, secrets, and cache contracts. IaC is in `infra/aws` and `infra/gcp`. CI: `.github/workflows/ci.yml`.
 
-Passwords from UI are runtime-only (`runSecrets`); not persisted in artifacts or DB.
+Passwords from UI are runtime-only in the cache; they are not persisted in artifacts or DB.
 
 ## Key APIs
 
@@ -118,7 +118,7 @@ Passwords from UI are runtime-only (`runSecrets`); not persisted in artifacts or
 
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
 - **UI changes**: edit `web/src/**`, then `npm run build` so `public/` updates. Do not treat `public/assets` as source.
-- **Server changes**: HTTP routes live in `apps/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`apps/executor/`). Compose splits that into its own image; `npm start` still co-locates the worker unless `SKIP_EXECUTION_WORKER=1`. Shared code is `@zero/*` packages.
+- **Server changes**: HTTP routes live in `apps/api/src/routes/`; the API only publishes queue messages and serves state. DAG walk is `@zero/orchestrator` `processRun`; Chromium runs only in `@zero/executor`. Shared protocols live in `@zero/domain`; shared persistence lives in `@zero/db`.
 - **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.
 - **Secrets**: never commit `.env`; use `.env.example`. Do not log or persist login passwords.
 - **Scope**: keep changes focused; avoid drive-by refactors of the monolithic `server.js` unless asked.

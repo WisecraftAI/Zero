@@ -78,14 +78,13 @@ services:
       "
     restart: "no"
 
-  app:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
+    image: zero-api
     environment:
       <<: *app-env
-      API_ONLY: "1"
-      SKIP_EXECUTION_WORKER: "1"
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
@@ -104,9 +103,9 @@ services:
     build:
       context: .
       dockerfile: apps/executor/Dockerfile
+    image: zero-executor
     environment:
       <<: *app-env
-      EXECUTION_WORKER_ONLY: "1"
     volumes:
       - app-artifacts:/app/artifacts
     shm_size: 1gb
@@ -124,9 +123,9 @@ services:
     build:
       context: .
       dockerfile: apps/orchestrator/Dockerfile
+    image: zero-orchestrator
     environment:
       <<: *app-env
-      ORCHESTRATOR_ONLY: "1"
     volumes:
       - app-artifacts:/app/artifacts
     depends_on:

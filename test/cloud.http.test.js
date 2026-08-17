@@ -74,7 +74,7 @@ describe("M2 signed object-store HTTP", () => {
       ZERO_LLM: "off"
     };
     delete env.VERCEL;
-    child = spawn(process.execPath, ["server.js"], {
+    child = spawn(process.execPath, ["apps/api/server.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]

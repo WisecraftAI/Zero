@@ -74,7 +74,7 @@ describe("M3 queue-triggered HTTP", () => {
     };
     delete env.VERCEL;
     delete env.ORCHESTRATOR_ONLY;
-    child = spawn(process.execPath, ["server.js"], {
+    child = spawn(process.execPath, ["apps/api/server.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]

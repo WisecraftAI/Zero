@@ -10,8 +10,9 @@
   ],
   "scripts": {
     "start": "node apps/api/server.js",
-    "orchestrator": "ORCHESTRATOR_ONLY=1 node apps/orchestrator/worker.js",
-    "execution": "EXECUTION_WORKER_ONLY=1 node apps/executor/main.js",
+    "start:all": "node scripts/local-stack.js",
+    "orchestrator": "node apps/orchestrator/worker.js",
+    "execution": "node apps/executor/main.js",
     "dev": "nodemon apps/api/server.js",
     "build": "npm run build -w @zero/web",
     "production:build": "npm run build && npx playwright install chromium",

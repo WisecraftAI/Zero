@@ -2,9 +2,7 @@
 /**
  * Orchestrator worker — consumes runs.requested. No HTTP server.
  *
- *   ORCHESTRATOR_ONLY=1 node apps/orchestrator/worker.js
- *
- * Local in-process queue when REDIS_URL is unset (npm start co-locates via API).
+ * Local in-process queue when REDIS_URL is unset (npm run start:all).
  * Compose sets REDIS_URL so this process receives jobs from the API.
  */
 
@@ -12,20 +10,18 @@
 
 require("dotenv").config();
 
-process.env.ORCHESTRATOR_ONLY = process.env.ORCHESTRATOR_ONLY || "1";
-
 const { Pool } = require("pg");
 const dbHelpers = require("@zero/db");
 const cloud = require("@zero/cloud");
 const javaSeleniumBuilder = require("@zero/builders/javaSeleniumBuilder");
-const { requestExecution } = require("@zero/executor");
+const { requestExecution } = require("@zero/domain/execution");
+const { createRunStore } = require("@zero/db/runStore");
 const { startOrchestrator, createProcessRun } = require("./index");
 const { createPipeline, setStage, hostFromUrl } = require("./pipeline");
 const { createApplyLlm } = require("./applyLlm");
-const { createRunStore } = require("./runStore");
 
 const selectorMemory = new Map();
-const store = createRunStore();
+const store = createRunStore({ cloud });
 
 const pipeline = createPipeline({
   selectorMemory,

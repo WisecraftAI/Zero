@@ -5,7 +5,7 @@
 
 "use strict";
 
-const TOPIC = "runs.requested";
+const { RUNS_REQUESTED: TOPIC } = require("@zero/domain");
 
 function startOrchestrator({
   queue,
@@ -56,7 +56,7 @@ function startOrchestrator({
           source: "orchestrator"
         });
       }
-      await processRun(runId);
+      await processRun(runId, msg);
     } catch (err) {
       logger.error(`[orchestrator] processRun ${runId} failed:`, err.message);
       if (cache && typeof cache.publish === "function") {

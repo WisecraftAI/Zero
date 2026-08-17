@@ -3,13 +3,17 @@
 > Lead briefing for humans and AI agents. Read this first, then `docs/ARCHITECTURE.md` for production gaps, then touch code.
 
 **Repo count:** **1 Git repository** — [Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)  
-**Packages inside that one repo:** **2 npm packages** + **1 optional Python folder** (not separate Git remotes)
+**Packages inside that one repo:** **npm workspaces** (`apps/*`, `packages/*`, `web`) + **1 optional Python folder** (not separate Git remotes)
 
 | Unit | Path | Kind | Role |
 |------|------|------|------|
 | Git remote `origin` | `https://github.com/Wisecarft/Zero.git` | **1 repo** | Entire product |
-| `ai-qa-orchestrator` | `/package.json` | npm (CommonJS) | Express API, pipeline, Playwright |
-| `zer0-client` | `/client/package.json` | npm (ESM) | React 18 + Vite SPA |
+| `zero` (root) | `/package.json` | npm workspaces root | Scripts · shared tooling |
+| `@zero/api` | `/apps/api/` | npm (CommonJS) | HTTP intake · Express |
+| `@zero/orchestrator` | `/apps/orchestrator/` | npm (CommonJS) | DAG worker · LLM |
+| `@zero/executor` | `/apps/executor/` | npm (CommonJS) | Playwright jobs |
+| `@zero/web` | `/web/` | npm (ESM) | React 18 + Vite SPA |
+| `@zero/{cloud,db,domain,locators,builders,analyzer}` | `/packages/*` | npm (CommonJS) | Shared libs |
 | ML training | `/ml-training/` | Python (stdlib only) | Optional agent quality models |
 
 There is **no multi-repo split**. Sibling folders under `~/Product/code/` (aha, canelatv-web-ui, etc.) are **other products**, not part of Zero’s Git remote.
@@ -18,7 +22,7 @@ There is **no multi-repo split**. Sibling folders under `~/Product/code/` (aha, 
 
 ## 0. What you are building (elevator)
 
-ZER0 is an **architect-level QA orchestration UI**. A user gives an OTT URL plus at least one of: Figma link, uploaded test cases, or BA notes. The system runs a **deterministic pipeline** (mostly templates + Playwright crawl — **not** live LLM calls today) and produces:
+ZER0 is an **architect-level QA orchestration UI**. A user gives an OTT URL plus at least one of: Figma link, uploaded test cases, or BA notes. The system runs a **deterministic pipeline** (templates + Playwright crawl; optional LLM enrich when provider keys exist) and produces:
 
 1. Requirements consolidation  
 2. Manual test cases  
@@ -34,9 +38,12 @@ ZER0 is an **architect-level QA orchestration UI**. A user gives an OTT URL plus
 
 | Role | Own these paths | Do not casually rewrite |
 |------|-----------------|-------------------------|
-| Backend / pipeline | `server.js`, `lib/*` | Entire agent logic dump into new frameworks |
-| Frontend | `client/src/**` then `npm run build` | Hand-editing `public/assets` |
-| Persistence / IDE vision | `lib/db.js`, `docs/ARCHITECTURE.md` target APIs | Assuming Postgres is live (it is **hard-disabled**) |
+| Backend / API | `apps/api/` | Drive-by refactors across all apps |
+| Orchestrator / pipeline | `apps/orchestrator/` | Entire agent logic dump into new frameworks |
+| Execution | `apps/executor/` | Shipping Chromium into the API image |
+| Shared libs | `packages/*` (`@zero/*`) | Path-coupled `require` across apps |
+| Frontend | `web/src/**` then `npm run build` | Hand-editing `public/assets` |
+| Persistence / IDE vision | `packages/db`, `docs/ARCHITECTURE.md` target APIs | Assuming every Map is multi-instance safe |
 | ML (optional) | `ml-training/` | Wiring into Node without a clear contract |
 | Docs / agents | `README.md`, `AGENTS.md`, `docs/*`, `.cursor/skills/` | Inventing shipped features that are stubs |
 
@@ -49,14 +56,20 @@ ZER0 is an **architect-level QA orchestration UI**. A user gives an OTT URL plus
 ```bash
 git clone https://github.com/Wisecarft/Zero.git
 cd Zero
-cp .env.example .env          # optional; see honesty note on Postgres below
+cp .env.example .env          # optional; set DATABASE_URL when using Postgres
 npm install
 npx playwright install chromium
-npm run build                 # Vite client → public/
-npm start                     # Express; logs UI URL (default :3000)
+npm run build                 # Vite web/ → public/
+npm start                     # API only (apps/api/server.js); default :3000
 ```
 
-**Dev UI (hot reload):** keep `npm start` on `:3000`, then in another terminal:
+**Local all-in-one** (API + orchestrator + executor, no Redis required):
+
+```bash
+npm run start:all
+```
+
+**Dev UI (hot reload):** keep the API (or `start:all`) on `:3000`, then in another terminal:
 
 ```bash
 npm run client                # Vite :5173, proxies /api → :3000
@@ -72,7 +85,7 @@ Run install/build/start as **separate lines**. Pasting `# comments` on the same 
 
 ### Honest env note
 
-`.env.example` documents `DATABASE_URL` / Railway URLs. In **current code**, `databaseConfigured()` in `server.js` **always returns `false`** — Postgres init is a no-op. Runs still work via in-memory `Map` + `artifacts/<runId>/run.json`. Treat DB docs as **target / re-enable work**, not “it works if you set the var.”
+`.env.example` documents `DATABASE_URL` / Railway URLs. When `DATABASE_URL` or `PGHOST` is set and reachable, Postgres activates via `@zero/db`. If unset or unreachable, runs still work via in-memory `Map` + `artifacts/<runId>/run.json`.
 
 ---
 
@@ -80,33 +93,34 @@ Run install/build/start as **separate lines**. Pasting `# comments` on the same 
 
 ```
 ┌─────────────────────┐     multipart      ┌──────────────────────────────┐
-│  React SPA          │  POST /api/runs    │  Express  server.js (~5k LOC)│
-│  client/src → build │ ─────────────────▶ │  stageKeys pipeline          │
-│  → public/          │  poll GET /runs/:id │  Playwright + PDF + recording│
+│  React SPA          │  POST /api/runs    │  @zero/api                   │
+│  web/src → build    │ ─────────────────▶ │  apps/api/server.js          │
+│  → public/          │  poll GET /runs/:id │  routes · auth · SSE         │
 └─────────────────────┘                    └───────────┬──────────────────┘
-                                                       │
+                                                       │ runs.requested
                        ┌───────────────────────────────┼──────────────────┐
                        ▼                               ▼                  ▼
-                 lib/ (builders,                 Chromium            artifacts/
-                 locators, analyzers,            headed/headless     run.json +
-                 encryption, db stubs)                               screenshots
+                 packages/*                     @zero/orchestrator   @zero/executor
+                 (builders, locators,           processRun / LLM     Chromium jobs
+                  analyzer, domain, db,         DAG walk             artifacts/
+                  cloud)                                             screenshots
 ```
 
-**Pipeline order** (`stageKeys` in `server.js`):
+**Pipeline order** (`stageKeys` in `@zero/domain`):
 
 `webAnalyzer?` → `ba` → `manualQa` → `automationQa` → `execution` → `accessibility?` / `performance?` / `security?` → `manager` → `delivery`
 
 | Stage | What it actually does today |
 |-------|-----------------------------|
-| `webAnalyzer` | Only if no TC file and notes are short/empty — Playwright crawl via `lib/urlAnalyzerPro.js` |
-| `ba` | Template consolidation (`consolidateRequirements`) — **not** an LLM call |
+| `webAnalyzer` | Only if no TC file and notes are short/empty — Playwright crawl via `@zero/analyzer` |
+| `ba` | Template consolidation (`consolidateRequirements`); optional LLM enrich |
 | `manualQa` | Cases from CSV / UI rows / analyzer / channel templates |
-| `automationQa` | Merge locators → Playwright + Java text (`scriptBuilder`, `javaSeleniumBuilder`) |
-| `execution` | Playwright; default **minimal** |
+| `automationQa` | Merge locators → Playwright + Java text (`@zero/builders`) |
+| `execution` | Playwright in `@zero/executor`; default **minimal** |
 | optional a11y/perf/security | Extra Playwright / heuristic passes |
-| `manager` / `delivery` | Deterministic reports from prior artifacts |
+| `manager` / `delivery` | Deterministic reports from prior artifacts; optional LLM narrative |
 
-Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ecommerce helpers in `lib/ecommerceSelectors.js`).
+Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ecommerce helpers in `@zero/locators/ecommerceSelectors`).
 
 ---
 
@@ -114,24 +128,26 @@ Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ec
 
 ```
 Zero/
-├── server.js              # THE monolith: agents, APIs, Playwright, PDF, CMS, recording
-├── lib/                   # Extracted helpers (prefer extending these over bloating server.js further)
-│   ├── scriptBuilder.js          # Playwright script text
-│   ├── javaSeleniumBuilder.js    # Java/Selenium export text
-│   ├── locatorRegistry.js        # profile + memory + DB merge order
-│   ├── elementLogger.js          # normalize element keys
-│   ├── urlAnalyzer.js / Pro.js   # crawl / BRD-ish insights
-│   ├── db.js                     # schema helpers (DB currently disabled at runtime)
-│   ├── encryption.js             # provider key AES-GCM
-│   ├── middleware.js, logger.js, swagger.js, apiKeyManager.js
-│   └── ecommerceSelectors.js
-├── client/                # Source of truth for UI
-│   ├── src/views/         # Dashboard, Runs, NewRun, Detail, Locators, Keys, Agents, Integrations
+├── package.json           # workspaces root · start · start:all · build · test
+├── apps/
+│   ├── api/               # @zero/api — Express composition root + src/routes/
+│   ├── orchestrator/      # @zero/orchestrator — processRun, pipeline, llm/
+│   └── executor/          # @zero/executor — Playwright worker + jobs
+├── packages/
+│   ├── cloud/             # @zero/cloud — queue · object store · secrets · cache
+│   ├── db/                # @zero/db — Postgres helpers
+│   ├── domain/            # @zero/domain — stageKeys · appProfiles
+│   ├── locators/          # @zero/locators — locatorRegistry · elementLogger
+│   ├── builders/          # @zero/builders — Playwright + Java script text
+│   └── analyzer/          # @zero/analyzer — urlAnalyzer / urlAnalyzerPro
+├── web/                   # @zero/web — React 18 + Vite SPA (source of truth for UI)
+│   ├── src/views/         # Dashboard, Runs, NewRun, Detail, Locators, Keys, Agents, …
 │   ├── src/components/    # RunForm, Pipeline*, Sidebar, CMS capture, …
 │   ├── src/layouts/       # AppShell
 │   └── public/architecture.html  # Survives Vite emptyOutDir — sync/copy to public/
 ├── public/                # BUILT output — do not hand-edit assets
 ├── artifacts/             # Runtime evidence (gitignored)
+├── agent-workflow/        # Target-arch milestones + probes
 ├── ml-training/           # Optional Python quality models
 ├── docs/                  # This guide + architecture + OSS inventory
 ├── AGENTS.md              # Contract for coding agents
@@ -145,27 +161,28 @@ Zero/
 
 ### A. UI change
 
-1. Edit `client/src/**` only.  
+1. Edit `web/src/**` only.  
 2. `npm run build` from repo root (or use `npm run client` while developing).  
 3. Confirm `public/` updated.  
-4. Architecture HTML: edit `client/public/architecture.html`, keep `public/architecture.html` in sync.
+4. Architecture HTML: edit `web/public/architecture.html`, keep `public/architecture.html` in sync when serving without a rebuild.
 
 ### B. Pipeline / agent behavior
 
-1. Find the stage function in `server.js` (`consolidateRequirements`, `generateManualCases`, `processRun`, report generators, …).  
-2. Shared locator/script logic → `lib/`.  
-3. Keep changes focused; do not “while you’re here” rewrite the monolith.  
-4. Update `AGENTS.md` / `README.md` only if run instructions or behavior change.
+1. Find the stage / DAG walk in `apps/orchestrator/` (`processRun`, pipeline stages, report generators).  
+2. HTTP intake / routes → `apps/api/src/routes/`.  
+3. Shared locator/script logic → `packages/`.  
+4. Keep changes focused; apps must not import sibling `apps/*`.  
+5. Update `AGENTS.md` / `README.md` only if run instructions or behavior change.
 
 ### C. Locators / script quality
 
-Merge order (see `lib/locatorRegistry.js` + server merge helpers):
+Merge order (see `@zero/locators`):
 
-1. Profile selectors (`appProfiles`)  
+1. Profile selectors (`appProfiles` in `@zero/domain`)  
 2. In-memory learned selectors  
-3. DB locators (**inactive** while DB stubbed)
+3. DB locators (when Postgres is configured)
 
-Normalize keys via `lib/elementLogger.js`. Element log API: `POST /api/element-log`.
+Normalize keys via `packages/locators/elementLogger.js`. Element log API: `POST /api/element-log`.
 
 ### D. Execution semantics
 
@@ -180,17 +197,16 @@ Normalize keys via `lib/elementLogger.js`. Element log API: `POST /api/element-l
 
 ### E. Persistence / productionization
 
-Read `docs/ARCHITECTURE.md` § Production gaps. Current P0 themes:
+Read `docs/ARCHITECTURE.md` § Production gaps. Current themes:
 
-1. Re-enable real DB (or explicit durable file design)  
-2. Real auth (today: spoofable `X-User-Email`, any non-empty `x-api-key`)  
-3. Lock down `/artifacts` and recording CORS `*`  
-4. Queue Playwright work (in-process concurrency is dangerous)  
-5. Be honest in UI copy about minimal vs full execution  
+1. Multi-instance durability for Maps still in process memory  
+2. Auth UI / hosted OIDC polish  
+3. Packaging S5–S6 and cloud adapters  
+4. Honest UI copy about minimal vs full execution  
 
 ### F. LLM keys UI
 
-`/api/provider-keys` and `/api/agent-settings` store encrypted keys / prompts. **Pipeline agents do not call Claude/OpenAI/Gemini yet.** Either wire them or do not claim live AI agents in customer-facing copy.
+`/api/provider-keys` and `/api/agent-settings` store encrypted keys / prompts. When a decrypted key exists, BA / Manual / Automation / Manager call providers through `@zero/orchestrator/llm`; otherwise they stay on templates.
 
 ---
 
@@ -202,7 +218,7 @@ Read `docs/ARCHITECTURE.md` § Production gaps. Current P0 themes:
 | Locators | `POST /api/element-log`, `GET /api/locators?host=` | Needs DB to persist across restarts |
 | Recording | `/api/recordings/*`, `/record`, `/recorder.js` | In-memory sessions today |
 | CMS | `/api/capture-cms-screenshot`, `/api/capture-cms-signal-bulk` | Gray Stream tab; separate from pipeline |
-| Keys / agents | `/api/provider-keys`, `/api/agent-settings`, `/api/keys*` | Storage / stubs — verify before relying |
+| Keys / agents | `/api/provider-keys`, `/api/agent-settings`, `/api/keys*` | Drive LLM enrich when keys exist |
 | Ops | `/health`, `/api/health/detailed`, `/api-docs` | |
 
 **Input rules:** OTT URL required; plus ≥1 of Figma / TC file (txt/md/csv/json/xlsx/xls) / BA notes.
@@ -219,7 +235,7 @@ A change is done when:
 - [ ] UI changes rebuilt into `public/`  
 - [ ] No secrets in git (`.env`, passwords, provider keys)  
 - [ ] Docs updated if user-facing run path or API contract changed  
-- [ ] You did not invent “Postgres works” / “LLM agents run” unless you re-enabled them  
+- [ ] You did not invent “Postgres works” / “LLM agents run” unless the path is actually wired  
 - [ ] Prefer a small PR: one concern (UI **or** pipeline **or** docs)
 
 Suggested verification:
@@ -227,11 +243,9 @@ Suggested verification:
 ```bash
 npm run lint          # if configured for your change
 npm run build
-npm start             # smoke: open UI, start a minimal run with sample CSV
+npm run start:all     # smoke: open UI, start a minimal run with sample CSV
 curl -s localhost:3000/health
 ```
-
-`jest` is in `package.json` but there is **no real suite yet** — adding hermetic API + fixture-site smoke is a P2 from architecture docs.
 
 ---
 
@@ -239,14 +253,12 @@ curl -s localhost:3000/health
 
 Ordered like a lead would assign after onboarding:
 
-1. **P0 persistence** — restore `databaseConfigured` / `initDatabase` or document file-only forever; fix `qa_assets` vs `lib/db.js` schema drift.  
-2. **P0 auth + artifact ACL** — stop public `/artifacts` and open recording CORS.  
-3. **P0 worker queue** — extract `processRun` to bounded concurrency.  
-4. **Product honesty** — UI labels for minimal vs full; Manager wording.  
-5. **LLM wire-up or defer** — connect provider keys or hide “AI agent” implication.  
-6. **Tests + CI** — lint, unit, one Playwright smoke against a static fixture.  
-7. **Split monolith** — routers + worker; keep `lib/` boundaries.  
-8. **IDE vision** — `/api/projects`, recordings → SQL, stored Java scripts (see architecture target).
+1. **Packaging S5–S6** — orchestrator image polish + remaining cloud providers (`/zero-target-arch`).  
+2. **Multi-instance durability** — recordings / selector memory off process Maps.  
+3. **Product honesty** — UI labels for minimal vs full; Manager wording.  
+4. **Auth UI / OIDC** — login screen when `ZERO_AUTH=on`.  
+5. **Tests + CI** — expand hermetic API + Playwright smoke.  
+6. **IDE vision** — `/api/projects`, recordings → SQL, stored Java scripts (see architecture target).
 
 ---
 
@@ -266,13 +278,13 @@ Ordered like a lead would assign after onboarding:
 
 ## 10. Sample local exercise (first 30 minutes)
 
-1. Start the stack (`build` + `start`).  
+1. Start the stack (`build` + `npm run start:all`).  
 2. Open UI → New Run.  
 3. Use a public URL + `amazon_test_cases.csv` (or another sample CSV in repo root).  
 4. Leave execution on default (minimal).  
 5. Watch stages complete; open run detail + download JSON.  
 6. Open Automation artifacts / Java text — understand export is the path to real E2E.  
-7. Skim `server.js` around `stageKeys` and `POST /api/runs`.  
-8. Skim `lib/scriptBuilder.js` and `lib/javaSeleniumBuilder.js`.
+7. Skim `apps/api/server.js` and `apps/orchestrator/processRun.js`.  
+8. Skim `packages/builders/scriptBuilder.js` and `packages/builders/javaSeleniumBuilder.js`.
 
 When you can explain **minimal vs full** and **where agents really live**, you are onboarded.

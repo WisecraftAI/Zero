@@ -11,7 +11,7 @@ This document lists the **one Git repository**, the packages inside it, and the 
 | Item | Count | Detail |
 |------|------:|--------|
 | Git repositories | **1** | `https://github.com/Wisecarft/Zero.git` (`origin`) |
-| npm packages in-repo | **2** | `ai-qa-orchestrator` (root), `zer0-client` (`client/`) |
+| npm packages in-repo | **11** | root `zero` + workspaces: `@zero/api`, `@zero/orchestrator`, `@zero/executor`, `@zero/web`, `@zero/cloud`, `@zero/db`, `@zero/domain`, `@zero/locators`, `@zero/builders`, `@zero/analyzer` |
 | Optional Python area | **1** | `ml-training/` (Python stdlib only; not a separate Git repo) |
 | Git remotes | **1** | `origin` only |
 
@@ -29,15 +29,15 @@ When you contribute, you contribute under MIT unless a file says otherwise.
 
 ---
 
-## Runtime / app dependencies (root)
+## Runtime / app dependencies
 
-Declared in root `package.json`. Versions are ranges; lockfile pins installs.
+Declared across workspace `package.json` files (root + `apps/*` + `packages/*`). Versions are ranges; lockfile pins installs. Typical roles:
 
 | Package | Typical license* | Role in ZER0 |
 |---------|------------------|--------------|
-| [express](https://www.npmjs.com/package/express) | MIT | HTTP server |
-| [playwright](https://www.npmjs.com/package/playwright) | Apache-2.0 | Browser automation / execution |
-| [pg](https://www.npmjs.com/package/pg) | MIT | Postgres client (schema ready; runtime DB currently stubbed) |
+| [express](https://www.npmjs.com/package/express) | MIT | HTTP server (`@zero/api`) |
+| [playwright](https://www.npmjs.com/package/playwright) | Apache-2.0 | Browser automation (`@zero/executor`, analyzer) |
+| [pg](https://www.npmjs.com/package/pg) | MIT | Postgres client (`@zero/db`) |
 | [multer](https://www.npmjs.com/package/multer) | MIT | Multipart uploads (TC / recording files) |
 | [xlsx](https://www.npmjs.com/package/xlsx) | Apache-2.0 | Excel TC parsing |
 | [pdfkit](https://www.npmjs.com/package/pdfkit) | MIT | PDF report download |
@@ -52,23 +52,25 @@ Declared in root `package.json`. Versions are ranges; lockfile pins installs.
 | [uuid](https://www.npmjs.com/package/uuid) | MIT | IDs |
 | [axios](https://www.npmjs.com/package/axios) | MIT | HTTP client |
 | [node-cache](https://www.npmjs.com/package/node-cache) | MIT | Short-lived cache |
-| [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken) | MIT | JWT dependency present (app auth not fully wired) |
+| [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken) | MIT | JWT / auth |
 | [swagger-jsdoc](https://www.npmjs.com/package/swagger-jsdoc) / [swagger-ui-express](https://www.npmjs.com/package/swagger-ui-express) | MIT | `/api-docs` |
 | [cloudinary](https://www.npmjs.com/package/cloudinary) | MIT | Media/cloud helper (optional integration surface) |
 
 \*Confirm with `npm license` / package `LICENSE` files at release time; SPDX on npm can change.
 
-### Root devDependencies
+Vendor cloud SDKs (AWS / GCP / etc.) live only under `@zero/cloud` (`packages/cloud/`).
+
+### Root / workspace devDependencies
 
 | Package | Role |
 |---------|------|
 | [eslint](https://www.npmjs.com/package/eslint) | Lint |
-| [jest](https://www.npmjs.com/package/jest) | Test runner (suite largely TBD) |
-| [nodemon](https://www.npmjs.com/package/nodemon) | Dev reload for server |
+| [jest](https://www.npmjs.com/package/jest) | Test runner |
+| [nodemon](https://www.npmjs.com/package/nodemon) | Dev reload for API |
 
 ---
 
-## Client dependencies (`client/`)
+## Web UI dependencies (`web/`)
 
 | Package | Typical license* | Role |
 |---------|------------------|------|
@@ -97,6 +99,7 @@ Declared in root `package.json`. Versions are ranges; lockfile pins installs.
 | `railway.json` | Railway build/deploy hints |
 | `vercel.json` | Vercel build routing (note: long Playwright runs fit long-lived hosts better than serverless) |
 | `railpack.json` | Railpack-related build metadata |
+| `docker-compose.yml` | Local / Compose stack (API, orchestrator, executor, docs, workflow, infra) |
 
 ---
 
