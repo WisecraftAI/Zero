@@ -1,7 +1,7 @@
 require("dotenv").config();
 
 const { Pool } = require("pg");
-const db = require("../lib/db");
+const db = require("@zero/db");
 
 function candidateUrls() {
   if (process.env.DATABASE_URL) return [process.env.DATABASE_URL];

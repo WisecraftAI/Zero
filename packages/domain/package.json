@@ -1,0 +1,7 @@
+{
+  "name": "@zero/domain",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "Shared contracts: stageKeys, appProfiles. No I/O."
+}

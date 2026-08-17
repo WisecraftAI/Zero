@@ -1,0 +1,22 @@
+{
+  "name": "@zero/orchestrator",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "DAG worker: consumes runs.requested, walks stageKeys via processRun.js, calls LLM/templates.",
+  "scripts": {
+    "start": "ORCHESTRATOR_ONLY=1 node worker.js"
+  },
+  "dependencies": {
+    "@zero/builders": "*",
+    "@zero/cloud": "*",
+    "@zero/db": "*",
+    "@zero/domain": "*",
+    "@zero/executor": "*",
+    "@zero/locators": "*",
+    "axios": "^1.16.0",
+    "dotenv": "^17.3.1",
+    "pg": "^8.13.1",
+    "xlsx": "^0.18.5"
+  }
+}

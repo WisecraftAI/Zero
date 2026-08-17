@@ -2,9 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const { Readable } = require("stream");
 
-const { createAws } = require("../lib/cloud/aws");
-const { createGcp } = require("../lib/cloud/gcp");
-const { createCache } = require("../lib/cloud/redisCache");
+const { createAws } = require("@zero/cloud/aws");
+const { createGcp } = require("@zero/cloud/gcp");
+const { createAzure } = require("@zero/cloud/azure");
+const { createVercel } = require("@zero/cloud/vercel");
+const { createCache } = require("@zero/cloud/redisCache");
 
 function walkJs(dir, acc = []) {
   for (const name of fs.readdirSync(dir)) {
@@ -112,6 +114,36 @@ describe("M7 multi-cloud adapters", () => {
     expect(url).toMatch(/storage\.googleapis\.com/);
   });
 
+  it("Azure object store uses injected blob helpers (no SDK)", async () => {
+    const store = createAzure({
+      blob: {
+        presign: async (op, key) => `https://account.blob.core.windows.net/${key}?op=${op}`,
+        put: async () => {},
+        get: async () => Readable.from([Buffer.from("azure")]),
+        remove: async () => {}
+      },
+      serviceBus: { publish: async () => {}, subscribe: () => () => {} },
+      kv: { get: async () => "x", put: async () => {} }
+    }).objectStore;
+    const url = await store.presignGet("k");
+    expect(url).toMatch(/blob\.core\.windows\.net/);
+  });
+
+  it("Vercel object store uses injected R2 helpers (no SDK)", async () => {
+    const store = createVercel({
+      r2: {
+        presign: async (op, key) => `https://r2.example/${key}?op=${op}`,
+        put: async () => {},
+        get: async () => Readable.from([Buffer.from("r2")]),
+        remove: async () => {}
+      },
+      qstash: { publish: async () => {}, subscribe: () => () => {} },
+      env: { get: async () => "x", put: async () => {} }
+    }).objectStore;
+    const url = await store.presignPut("k");
+    expect(url).toMatch(/r2\.example/);
+  });
+
   it("AWS queue publish/subscribe go through injected SQS", async () => {
     const seen = [];
     const aws = createAws({
@@ -138,8 +170,9 @@ describe("M7 multi-cloud adapters", () => {
     const root = path.resolve(__dirname, "..");
     const banned = /@aws-sdk|@google-cloud\/|aws-sdk|@azure\/|@google-cloud/;
     const files = [
-      path.join(root, "server.js"),
-      ...walkJs(path.join(root, "lib")).filter((f) => !f.includes(`${path.sep}cloud${path.sep}`))
+      path.join(root, "apps/api/server.js"),
+      ...walkJs(path.join(root, "apps")),
+      ...walkJs(path.join(root, "packages")).filter((f) => !f.includes(`${path.sep}cloud${path.sep}`))
     ];
     for (const file of files) {
       const text = fs.readFileSync(file, "utf8");

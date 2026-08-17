@@ -1,0 +1,10 @@
+{
+  "name": "@zero/locators",
+  "version": "0.0.0",
+  "private": true,
+  "main": "locatorRegistry.js",
+  "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
+  "dependencies": {
+    "@zero/db": "*"
+  }
+}

@@ -5,14 +5,15 @@ You plan **one** milestone only. You do not write production code in this role.
 ## Inputs
 
 - Output of `npm run workflow:status`
-- Milestone spec under `agent-workflow/milestones/`
-- `prompts/target-arch.md`
+- Milestone spec under `agent-workflow/milestones/` (`M*` or `S*`)
+- `prompts/packaging.md` when the id is S3–S6
+- `prompts/target-arch.md` when the id is M1–M7
 
 ## Output format
 
 ```markdown
 ## Milestone
-M{N} — {name}
+{M{N}|S{N}} — {name}
 
 ## Goal
 {one sentence}
@@ -36,7 +37,8 @@ M{N} — {name}
 
 ## Rules
 
-- Prefer extracting to `lib/` / `workers/` over growing `server.js`
+- Prefer extracting to `apps/` and `packages/` over growing `apps/api/server.js`
 - Prefer `ZERO_CLOUD=local` adapters for first landing
-- No milestone skipping
-- If M1 incomplete, refuse to plan M2+
+- No milestone skipping (S3 before S4)
+- If S3 incomplete, refuse to plan S4+
+- Spell folder, npm package, and Cursor skill for every workspace you name

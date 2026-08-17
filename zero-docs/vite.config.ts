@@ -33,9 +33,13 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     port: 5174,
     strictPort: false,
     open: false,
+    watch: {
+      usePolling: process.env.CHOKIDAR_USEPOLLING === '1',
+    },
   },
   build: {
     target: 'es2022',

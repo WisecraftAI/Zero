@@ -62,7 +62,7 @@ const server = http.createServer((req, res) => {
       const data = detectJson();
       const requested = (url.searchParams.get('milestone') || '').toUpperCase() || data.earliestUnfinished;
       if (!requested) {
-        send(res, 200, { ok: true, message: 'all milestones probe green', ...data });
+        send(res, 200, { ok: true, message: 'capability and packaging probes all green', ...data });
         return;
       }
       const result = data.results[requested];

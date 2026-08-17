@@ -8,7 +8,7 @@ process.env.ZERO_LOCAL_STORE_DIR = tmp;
 process.env.ZERO_LOCAL_STORE_SECRET = "test-store-secret";
 process.env.ZERO_PUBLIC_BASE_URL = "http://127.0.0.1:3998";
 
-const store = require("../lib/cloud/local/storage");
+const store = require("@zero/cloud/local/storage");
 
 describe("local ObjectStore", () => {
   afterAll(() => {

@@ -1,53 +1,82 @@
+import { Card, CardGrid } from '@/components/ui/Card';
 import { Diagram } from '@/components/ui/Diagram';
 import { Note } from '@/components/ui/Note';
+import { REPO_NAME_KINDS, REPOS, repoTreeLabel } from '@/data/repos';
+import styles from './Layout.module.scss';
+
+function byId(id: string) {
+  const repo = REPOS.find((r) => r.id === id);
+  if (repo === undefined) {
+    throw new Error(`Unknown workspace id: ${id}`);
+  }
+  return repo;
+}
 
 export function Layout() {
+  const api = byId('api');
+  const orch = byId('orchestrator');
+  const exec = byId('executor');
+  const web = byId('web');
+  const cloud = byId('cloud');
+  const domain = byId('domain');
+  const locators = byId('locators');
+  const builders = byId('builders');
+  const analyzer = byId('analyzer');
+  const db = byId('db');
+
   return (
     <section className="section" id="v3-layout">
       <h2>Target V3 repo layout</h2>
-      <p className="sub">npm workspaces. Three deployable apps, one web bundle, shared packages, one image per app.</p>
+      <p className="sub">
+        npm workspaces. Each workspace has <strong>three names</strong> — folder, npm package,
+        Cursor skill — not three repos.
+      </p>
 
-      <Diagram ariaLabel="Target V3 monorepo folder tree">
+      <div className={styles.legend}>
+        <CardGrid columns={3}>
+          {REPO_NAME_KINDS.map((kind) => (
+            <Card key={kind.id} title={kind.label}>
+              <p>{kind.meaning}</p>
+              <p><code>{api[kind.exampleKey]}</code></p>
+            </Card>
+          ))}
+        </CardGrid>
+      </div>
+
+      <Diagram ariaLabel="Target V3 monorepo folder tree with workspace, npm package, and Cursor skill">
 {`zero/
 ├─ package.json                  workspaces root · no app code, no runtime deps
-├─ docker-compose.yml            full local stack (7 services)
-├─ .dockerignore · .env.example
+├─ docker-compose.yml            full local stack
 │
-├─ apps/                         one deployable service per folder
-│  ├─ api/                       stateless intake · never launches Chromium
-│  │  ├─ Dockerfile              node:20-alpine · ~180 MB
-│  │  └─ src/{server.js, config.js, routes/, http/, sse/}
-│  │
-│  ├─ orchestrator/              long-lived worker · consumes runs.requested
-│  │  ├─ Dockerfile              node:20-alpine · no browser
-│  │  └─ src/{worker.js, dag.js, agents/, llm/, prompts/}
-│  │
-│  └─ executor/                  ephemeral job · consumes execution.requested
-│     ├─ Dockerfile              mcr…/playwright:v1.52-jammy · ~1.6 GB
-│     └─ src/{worker.js, semaphore.js, browser.js, steps/, passes/}
+├─ apps/                         deployable services (one image each after S4–S5)
+│  ├─ api/                       ${repoTreeLabel(api)}
+│  │  ├─ server.js               composition root (wires routes + in-process workers)
+│  │  └─ src/routes/             runs · recordings · locators · settings · cms · keys · health
+│  ├─ orchestrator/              ${repoTreeLabel(orch)}
+│  │  └─ worker.js               consumes runs.requested
+│  └─ executor/                  ${repoTreeLabel(exec)}
+│     └─ main.js                 consumes execution.requested
 │
-├─ packages/                     shared libs · imported by name, not by path
-│  ├─ cloud/                     queue · objectStore · secrets · cache
-│  ├─ domain/                    stageKeys · appProfiles · zod schemas
-│  ├─ locators/                  locatorRegistry · elementLogger
-│  ├─ builders/                  scriptBuilder · javaSeleniumBuilder
-│  ├─ analyzer/                  urlAnalyzer · urlAnalyzerPro
-│  └─ db/                        pg pool · schema · migrations/
+├─ packages/                     shared libs · import by npm package, never by relative path
+│  ├─ cloud/                     ${repoTreeLabel(cloud)}
+│  ├─ domain/                    ${repoTreeLabel(domain)}
+│  ├─ locators/                  ${repoTreeLabel(locators)}
+│  ├─ builders/                  ${repoTreeLabel(builders)}
+│  ├─ analyzer/                  ${repoTreeLabel(analyzer)}
+│  └─ db/                        ${repoTreeLabel(db)}
 │
-├─ web/                          React 18 + Vite · nginx image
-│  ├─ Dockerfile                 build → nginx:alpine · ~25 MB
-│  └─ src/{views, components, layouts, data/}
+├─ web/                          ${repoTreeLabel(web)}
+│  └─ src/{views, components, layouts}
 │
 ├─ infra/{aws,gcp,azure}/        terraform per provider (M7)
-├─ agent-workflow/               M1–M7 milestones · progress.json
+├─ agent-workflow/               M1–M7 done · packaging S3–S6 · per-workspace prompts
 └─ artifacts/                    DELETED — replaced by object store (MinIO local, S3 prod)`}
       </Diagram>
 
       <Note tone="info">
-        <strong>The rule that fixes root npm:</strong> the root <code>package.json</code> declares{' '}
-        <code>&quot;workspaces&quot;: [&quot;apps/*&quot;, &quot;packages/*&quot;, &quot;web&quot;]</code>{' '}
-        and <em>zero</em> runtime dependencies. Every dependency belongs to the workspace that
-        imports it — which is what keeps <code>playwright</code> out of the API image.
+        Tell an agent the <strong>Cursor skill</strong> (<code>/zero-api</code>). Import the{' '}
+        <strong>npm package</strong> (<code>@zero/api</code>). Open the <strong>folder</strong>{' '}
+        (<code>apps/api/</code>). The roster under Target workspaces lists all ten.
       </Note>
     </section>
   );

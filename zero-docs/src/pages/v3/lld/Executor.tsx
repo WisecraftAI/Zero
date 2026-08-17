@@ -1,38 +1,38 @@
 import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
+import { RepoIdentity } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldExecutor() {
   return (
     <>
-      <h3 className={styles.subhead}>executor · ephemeral Playwright job</h3>
+      <h3 className={styles.subhead}>Playwright executor · ephemeral job</h3>
+      <RepoIdentity id="executor" />
       <p className={styles.purpose}>
         One browser context per job. Uploads screenshots + traces. Upserts learned selectors.
         Nothing else.
       </p>
 
       <Honesty
-        worksTitle="works today (server.js inline)"
+        worksTitle="on disk now (apps/executor/)"
         stubTitle="the single biggest scale risk"
         works={[
-          { label: <><code>playwright.chromium.launch</code></>, detail: <>with <code>--no-sandbox --disable-dev-shm-usage</code></> },
+          { label: <><code>playwright.chromium.launch</code></>, detail: <>with <code>--no-sandbox --disable-dev-shm-usage</code> in <code>apps/executor/</code></> },
+          { label: 'Own Playwright image', detail: <>compose <code>executor</code> · <code>apps/executor/Dockerfile</code> · <code>shm_size: 1gb</code></> },
+          { label: 'Standalone worker', detail: <><code>main.js</code> consumes <code>execution.requested</code> without requiring the HTTP API</> },
           { label: 'Minimal mode', detail: 'URL load + body wait + screenshot (reliable)' },
           { label: 'Full mode', detail: 'keyword/selector navigation (brittle)' },
-          { label: 'Screenshots per step', detail: <>→ <code>artifacts/&lt;runId&gt;/</code></> },
-          { label: 'Learned selectors', detail: <>collected in <code>selectorMemory</code> Map</> },
-          { label: 'a11y / perf / security passes', detail: 'run in-process' },
+          { label: 'a11y / perf / security / analyzer', detail: 'same worker, job.kind on the queue' },
         ]}
         stub={[
-          { label: 'Local worker is co-located', detail: 'execution.requested is in-process until a shared queue (M7)' },
-          { label: 'Optional passes still inline', detail: 'a11y / perf / security still launch Chromium from the orchestrator' },
-          { label: 'Local disk', detail: 'artifacts on filesystem, not shareable across replicas' },
-          { label: 'Selectors lost on restart', detail: 'Map only' },
-          { label: 'Serverless-hostile', detail: 'Vercel functions kill long browser work' },
-          { label: 'No trace upload', detail: 'Playwright traces stay local' },
+          { label: 'npm start still co-locates Chromium', detail: 'in-process worker unless SKIP_EXECUTION_WORKER=1 (compose sets this)' },
+          { label: 'Optional passes not split into src/passes/', detail: 'still functions inside jobs.js' },
+          { label: 'Selectors still memory-first', detail: 'DB upsert exists; process Map is still the hot path' },
         ]}
       />
 
       <h3>Module map</h3>
+      <p className={styles.purpose}>On disk now: <code>apps/executor/Dockerfile</code>, <code>main.js</code> (no HTTP), <code>jobs.js</code>, <code>worker.js</code>.</p>
       <Diagram ariaLabel="executor module map">
 {`apps/executor/
 ├─ Dockerfile                    mcr.../playwright:v1.52-jammy · pwuser · shm 1g

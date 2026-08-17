@@ -1,5 +1,5 @@
-const { startOrchestrator, TOPIC } = require("../lib/orchestrator");
-const queue = require("../lib/cloud/local/queue");
+const { startOrchestrator, TOPIC } = require("@zero/orchestrator");
+const queue = require("@zero/cloud/local/queue");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

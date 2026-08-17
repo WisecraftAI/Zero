@@ -1,23 +1,26 @@
 import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
+import { RepoIdentityList } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldLibs() {
   return (
     <>
       <h3 className={styles.subhead}>
-        shared libraries · domain · db · locators · builders · analyzer
+        Shared packages · domain · db · locators · builders · analyzer
       </h3>
+      <RepoIdentityList ids={['domain', 'db', 'locators', 'builders', 'analyzer']} />
       <p className={styles.purpose}>
         Pure code shared by <code>apps/*</code>. Zero HTTP, zero browsers, zero SDKs. If it
-        imports Express or Playwright, it&apos;s in the wrong package.
+        imports Express or Playwright, it&apos;s in the wrong package. Analyzer is the exception:
+        it launches its own Chromium.
       </p>
 
-      <h3>packages/domain</h3>
+      <h3>Domain contracts · folder packages/domain/ · npm @zero/domain · skill /zero-domain</h3>
       <p className={styles.purpose}>Contracts, enums, zod schemas. The lingua franca between apps.</p>
       <Honesty
         works={[
-          { label: <><code>stageKeys</code></>,   detail: <>in <code>server.js</code></> },
+          { label: <><code>stageKeys</code></>,   detail: <>in <code>packages/domain/index.js</code></> },
           { label: <><code>appProfiles</code></>, detail: 'Gray · TVNZ+ · Aha · Hotstar · PrimeVideo · Generic' },
           { label: 'Ad-hoc shapes',               detail: 'for run, artifact, TC' },
         ]}
@@ -29,7 +32,7 @@ export function LldLibs() {
         ]}
       />
 
-      <h3>packages/db</h3>
+      <h3>Postgres helpers · folder packages/db/ · npm @zero/db · skill /zero-db</h3>
       <p className={styles.purpose}>Postgres pool + versioned migrations. The one place that knows table names.</p>
       <Honesty
         works={[
@@ -45,13 +48,13 @@ export function LldLibs() {
         ]}
       />
 
-      <h3>packages/locators</h3>
+      <h3>Locator registry · folder packages/locators/ · npm @zero/locators · skill /zero-locators</h3>
       <p className={styles.purpose}>Locator merge and element-key normalizer. Consumed by orchestrator (build) and executor (upsert learned).</p>
       <Honesty
         works={[
-          { label: <><code>lib/locatorRegistry.js</code></>, detail: 'profile → memory → DB merge' },
-          { label: <><code>lib/elementLogger.js</code></>,    detail: 'element key normalizer' },
-          { label: <><code>lib/ecommerceSelectors.js</code></>, detail: 'selector library' },
+          { label: <><code>locatorRegistry.js</code></>, detail: 'profile → memory → DB merge' },
+          { label: <><code>elementLogger.js</code></>,    detail: 'element key normalizer' },
+          { label: <><code>ecommerceSelectors.js</code></>, detail: 'selector library' },
         ]}
         stubTitle="V3 tightens"
         stub={[
@@ -61,12 +64,12 @@ export function LldLibs() {
         ]}
       />
 
-      <h3>packages/builders</h3>
+      <h3>Script builders · folder packages/builders/ · npm @zero/builders · skill /zero-builders</h3>
       <p className={styles.purpose}>Emits Playwright spec + Java/Selenium class as text. Pure — same input, same output. Snapshot tested.</p>
       <Honesty
         works={[
-          { label: <><code>lib/scriptBuilder.js</code></>,       detail: 'Playwright spec text' },
-          { label: <><code>lib/javaSeleniumBuilder.js</code></>, detail: 'JUnit Java class text' },
+          { label: <><code>scriptBuilder.js</code></>,       detail: 'Playwright spec text' },
+          { label: <><code>javaSeleniumBuilder.js</code></>, detail: 'JUnit Java class text' },
         ]}
         stubTitle="V3 adds"
         stub={[
@@ -76,15 +79,15 @@ export function LldLibs() {
         ]}
       />
 
-      <h3>packages/analyzer</h3>
+      <h3>URL analyzer · folder packages/analyzer/ · npm @zero/analyzer · skill /zero-analyzer</h3>
       <p className={styles.purpose}>
         Crawlers used only by orchestrator during BA stage. Uses its own Chromium via Playwright —
         <em> a copy separate from executor&apos;s</em>.
       </p>
       <Honesty
         works={[
-          { label: <><code>lib/urlAnalyzer.js</code></>,    detail: '1,069 lines · lightweight heuristics' },
-          { label: <><code>lib/urlAnalyzerPro.js</code></>, detail: '2,258 lines · deep Playwright crawl' },
+          { label: <><code>urlAnalyzer.js</code></>,    detail: 'lightweight heuristics' },
+          { label: <><code>urlAnalyzerPro.js</code></>, detail: 'deep Playwright crawl' },
         ]}
         stubTitle="V3 tradeoffs"
         stub={[

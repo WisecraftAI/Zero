@@ -38,4 +38,12 @@ describe('useHashTab', () => {
     const { result } = renderHook(() => useHashTab(IDS, 'overview'));
     expect(result.current[0]).toBe('overview');
   });
+
+  it('maps aliases and prefixed hashes to a merged tab', () => {
+    const ids = ['overview', 'architecture'] as const;
+    const aliases = { v3: 'architecture', blueprint: 'architecture' };
+    history.replaceState(null, '', '#v3-repos');
+    const { result } = renderHook(() => useHashTab(ids, 'overview', aliases));
+    expect(result.current[0]).toBe('architecture');
+  });
 });

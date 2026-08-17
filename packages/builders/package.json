@@ -1,0 +1,10 @@
+{
+  "name": "@zero/builders",
+  "version": "0.0.0",
+  "private": true,
+  "main": "scriptBuilder.js",
+  "description": "Playwright spec and Java/Selenium emitters.",
+  "dependencies": {
+    "@zero/locators": "*"
+  }
+}

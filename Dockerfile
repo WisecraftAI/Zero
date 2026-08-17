@@ -1,16 +1,18 @@
-# V3 migration S0 — today's monolith (API + pipeline + Playwright).
-# No apps/ split yet. Chromium ships in this image until S4/M4.
+# V3 S4 — HTTP API image. No Playwright browsers.
+# Executor image: apps/executor/Dockerfile (playwright base).
 
-# ---------- client (Vite → public/) ----------
-FROM node:20-bookworm AS client
+# ---------- web (Vite → public/) ----------
+FROM node:20-bookworm AS web
 WORKDIR /src
-COPY client/package.json client/package-lock.json ./client/
-RUN cd client && npm ci
-COPY client/ ./client/
-RUN cd client && npm run build
+COPY package.json package-lock.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY web ./web
+RUN npm ci
+RUN npm run build -w @zero/web
 
-# ---------- runtime (Playwright browsers + Node) ----------
-FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+# ---------- runtime (Node, no Chromium) ----------
+FROM node:20-bookworm
 
 ENV NODE_ENV=production \
     PORT=3000 \
@@ -20,18 +22,19 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY web/package.json ./web/
 RUN npm ci --omit=dev
 
 COPY server.js ./
-COPY lib/ ./lib/
+COPY workers ./workers
 COPY scripts/ ./scripts/
-COPY --from=client /src/public ./public/
+COPY --from=web /src/public ./public/
 
-# logger.js mkdir's ../logs; artifacts/ is the run store (volume-mounted in compose)
 RUN mkdir -p /app/artifacts /app/logs \
-  && chown -R pwuser:pwuser /app/artifacts /app/logs /app/public
+  && chown -R node:node /app/artifacts /app/logs /app/public
 
-# Named volumes remount as root — entrypoint fixes ownership then drops to pwuser
 USER root
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

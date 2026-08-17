@@ -1,0 +1,2 @@
+{"api":true,"durationMs":11,"ip":"::ffff:127.0.0.1","level":"error","message":"POST /api/runs 500 - 11ms","method":"POST","path":"/api/runs","service":"zer0-orchestrator","statusCode":500,"timestamp":"2026-08-17T10:08:18.165Z"}
+{"api":true,"durationMs":1,"ip":"::ffff:127.0.0.1","level":"error","message":"POST /api/runs 500 - 1ms","method":"POST","path":"/api/runs","service":"zer0-orchestrator","statusCode":500,"timestamp":"2026-08-17T10:08:18.173Z"}

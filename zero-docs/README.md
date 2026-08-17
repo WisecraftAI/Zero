@@ -9,16 +9,18 @@ Standalone doc site that replaces the hand-edited `public/architecture.html`. Sa
 ```bash
 cd zero-docs
 npm install
-npm run dev          # http://localhost:5174 · vite-plugin-checker overlays TS + ESLint errors
+npm run dev          # http://localhost:5174 · HMR, no Docker rebuild
 ```
 
-Docker (own compose service, not the app image):
+Docker (bind-mounted Vite — save a file, the page updates):
 
 ```bash
 # from repo root
-docker compose up --build docs
+docker compose up docs
 # http://localhost:5174
 ```
+
+Baked nginx image (ship only): `docker build -t zero-docs ./zero-docs`
 
 ## Ship
 
@@ -39,6 +41,7 @@ npm run preview      # serve the built bundle from dist/
 | `src/components/layout/`     | Hero, Tabs, SubTabs, JumpNav, Footer — the shell.                                             |
 | `src/components/ui/`         | Card, Note, Diagram, FlawItem, PipelineStage, Honesty, ProvidersTable, CodeBlock — primitives.|
 | `src/pages/`                 | One page per top-level tab. `v3/` splits into sections + LLD sub-tabs.                        |
+| `src/data/`                  | Repo catalog + M1–M7 / S0–S6 done·not-done scores.                                            |
 | `src/hooks/`                 | `useHashTab`, `useMediaQuery`.                                                                |
 | `test/`                      | Vitest + Testing Library + jsdom.                                                             |
 
@@ -75,7 +78,9 @@ Add a new tab:
 
 1. Add a component under `src/pages/`.
 2. Register it in `src/tabs.ts`.
-3. Wire the lazy import + branch in `src/App.tsx`.
+3. Wire the branch in `src/App.tsx`.
+
+Repo catalog and milestone scores live in `src/data/repos.ts` and `src/data/migration.ts` — keep those honest when the tree changes.
 
 Add a new V3 section:
 

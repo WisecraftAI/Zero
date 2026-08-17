@@ -2,39 +2,43 @@ import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
 import { ProvidersTable } from '@/components/ui/ProvidersTable';
 import { Note } from '@/components/ui/Note';
+import { RepoIdentity } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldApi() {
   return (
     <>
-      <h3 className={styles.subhead}>api · Express intake</h3>
+      <h3 className={styles.subhead}>HTTP API · Express intake</h3>
+      <RepoIdentity id="api" />
       <p className={styles.purpose}>
         Terminate HTTP, validate, persist metadata, presign uploads, publish to the queue, stream
-        state. Nothing else.
+        state. Chromium is not in this package. Routes are already split.
       </p>
 
       <Honesty
-        worksTitle="works today (server.js · lib/)"
-        stubTitle="broken / dangerous today"
+        worksTitle="on disk now (apps/api/)"
+        stubTitle="orchestrator still in this process"
         works={[
-          { label: '46 route handlers', detail: 'runs, locators, element-log, recordings, cms, health' },
-          { label: 'helmet, rate-limit, cors, morgan', detail: <>via <code>lib/middleware.js</code></> },
+          { label: 'Route modules', detail: <>under <code>apps/api/src/routes/</code> (runs, recordings, locators, settings, cms, keys, health, spa)</> },
+          { label: 'No playwright dependency', detail: <>removed from <code>@zero/api</code>; <code>server.js</code> does not call <code>chromium.launch</code></> },
+          { label: 'helmet, rate-limit, cors, morgan', detail: <>via <code>apps/api/middleware.js</code></> },
           { label: 'Swagger UI', detail: <>at <code>/api-docs</code> — real OpenAPI spec</> },
           { label: 'Winston', detail: <>structured logs → <code>logs/</code></> },
           { label: 'Multer', detail: 'multipart upload' },
           { label: 'PDF via pdfkit, XLSX via xlsx', detail: 'artifacts render correctly' },
-          { label: 'Postgres (M1)', detail: <>upserts <code>qa_runs</code> / <code>qa_assets</code> when <code>DATABASE_URL</code> is set</> },
+          { label: 'Postgres (M1)', detail: <>upserts <code>qa_runs</code> / <code>qa_assets</code> via <code>@zero/db</code></> },
         ]}
         stub={[
+          { label: 'No dedicated apps/api/Dockerfile', detail: 'root Dockerfile is the API image (node:20, no Chromium)' },
+          { label: 'server.js still boots the orchestrator', detail: <>composition root until S5; compose sets <code>SKIP_EXECUTION_WORKER=1</code></> },
           { label: 'Multipart still accepted', detail: 'legacy POST /api/runs streams files; JSON + uploads[] is the M2 path' },
           { label: 'Local auth default off', detail: <>set <code>ZERO_AUTH=on</code> + <code>ZERO_API_KEYS</code> to require verified identity</> },
-          { label: '/artifacts static-served', detail: 'unauthenticated read of any run' },
-          { label: 'SSE unused by UI', detail: <>endpoint exists at <code>/api/runs/:id/stream</code>; client still polls</> },
-          { label: 'Chromium in this process', detail: 'see executor tab' },
+          { label: 'SSE unused by UI', detail: <>endpoint exists at <code>/api/runs/:id/stream</code>; Web UI still polls</> },
         ]}
       />
 
       <h3>Module map</h3>
+      <p className={styles.purpose}>On disk now: <code>apps/api/server.js</code> composition root plus <code>src/routes/</code>. Chromium is not launched here.</p>
       <Diagram ariaLabel="api module map">
 {`apps/api/
 ├─ Dockerfile                    node:20-alpine, ~180 MB, non-root

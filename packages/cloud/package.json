@@ -1,0 +1,11 @@
+{
+  "name": "@zero/cloud",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
+  "dependencies": {
+    "express": "^4.19.2",
+    "ioredis": "^5.6.1"
+  }
+}

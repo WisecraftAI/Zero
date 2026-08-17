@@ -1,4 +1,4 @@
-const { isDatabaseConfigured, sanitizeRunInput } = require("../lib/db");
+const { isDatabaseConfigured, sanitizeRunInput } = require("@zero/db");
 
 describe("isDatabaseConfigured", () => {
   it("is false when neither DATABASE_URL nor PGHOST is set", () => {

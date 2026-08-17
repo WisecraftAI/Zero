@@ -1,38 +1,39 @@
 import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
+import { RepoIdentity } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldOrchestrator() {
   return (
     <>
-      <h3 className={styles.subhead}>orchestrator · stage DAG worker</h3>
+      <h3 className={styles.subhead}>Orchestrator worker · stage DAG</h3>
+      <RepoIdentity id="orchestrator" />
       <p className={styles.purpose}>
         Consume <code>runs.requested</code>, walk <code>stageKeys</code>, call agents (real LLM),
         persist artifacts, fan out to executor, aggregate, publish reports.
       </p>
 
       <Honesty
-        worksTitle="works today (server.js · lib/)"
-        stubTitle="advertised · not actually happening"
+        worksTitle="on disk now (apps/orchestrator/)"
+        stubTitle="not its own process yet"
         works={[
-          { label: <><code>processRun</code></>, detail: <>walks <code>stageKeys</code> in order</> },
-          { label: 'Template agents', detail: 'BA, Manual QA, Automation QA, Manager, Delivery produce artifacts deterministically' },
-          { label: 'Locator merge', detail: 'profile → memory (DB path exists but off)' },
-          { label: 'Script builders', detail: 'Playwright spec + Java class text emit correctly' },
-          { label: 'URL analyzer', detail: <><code>lib/urlAnalyzerPro</code> crawls and fills BRD gaps</> },
+          { label: <><code>processRun</code></>, detail: <>walks <code>stageKeys</code> in <code>apps/orchestrator/processRun.js</code>; still invoked in-process from HTTP API boot</> },
+          { label: 'Template + LLM agents', detail: 'BA, Manual, Automation, Manager call @zero/orchestrator/llm when a key exists; templates otherwise' },
+          { label: 'Locator merge', detail: 'profile → memory via @zero/locators (DB path exists but off)' },
+          { label: 'Script builders', detail: '@zero/builders emit Playwright spec + Java class text' },
+          { label: 'URL analyzer', detail: <><code>@zero/analyzer</code> crawls and fills BRD gaps</> },
           { label: 'PDF Manager report', detail: 'pdfkit renders a real document' },
         ]}
         stub={[
-          { label: 'No LLM calls', detail: <><code>apiKeyManager</code> stores keys; agents never call OpenAI / Anthropic / Vertex / Bedrock</> },
-          { label: 'Agent settings ignored', detail: <><code>/api/agent-settings</code> writes; agents don't read</> },
-          { label: 'Local queue is in-process', detail: 'split API/worker needs a shared queue (M7); crash mid-run still needs resume (stage_progress)' },
-          { label: 'No resume-from-crash', detail: 'restarts start from scratch or lose the run' },
-          { label: 'No retry semantics', detail: 'one exception per stage kills the whole run' },
-          { label: 'No fan-out', detail: <>TCs execute serially inside <code>processRun</code></> },
+          { label: 'Not its own image', detail: <><code>apps/orchestrator/worker.js</code> requires <code>apps/api/server.js</code></> },
+          { label: 'Local queue is in-process', detail: 'a second container will not see runs.requested until ZERO_CLOUD=aws|gcp' },
+          { label: 'No resume-from-crash', detail: 'no stage_progress walker; restarts can lose in-flight runs' },
+          { label: 'Optional passes still inline', detail: 'a11y / perf / security can still launch Chromium from this process' },
         ]}
       />
 
       <h3>Module map</h3>
+      <p className={styles.purpose}>Target after S5. On disk now: <code>apps/orchestrator/index.js</code>, <code>processRun.js</code>, <code>llm/</code>, and a worker that still boots the HTTP API process.</p>
       <Diagram ariaLabel="orchestrator module map">
 {`apps/orchestrator/
 ├─ Dockerfile                    node:20-alpine, no browser

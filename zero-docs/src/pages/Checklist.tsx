@@ -1,59 +1,96 @@
 import { FlawItem } from '@/components/ui/FlawItem';
 import { Note } from '@/components/ui/Note';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export function ChecklistPage() {
   return (
-    <section className="section">
-      <h2>Ship Checklist · what "production" means for ZER0</h2>
-      <p className="sub">
-        Green on every item below or the "production" label is a marketing claim, not a
-        technical one.
-      </p>
+    <>
+      <section className="section" id="p0">
+        <h2>Ship Checklist · what &quot;production&quot; means</h2>
+        <p className="sub">
+          Scored against the live tree, not the original HTML wish list. Green means the
+          capability exists. Workspaces are <StatusBadge status="done" />. Four images are still
+          open.
+        </p>
 
-      <FlawItem severity="gate" tag="SHIP-1" title="Docker compose starts clean on a fresh clone">
-        <code>git clone &amp;&amp; docker compose up</code> boots web · api · orchestrator ·
-        executor · postgres · redis · minio. Health probes green in &lt; 60 s.
-      </FlawItem>
-      <FlawItem severity="gate" tag="SHIP-2" title="Golden e2e passes in CI">
-        <code>e2e/smoke.sh</code> starts a run and observes <code>completed</code> within its
-        budget. Failing the smoke blocks merge.
-      </FlawItem>
-      <FlawItem severity="gate" tag="SHIP-3" title="API image has no browser">
-        GATE-1 asserts <code>playwright</code> is absent from <code>zero-api</code>. GATE-5
-        keeps the image under 250 MB.
-      </FlawItem>
-      <FlawItem severity="gate" tag="SHIP-4" title="Runs survive a restart">
-        Kill orchestrator mid-run, restart, DAG resumes from <code>stage_progress</code>. State
-        must land in Postgres, not memory.
-      </FlawItem>
-      <FlawItem severity="gate" tag="SHIP-5" title="One non-local cloud provider is green">
-        Conformance suite (GATE-9) passes against <code>@zero/cloud/aws</code> (or gcp/azure) in
-        CI, using LocalStack / emulators.
-      </FlawItem>
-      <FlawItem severity="p1" tag="SHIP-6" title="Auth actually gates">
-        Header spoofing removed. Every write is tenant-scoped. Presigned URLs expire within 15 min.
-      </FlawItem>
-      <FlawItem severity="p1" tag="SHIP-7" title="Observability">
-        Every log line has <code>runId · service · traceId</code>. Dashboards exist for{' '}
-        <code>runs_started / completed / duration</code>, <code>queue_lag</code>,{' '}
-        <code>executor_slots_used</code>.
-      </FlawItem>
-      <FlawItem severity="p1" tag="SHIP-8" title="Runbook + SLOs">
-        Ops doc names owners, oncall rotation, and the two SLOs we defend: <code>p95(run) ≤ 5
-        min</code> · <code>error_rate ≤ 1 %</code>.
-      </FlawItem>
-      <FlawItem severity="p2" tag="SHIP-9" title="LLM outages degrade, don't fail">
-        Agent facade retries across providers and falls back to deterministic templates. A run
-        still completes when OpenAI is down.
-      </FlawItem>
-      <FlawItem severity="p2" tag="SHIP-10" title="Migrations forward-only + reversible">
-        <code>packages/db/migrate.js</code> up · down · up succeeds in CI.
-      </FlawItem>
+        <FlawItem severity="gate" tag="SHIP-1" title="Compose starts on a fresh clone">
+          <code>docker compose up --build</code> boots the monolith + Postgres / Redis / MinIO.
+          Docs :5174 · workflow :5175. Four app images (web / api / orch / executor) are{' '}
+          <StatusBadge status="not-done" />. Monolith compose is <StatusBadge status="done" />.
+        </FlawItem>
+        <FlawItem severity="gate" tag="SHIP-2" title="Smoke tests in CI">
+          Jest health + pipeline start + Postgres persist/reload exist.{' '}
+          <code>e2e/smoke.sh</code> against four compose services is{' '}
+          <StatusBadge status="not-done" />. Current smoke is <StatusBadge status="partial" />.
+        </FlawItem>
+        <FlawItem severity="gate" tag="SHIP-3" title="API image has no browser">
+          GATE-1. Today the compose app image still includes Playwright.{' '}
+          <StatusBadge status="not-done" />
+        </FlawItem>
+        <FlawItem severity="gate" tag="SHIP-4" title="Runs survive a restart">
+          Postgres upserts <code>qa_runs</code> / <code>qa_assets</code> when configured. No{' '}
+          <code>stage_progress</code> resume-from-crash yet. <StatusBadge status="partial" />
+        </FlawItem>
+        <FlawItem severity="gate" tag="SHIP-5" title="One non-local cloud provider">
+          Cloud adapters (<code>@zero/cloud</code>, folder <code>packages/cloud/</code>) ship aws
+          and gcp with IaC under <code>infra/</code>. GATE-9 conformance suite against LocalStack
+          is <StatusBadge status="not-done" />. Adapters are <StatusBadge status="partial" />.
+        </FlawItem>
+        <FlawItem severity="p1" tag="SHIP-6" title="Auth actually gates">
+          Verified API keys / JWT, tenant-scoped runs, recording CORS allowlist, production{' '}
+          <code>KEY_ENC_SECRET</code> required. No OIDC login UI. Header spoofing of{' '}
+          <code>X-User-Email</code> is rejected. <StatusBadge status="partial" />
+        </FlawItem>
+        <FlawItem severity="p1" tag="SHIP-7" title="Observability">
+          Winston logs exist. No required <code>runId · service · traceId</code> on every line,
+          no dashboards for <code>queue_lag</code> / <code>executor_slots_used</code>.{' '}
+          <StatusBadge status="not-done" />
+        </FlawItem>
+        <FlawItem severity="p1" tag="SHIP-8" title="Runbook + SLOs">
+          Ops doc naming owners, oncall, and <code>p95(run) ≤ 5 min</code> /{' '}
+          <code>error_rate ≤ 1 %</code> is <StatusBadge status="not-done" />.
+        </FlawItem>
+        <FlawItem severity="p2" tag="SHIP-9" title="LLM outages degrade, don&apos;t fail">
+          <code>@zero/orchestrator/llm</code> falls back to templates on error, rate/cost cap, or{' '}
+          <code>ZERO_LLM=off</code>. <StatusBadge status="done" />
+        </FlawItem>
+        <FlawItem severity="p2" tag="SHIP-10" title="Migrations forward-only + reversible">
+          Postgres helpers (<code>@zero/db</code>, folder <code>packages/db/</code>) use{' '}
+          <code>CREATE TABLE IF NOT EXISTS</code>. No <code>packages/db/migrate.js</code> up · down
+          · up. <StatusBadge status="not-done" />
+        </FlawItem>
+      </section>
+
+      <section className="section" id="p0-original">
+        <h2>Original P0s from architectureV2 · current score</h2>
+        <p className="sub">These were blockers when the HTML was written. Several have flipped.</p>
+        <FlawItem severity="p0" tag="P0" title="Postgres hard-disabled">
+          <code>databaseConfigured()</code> follows <code>DATABASE_URL</code> / <code>PGHOST</code>.{' '}
+          <StatusBadge status="done" />
+        </FlawItem>
+        <FlawItem severity="p0" tag="P0" title="No real auth">
+          Spoofable <code>X-User-Email</code> is no longer identity. API keys / JWT are verified.
+          Still no OIDC UI. <StatusBadge status="partial" />
+        </FlawItem>
+        <FlawItem severity="p0" tag="P0" title="Public artifacts + open recording CORS">
+          <code>/artifacts</code> is not statically served. Recording CORS is an origin allowlist.{' '}
+          <StatusBadge status="done" />
+        </FlawItem>
+        <FlawItem severity="p0" tag="P0" title="In-process Playwright, no queue">
+          Queue + worker exist. Default boot still co-locates Chromium.{' '}
+          <StatusBadge status="partial" />
+        </FlawItem>
+        <FlawItem severity="p0" tag="P0" title="Minimal execution ≠ E2E proof">
+          Still true. Manager &quot;Go&quot; must not be treated as release proof.{' '}
+          <StatusBadge status="done" /> as an honesty rule — the product still defaults to minimal.
+        </FlawItem>
+      </section>
 
       <Note tone="info">
-        Milestones M1–M4 in Blueprint cover SHIP-1 through SHIP-4. Everything else lands during
-        M5–M7.
+        Milestones M1–M4 cover the capability half of SHIP-1 through SHIP-4. The packaging half
+        (four images, no browser in API) is S5 on the Architecture tab. S4 already extracted the
+        executor image.
       </Note>
-    </section>
+    </>
   );
 }

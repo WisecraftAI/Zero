@@ -26,7 +26,7 @@ coverage
 *.log
 .DS_Store
 
-# Keep app image lean — client stage copies client/ explicitly.
+# Keep app image lean — web stage copies web/ explicitly.
 # agent-workflow stays in context so the workflow image can COPY probes + live tree.
 zero-docs
 docs

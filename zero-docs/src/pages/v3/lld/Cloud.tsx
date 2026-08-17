@@ -2,31 +2,32 @@ import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { ProvidersTable } from '@/components/ui/ProvidersTable';
+import { RepoIdentity } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldCloud() {
   return (
     <>
-      <h3 className={styles.subhead}>packages/cloud · provider adapters</h3>
+      <h3 className={styles.subhead}>Cloud adapters · provider switch</h3>
+      <RepoIdentity id="cloud" />
       <p className={styles.purpose}>
         The only place that knows AWS/GCP/Azure/Vercel exist. Every other workspace imports{' '}
         <code>@zero/cloud</code> and calls one of four interfaces.
       </p>
 
       <Honesty
-        worksTitle="works today (lib/cloud/)"
+        worksTitle="on disk now (packages/cloud/)"
         stubTitle="not implemented yet"
         works={[
           { label: 'Contract', detail: <><code>index.d.ts</code> declares ObjectStore · Queue · Secrets · Cache</> },
-          { label: 'Provider selection', detail: <><code>lib/cloud/index.js</code> switches on <code>ZERO_CLOUD</code></> },
+          { label: 'Provider selection', detail: <><code>packages/cloud/index.js</code> switches on <code>ZERO_CLOUD</code></> },
           { label: 'local provider (full)', detail: 'objectStore (fs + HMAC signed URLs), queue (in-proc pub/sub), secrets, cache' },
-          { label: 'Local signed URLs', detail: <>served by api at <code>/api/cloud/local?…</code> with expiry + timing-safe check</> },
-          { label: 'Wired in server.js (M2)', detail: 'presign uploads, commit, screenshots, run.json; /artifacts static removed' },
+          { label: 'aws + gcp', detail: 'S3/SQS/Secrets Manager/Redis · GCS/Pub/Sub/Secret Manager/Redis' },
+          { label: 'Wired in HTTP API (M2)', detail: 'presign uploads, commit, screenshots, run.json; /artifacts static removed' },
         ]}
         stub={[
-          { label: 'aws/', detail: 'README only; SQS/S3/Secrets Manager/ElastiCache adapters missing' },
-          { label: 'gcp/, azure/, vercel/', detail: "folders don't exist" },
-          { label: 'Conformance suite', detail: 'no cross-provider parity test' },
+          { label: 'azure/, vercel/', detail: 'not implemented' },
+          { label: 'Conformance suite', detail: 'no GATE-9 Vitest suite run against every provider' },
         ]}
       />
 

@@ -1,12 +1,14 @@
-# V3 migration S0 — containerize what exists.
-# Monolith app + Postgres / Redis / MinIO. No code moves.
+# V3 S5 — API + orchestrator + executor images (Playwright only in executor).
 # Extra instances: docs (zero-docs nginx) + workflow (milestone probes on live tree).
 # Hybrid: docker compose up -d postgres redis minio  →  npm start on host
 
 name: zero
 
+# NODE_ENV stays development: production forces verified auth on /api and refuses
+# to boot without a real KEY_ENC_SECRET. For a production-like stack, set
+# NODE_ENV=production plus KEY_ENC_SECRET and ZERO_API_KEYS.
 x-app-env: &app-env
-  NODE_ENV: production
+  NODE_ENV: ${NODE_ENV:-development}
   PORT: "3000"
   ZERO_CLOUD: local
   ZERO_PUBLIC_BASE_URL: http://localhost:3000
@@ -82,11 +84,31 @@ services:
       dockerfile: Dockerfile
     environment:
       <<: *app-env
+      API_ONLY: "1"
+      SKIP_EXECUTION_WORKER: "1"
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - app-artifacts:/app/artifacts
-    # Chromium needs >64MB /dev/shm (see architecture.html V3 compose note)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  executor:
+    build:
+      context: .
+      dockerfile: apps/executor/Dockerfile
+    environment:
+      <<: *app-env
+      EXECUTION_WORKER_ONLY: "1"
+    volumes:
+      - app-artifacts:/app/artifacts
     shm_size: 1gb
     depends_on:
       postgres:
@@ -98,12 +120,38 @@ services:
       minio-init:
         condition: service_completed_successfully
 
-  docs:
+  orchestrator:
     build:
-      context: ./zero-docs
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/orchestrator/Dockerfile
+    environment:
+      <<: *app-env
+      ORCHESTRATOR_ONLY: "1"
+    volumes:
+      - app-artifacts:/app/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  docs:
+    image: node:20-bookworm
+    working_dir: /src
+    environment:
+      CHOKIDAR_USEPOLLING: "1"
+    command: >
+      sh -c "test -d node_modules/vite || npm ci;
+      npm run dev -- --host 0.0.0.0 --port 5174"
     ports:
-      - "${DOCS_PORT:-5174}:80"
+      - "${DOCS_PORT:-5174}:5174"
+    volumes:
+      - ./zero-docs:/src
+      - docs-nm:/src/node_modules
 
   workflow:
     build:
@@ -113,7 +161,7 @@ services:
       PORT: "5175"
     ports:
       - "${WORKFLOW_PORT:-5175}:5175"
-    # Live repo — detect/verify read server.js + lib/ from the host, not a baked snapshot
+    # Live repo — detect/verify read apps/ + packages/ from the host
     volumes:
       - .:/repo:ro
 
@@ -121,3 +169,4 @@ volumes:
   pgdata:
   miniodata:
   app-artifacts:
+  docs-nm:

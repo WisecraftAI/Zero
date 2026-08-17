@@ -1,4 +1,4 @@
-const { createLlm, parseJsonContent, redact, ownerEmailForRun, PROMPT_VERSIONS } = require("../lib/llm");
+const { createLlm, parseJsonContent, redact, ownerEmailForRun, PROMPT_VERSIONS } = require("@zero/orchestrator/llm");
 
 function mockHttp(handler) {
   return {

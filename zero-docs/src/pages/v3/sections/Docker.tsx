@@ -7,8 +7,8 @@ export function Docker() {
     <section className="section" id="v3-docker">
       <h2>Four images, one compose</h2>
       <p className="sub">
-        Chromium exists in exactly one image. That single constraint is what makes the API tier
-        cheap and horizontally scalable.
+        Chromium exists in exactly one image after S4. Compose now builds an API image (no
+        Chromium) plus an executor image. Orchestrator still runs inside the API process until S5.
       </p>
 
       <Diagram ariaLabel="Container topology for the V3 local stack">
@@ -60,7 +60,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \\
   CMD wget -qO- http://127.0.0.1:3000/health || exit 1
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "apps/api/src/server.js"]`}
+CMD ["node", "apps/api/server.js"]`}
       </CodeBlock>
 
       <Note tone="danger">
@@ -88,7 +88,7 @@ COPY packages/ ./packages/
 COPY apps/executor/ ./apps/executor/
 
 USER pwuser
-CMD ["node", "apps/executor/src/worker.js"]`}
+CMD ["node", "apps/executor/main.js"]`}
       </CodeBlock>
 
       <h3>docker-compose.yml (excerpt)</h3>

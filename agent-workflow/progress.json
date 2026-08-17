@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 1,
-  "northStar": "public/architectureV2.html#blueprint",
+  "schemaVersion": 2,
+  "northStar": "zero-docs Architecture tab · packaging complete (S0–S6)",
+  "track": "packaging",
   "current": null,
   "acceptanceFloor": "M4",
   "milestones": {
@@ -54,6 +55,15 @@
       "completedAt": "2026-08-17T05:15:00.000Z"
     }
   },
+  "packaging": {
+    "S0": { "id": "S0", "name": "Containerize the monolith", "status": "done", "spec": "milestones/S0-containerize.md", "completedAt": "2026-08-16T12:00:00.000Z" },
+    "S1": { "id": "S1", "name": "Smoke tests", "status": "done", "spec": "milestones/S1-smoke.md", "completedAt": "2026-08-16T20:40:00.000Z" },
+    "S2": { "id": "S2", "name": "Turn on workspaces", "status": "done", "spec": "milestones/S2-workspaces.md", "completedAt": "2026-08-17T07:30:00.000Z" },
+    "S3": { "id": "S3", "name": "Split routes from stages", "status": "done", "spec": "milestones/S3-split-routes.md", "completedAt": "2026-08-17T09:40:00.000Z" },
+    "S4": { "id": "S4", "name": "Extract executor image", "status": "done", "spec": "milestones/S4-executor-image.md", "completedAt": "2026-08-17T10:15:00.000Z" },
+    "S5": { "id": "S5", "name": "Extract orchestrator image", "status": "done", "spec": "milestones/S5-orchestrator-image.md", "completedAt": "2026-08-17T10:12:02.000Z" },
+    "S6": { "id": "S6", "name": "Cloud adapters remaining providers", "status": "done", "spec": "milestones/S6-cloud-providers.md", "completedAt": "2026-08-17T10:12:02.000Z" }
+  },
   "history": [
     {
       "at": "2026-08-17T00:00:00.000Z",
@@ -94,6 +104,31 @@
       "at": "2026-08-17T05:15:00.000Z",
       "event": "milestone_done",
       "note": "M7 multi-cloud: lib/cloud/aws (S3/SQS/Secrets Manager/Redis) + lib/cloud/gcp (GCS/Pub/Sub/Secret Manager/Redis); infra/aws + infra/gcp Terraform; CI workflow status + Jest smoke. Default remains ZERO_CLOUD=local. Azure/Vercel not implemented. SDKs lazy-required, not added as runtime deps."
+    },
+    {
+      "at": "2026-08-17T08:30:00.000Z",
+      "event": "packaging_track_started",
+      "note": "M1–M7 probes green. New packaging workflow S0–S6: S0–S2 done; current = S3 split routes from stages."
+    },
+    {
+      "at": "2026-08-17T09:40:00.000Z",
+      "event": "milestone_done",
+      "note": "S3 split routes from stages: Express handlers in apps/api/src/routes/; processRun walks stageKeys in apps/orchestrator/processRun.js. Still one process; Chromium remains until S4."
+    },
+    {
+      "at": "2026-08-17T10:15:00.000Z",
+      "event": "milestone_done",
+      "note": "S4 executor image: apps/executor/Dockerfile (Playwright) + compose executor service. @zero/api has no playwright; server.js has no chromium.launch. Playwright jobs consume execution.requested from standalone main.js. npm start still co-locates Chromium; compose sets SKIP_EXECUTION_WORKER. Orchestrator image is S5."
+    },
+    {
+      "at": "2026-08-17T10:12:02.000Z",
+      "event": "milestone_done",
+      "note": "S5 orchestrator image: apps/orchestrator/Dockerfile + compose orchestrator service. worker.js boots without apps/api/server.js. Compose app is API_ONLY + SKIP_EXECUTION_WORKER; npm start still co-locates."
+    },
+    {
+      "at": "2026-08-17T10:12:02.000Z",
+      "event": "milestone_done",
+      "note": "S6 cloud adapters: packages/cloud/azure + vercel (lazy SDKs) + conformance GATE-9. ZERO_CLOUD=local|aws|gcp|azure|vercel. Packaging S0–S6 complete."
     }
   ]
 }

@@ -9,7 +9,7 @@ export function PerApp() {
         in the sub-tabs above.
       </p>
 
-      <h3>web</h3>
+      <h3>Web UI · folder web/ · npm @zero/web · skill /zero-web</h3>
       <Diagram ariaLabel="web tier">
 {`browser → nginx:8080 (SPA + /api proxy) → React 18 app
                                              │
@@ -18,7 +18,7 @@ export function PerApp() {
                                        api:3000 (fetch + SSE)`}
       </Diagram>
 
-      <h3>api</h3>
+      <h3>HTTP API · folder apps/api/ · npm @zero/api · skill /zero-api</h3>
       <Diagram ariaLabel="api tier">
 {`requestId → helmet → cors → rateLimit → auth (OIDC) → validate (zod) → route
                                                                         │
@@ -30,7 +30,7 @@ export function PerApp() {
                           @zero/db · @zero/cloud (presign)`}
       </Diagram>
 
-      <h3>orchestrator</h3>
+      <h3>Orchestrator worker · folder apps/orchestrator/ · npm @zero/orchestrator · skill /zero-orchestrator</h3>
       <Diagram ariaLabel="orchestrator tier">
 {`Queue.subscribe('runs.requested')
       │
@@ -42,7 +42,7 @@ export function PerApp() {
                               (execution stage) → Queue.publish('execution.requested')`}
       </Diagram>
 
-      <h3>executor</h3>
+      <h3>Playwright executor · folder apps/executor/ · npm @zero/executor · skill /zero-executor</h3>
       <Diagram ariaLabel="executor tier">
 {`Queue.subscribe('execution.requested')
       │

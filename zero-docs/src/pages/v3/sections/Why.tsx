@@ -6,41 +6,28 @@ export function Why() {
     <section className="section" id="v3-why">
       <h2>Why the repo shape has to change</h2>
       <p className="sub">
-        Six measured facts about today's code that the architectureV2 blueprint can't tolerate.
+        Remaining packaging gaps after S4. The architectureV2 blueprint still needs the
+        orchestrator process boundary.
       </p>
 
       <CardGrid columns="auto">
-        <Card title="One file holds three tiers">
+        <Card title="S4 done — Chromium left the API image">
           <p>
-            <code>server.js</code> is <strong>5,099 lines</strong>: 46 routes, every stage agent,
-            and the Playwright driver. API, orchestrator, and executor cannot be deployed or
-            scaled apart.
+            Compose runs a Playwright <code>executor</code> service. <code>@zero/api</code> has no{' '}
+            <code>playwright</code> dependency. <code>npm start</code> still co-locates the worker
+            for local DX.
           </p>
         </Card>
-        <Card title="Root npm is ambiguous">
+        <Card title="Orchestrator still lives in the API process">
           <p>
-            Root <code>package.json</code> is simultaneously the server, the build orchestrator
-            for <code>client/</code>, and the deploy target. Nothing declares which service it
-            represents.
+            <code>processRun</code> is a module, not an image. S5 extracts{' '}
+            <code>@zero/orchestrator</code> so the HTTP API can return immediately and relay SSE.
           </p>
         </Card>
-        <Card title="S0 done — still one image">
+        <Card title="One file still boots two remaining tiers">
           <p>
-            <code>Dockerfile</code> + <code>docker-compose.yml</code> + sidecars
-            (Postgres / Redis / MinIO) exist. The image is still the monolith — Chromium
-            ships with the API until S4.
-          </p>
-        </Card>
-        <Card title="Chromium travels everywhere">
-          <p>
-            <code>playwright</code> sits in root dependencies, so any image built from root ships
-            a browser — including tiers that must never launch one.
-          </p>
-        </Card>
-        <Card title="Local deps are path-coupled">
-          <p>
-            <code>lib/</code> is shared by <code>require(&quot;./lib/…&quot;)</code>. A worker in
-            another container cannot import it without copying the whole repo.
+            <code>apps/api/server.js</code> is still the composition root for HTTP + orchestrator.
+            S5 makes those separate processes.
           </p>
         </Card>
         <Card title="Artifacts are a local folder">
@@ -52,10 +39,10 @@ export function Why() {
       </CardGrid>
 
       <Note tone="info">
-        <strong>V3 is a packaging change, not a redesign.</strong> The tiers, primitives, and{' '}
-        <code>lib/cloud</code> contracts stay exactly as drawn in{' '}
-        <a href="/architectureV2.html">architectureV2.html</a>. V3 only decides which files live
-        where and which image runs them.
+        <strong>V3 is a packaging change, not a redesign.</strong> M1–M7 capabilities already
+        live in <code>apps/</code> and <code>packages/</code>. The tiers and <code>@zero/cloud</code> contracts stay as
+        drawn in <code>architectureV2.html</code>. V3 only decides which files live where and
+        which image runs them. Next step: S5 extract the orchestrator image.
       </Note>
     </section>
   );

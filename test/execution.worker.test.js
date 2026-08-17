@@ -3,8 +3,8 @@ const {
   requestExecution,
   REQUESTED,
   COMPLETED
-} = require("../lib/execution/worker");
-const queue = require("../lib/cloud/local/queue");
+} = require("@zero/executor");
+const queue = require("@zero/cloud/local/queue");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

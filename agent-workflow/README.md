@@ -1,75 +1,92 @@
 # ZER0 Target-Architecture Agent Workflow
 
-Autonomous coding-agent workflow that drives this repo from **runtime today** to the **Target architecture** in [`public/architectureV2.html`](../public/architectureV2.html) (Production Blueprint tab · milestones **M1–M7**).
+Two tracks. Same loop. Do not invent a different cloud shape.
 
-Do not invent a different cloud shape. Ground truth:
+| Track | Ids | Status |
+|-------|-----|--------|
+| Capability | M1–M7 | Probes green. Do not re-implement. |
+| Packaging | S0–S6 | **Current work.** S0–S4 done. Next = **S5**. |
+
+Ground truth:
 
 | Source | Role |
 |--------|------|
-| `public/architectureV2.html` | Target diagram, sequence, adapters, M1–M7, ship checklist |
-| `docs/ARCHITECTURE.md` | Current vs target + production gaps |
+| `zero-docs` | Target, sequence, workspaces, S0–S6 done/not-done |
 | `AGENTS.md` | Layout, pipeline, conventions |
-| `agent-workflow/progress.json` | Live milestone status for agents |
+| `agent-workflow/progress.json` | Live status (`current`, `track`) |
+| `prompts/packaging.md` | North-star for S3–S6 |
+| `prompts/target-arch.md` | North-star for M1–M7 (frozen) |
+| `prompts/repos/` | One coding contract per workspace |
 
-## Quick start (agent or human)
+## Quick start
 
 ```bash
-# 1. Detect earliest unfinished milestone
+# 1. Where are we? Prints M1–M7 and S0–S6. Next should be S5.
 npm run workflow:status
 
-# 2. In Cursor, invoke the skill and implement that milestone
-#    /zero-target-arch
+# 2. In Cursor:
+#    /zero-target-arch          → implement that S step
+#    /zero-orchestrator         → S5 (orchestrator image)
 
-# 3. Re-run acceptance probes after the change
-npm run workflow:verify
+# 3. After the change
+npm run workflow:verify -- --milestone S5
 ```
 
-Docker instance (probes the bind-mounted repo, not a baked snapshot):
+Docker instance (probes the bind-mounted repo):
 
 ```bash
 docker compose up --build workflow
-# GET http://localhost:5175/health
 # GET http://localhost:5175/status
-# GET http://localhost:5175/verify?milestone=M1
+# GET http://localhost:5175/verify?milestone=S5
 ```
-
-Or tell the agent:
-
-> Run `/zero-target-arch` and implement the next unfinished milestone until verify passes. Do not skip milestones.
 
 ## Layout
 
 ```
 agent-workflow/
-├── README.md                 ← this file
-├── WORKFLOW.md               ← agent loop (plan → implement → verify → advance)
-├── progress.json             ← milestone status (agents update this)
-├── agents/                   ← role prompts (planner / implementer / verifier)
-├── milestones/               ← M1–M7 specs + acceptance
-├── prompts/target-arch.md    ← north-star prompt (from architectureV2)
+├── README.md
+├── WORKFLOW.md               DETECT → PLAN → IMPLEMENT → VERIFY → ADVANCE
+├── progress.json             M1–M7 + packaging S0–S6
+├── agents/                   planner · implementer · verifier · repo-coder
+├── milestones/
+│   ├── M1-durable-store.md … M7-multi-cloud.md
+│   └── S0-containerize.md … S6-cloud-providers.md
+├── prompts/
+│   ├── target-arch.md        capability north-star (done)
+│   ├── packaging.md          packaging north-star (S3–S6)
+│   └── repos/                one prompt per workspace
 └── scripts/
-    ├── detect-milestone.js   ← probes codebase → earliest unfinished
-    └── verify-milestone.js   ← acceptance checks for a milestone
+    ├── detect-milestone.js   M* and S* probes
+    ├── verify-milestone.js
+    └── status-server.js
 ```
+
+## Packaging order (strict)
+
+1. **S0** Containerize — done
+2. **S1** Smoke tests — done
+3. **S2** Workspaces — done
+4. **S3** Split routes from stages — done
+5. **S4** Extract executor image — **next** · skill `/zero-executor`
+6. **S5** Extract orchestrator image · skill `/zero-orchestrator`
+7. **S6** Azure / Vercel + GATE-9 · skill `/zero-cloud`
+
+Each workspace has three names: **Folder** · **npm package** · **Cursor skill**. See `prompts/repos/README.md`.
+
+## Per-workspace coding
+
+| Ask | Workspace | Skill | Prompt |
+|-----|-----------|-------|--------|
+| UI / React | Web UI | `/zero-web` | `prompts/repos/web.md` |
+| HTTP / auth / SSE | HTTP API | `/zero-api` | `prompts/repos/api.md` |
+| DAG / agents / LLM | Orchestrator worker | `/zero-orchestrator` | `prompts/repos/orchestrator.md` |
+| Playwright jobs | Playwright executor | `/zero-executor` | `prompts/repos/executor.md` |
+| Adapters | Cloud adapters | `/zero-cloud` | `prompts/repos/cloud.md` |
+
+Router: `agents/repo-coder.md`.
 
 ## Cursor skill
 
-Project skill: `.cursor/skills/zero-target-arch/` (mirrored under `.agents/skills/`).
+`.cursor/skills/zero-target-arch/` (mirrored under `.agents/skills/`).
 
-Invoke with `/zero-target-arch` or ask to “advance the target architecture”.
-
-## Milestone order (strict)
-
-1. **M1** Durable store (Postgres)
-2. **M2** Object store + signed URLs
-3. **M3** Queue + orchestrator
-4. **M4** Execution farm
-5. **M5** Auth + ACL
-6. **M6** LLM wiring
-7. **M7** Multi-cloud adapters
-
-Acceptance for “Target architecture is real” (from the blueprint): M1–M4 complete at minimum; M5–M7 planned or partially landed with gaps called out.
-
-## Cloud adapters
-
-Provider-agnostic contracts live in `lib/cloud/`. Domain/agent code must import those — never vendor SDKs directly. Wire via `ZERO_CLOUD=local|aws|gcp|azure|vercel`.
+Invoke with `/zero-target-arch` or “implement the next packaging step”.

@@ -1,18 +1,20 @@
 import { Diagram } from '@/components/ui/Diagram';
 import { Honesty } from '@/components/ui/Honesty';
+import { RepoIdentity } from '@/components/ui/RepoIdentity';
 import styles from './Lld.module.scss';
 
 export function LldWeb() {
   return (
     <>
-      <h3 className={styles.subhead}>web · React 18 + Vite → nginx</h3>
+      <h3 className={styles.subhead}>Web UI · React 18 + Vite</h3>
+      <RepoIdentity id="web" />
       <p className={styles.purpose}>
         Presentation and form validation. Never holds business rules, never proxies artifact
         bytes, never sees a secret.
       </p>
 
       <Honesty
-        worksTitle="works today (client/src/)"
+        worksTitle="works today (web/src/)"
         stubTitle="UI present · backend not wired"
         works={[
           { label: 'DashboardView', detail: <>lists past runs from <code>/api/runs</code></> },
@@ -20,15 +22,15 @@ export function LldWeb() {
           { label: 'RunDetailView', detail: <>polls <code>/api/runs/:id</code></> },
           { label: 'PipelineFlow / PipelineStatus', detail: <>renders <code>stageKeys</code></> },
           { label: 'CmsScreenshotCapture', detail: 'Stream-tab bulk capture flow' },
+          { label: 'ApiKeysView / AgentsView', detail: 'saves keys + settings; @zero/orchestrator/llm reads them when present' },
           { label: 'Vite dev proxy → :3000', detail: <>builds to <code>public/</code></> },
         ]}
         stub={[
-          { label: 'ApiKeysView', detail: <>saves provider keys; <em>no agent reads them</em></> },
-          { label: 'AgentsView', detail: <>settings saved; <em>agents ignore them</em></> },
-          { label: 'LocatorsView', detail: <>requires <code>element_locators</code>; DB is off</> },
+          { label: 'No SSE in the client', detail: <>endpoint exists; UI still polls <code>/api/runs/:id</code></> },
+          { label: 'No login screen', detail: 'M5 API keys / JWT work; no OIDC UI' },
           { label: 'IntegrationsView', detail: 'placeholder; no backend' },
-          { label: 'No SSE', detail: 'polling only; no real-time stage updates' },
-          { label: 'No auth', detail: <>spoofable <code>X-User-Email</code></> },
+          { label: 'data/ hooks', detail: 'useRunStream / useUpload not created — still fetch in views' },
+          { label: 'nginx image', detail: <>folder <code>web/</code> exists (S2); nginx image is S5</> },
         ]}
       />
 
