@@ -1,0 +1,15 @@
+---
+description: When implementing Target architecture (architectureV2 M1–M7), follow agent-workflow autonomously.
+globs: agent-workflow/**/*,lib/cloud/**/*,lib/db.js,docs/ARCHITECTURE.md,public/architectureV2.html
+alwaysApply: false
+---
+
+# Target architecture implementation
+
+If the task advances ZER0 toward `public/architectureV2.html` Production Blueprint:
+
+1. Use skill `/zero-target-arch` (read `agent-workflow/WORKFLOW.md`)
+2. Run `npm run workflow:status` and implement **only** the earliest unfinished milestone
+3. Talk to infra only through `lib/cloud/*`
+4. Run `npm run workflow:verify` before marking `progress.json` done
+5. Do not redesign the three-tier shape or skip milestones

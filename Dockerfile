@@ -1,0 +1,45 @@
+# V3 migration S0 — today's monolith (API + pipeline + Playwright).
+# No apps/ split yet. Chromium ships in this image until S4/M4.
+
+# ---------- client (Vite → public/) ----------
+FROM node:20-bookworm AS client
+WORKDIR /src
+COPY client/package.json client/package-lock.json ./client/
+RUN cd client && npm ci
+COPY client/ ./client/
+RUN cd client && npm run build
+
+# ---------- runtime (Playwright browsers + Node) ----------
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    ZERO_CLOUD=local
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY server.js ./
+COPY lib/ ./lib/
+COPY scripts/ ./scripts/
+COPY --from=client /src/public ./public/
+
+# logger.js mkdir's ../logs; artifacts/ is the run store (volume-mounted in compose)
+RUN mkdir -p /app/artifacts /app/logs \
+  && chown -R pwuser:pwuser /app/artifacts /app/logs /app/public
+
+# Named volumes remount as root — entrypoint fixes ownership then drops to pwuser
+USER root
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "server.js"]

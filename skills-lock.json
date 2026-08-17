@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "architecture": {
+      "source": "markdown-viewer/skills",
+      "sourceType": "github",
+      "skillPath": "architecture/SKILL.md",
+      "computedHash": "add5f37477735ade3275336c8959d5b4ae788dbcdb71582a38770b89c147c2d1"
+    },
+    "graphviz": {
+      "source": "markdown-viewer/skills",
+      "sourceType": "github",
+      "skillPath": "graphviz/SKILL.md",
+      "computedHash": "d1604f4121b365f403a3742a95d0845b049c12de22a2d40d24e8db52dacf89b8"
+    },
+    "network": {
+      "source": "markdown-viewer/skills",
+      "sourceType": "github",
+      "skillPath": "network/SKILL.md",
+      "computedHash": "da0e492ee0d077cd25c2941e7146ebf9a2c86eb644cf9b1506b5c8c960045483"
+    },
+    "sf-diagram-mermaid": {
+      "source": "jaganpro/sf-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sf-diagram-mermaid/SKILL.md",
+      "computedHash": "e3424933de23903eabc3d875219e09ae271d4fbd2a4307ac2926a67ade29ff1f"
+    },
+    "uml": {
+      "source": "markdown-viewer/skills",
+      "sourceType": "github",
+      "skillPath": "uml/SKILL.md",
+      "computedHash": "9f11e9e19eaad8d56ec914450fc945f652abcf6de944135fb195d2f5eae212d7"
+    }
+  }
+}

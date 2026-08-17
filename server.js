@@ -41,7 +41,17 @@ const chromium = {
 const XLSX = require("xlsx");
 const PDFDocument = require("pdfkit");
 const dbHelpers = require("./lib/db");
+const cloud = require("./lib/cloud");
+const cloudHttp = require("./lib/cloud/http");
+const { startOrchestrator, TOPIC: RUNS_REQUESTED } = require("./lib/orchestrator");
+const {
+  startExecutionWorker,
+  requestExecution,
+  REQUESTED: EXECUTION_REQUESTED
+} = require("./lib/execution/worker");
 const encryption = require("./lib/encryption");
+const auth = require("./lib/auth");
+const llm = require("./lib/llm");
 const elementLogger = require("./lib/elementLogger");
 const locatorRegistry = require("./lib/locatorRegistry");
 const scriptBuilder = require("./lib/scriptBuilder");
@@ -66,6 +76,10 @@ app.use(logger.requestLogger);
 
 // Rate limiting (apply before routes)
 app.use("/api/", rateLimiters.general);
+app.use("/api", auth.attachIdentity());
+app.use("/api/runs", auth.requireAuthWhenEnabled());
+app.use("/api/provider-keys", auth.requireAuthWhenEnabled());
+app.use("/api/agent-settings", auth.requireAuthWhenEnabled());
 
 // Swagger API documentation
 if (swaggerUi) {
@@ -92,7 +106,12 @@ if (process.env.VERCEL) {
   }
 }
 
-app.use("/artifacts", express.static(artifactsRoot));
+app.use("/api/cloud", cloudHttp.createCloudRouter());
+app.use("/artifacts", (_req, res) => {
+  res.status(404).json({
+    error: "Artifacts are not world-readable. Use a signed URL or GET /api/runs/:id/files/:name"
+  });
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -102,6 +121,43 @@ const upload = multer({
 const runs = new Map();
 const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
 const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
+
+function llmStoreFor(run) {
+  const userEmail = llm.ownerEmailForRun(run);
+  return {
+    userEmail,
+    async getSettings(agent) {
+      if (dbEnabled && dbPool) {
+        const rows = await dbHelpers.listAgentSettings(dbPool, userEmail);
+        return rows.find((r) => r.agent === agent) || null;
+      }
+      return memoryAgentSettings.get(`${userEmail}:${agent}`) || null;
+    },
+    async getKey(provider) {
+      const fromEnv = llm.envKey(provider);
+      if (fromEnv) return fromEnv;
+      let encrypted = null;
+      if (dbEnabled && dbPool) {
+        encrypted = await dbHelpers.getEncryptedProviderKey(dbPool, userEmail, provider);
+      }
+      if (!encrypted) {
+        const row = memoryProviderKeys.get(`${userEmail}:${provider}`);
+        encrypted = row && row.encrypted_key;
+      }
+      return encrypted ? encryption.decrypt(encrypted) : null;
+    }
+  };
+}
+
+async function applyLlm(agent, template, run, context) {
+  return llm.enrichAgent({
+    agent,
+    template,
+    context,
+    store: llmStoreFor(run),
+    runId: run && run.id
+  });
+}
 const runSecrets = new Map();
 const stageKeys = ["webAnalyzer", "ba", "manualQa", "automationQa", "execution", "accessibility", "performance", "security", "manager", "delivery"];
 const optionalStageKeys = ["accessibility", "performance"];
@@ -115,6 +171,8 @@ let recordingIdCounter = 0;
 
 let dbPool = null;
 let dbEnabled = false;
+let orchestratorHandle = null;
+let executionHandle = null;
 
 const appProfiles = {
   gray: {
@@ -446,9 +504,46 @@ function getRunSecret(runId) {
   return runSecrets.get(runId) || { username: "", password: "" };
 }
 
-// Database disabled by user request
-function databaseConfigured() { return false; }
-async function initDatabase() { return; }
+function databaseConfigured() {
+  return dbHelpers.isDatabaseConfigured();
+}
+
+async function initDatabase() {
+  if (!databaseConfigured()) return;
+
+  try {
+    dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL || undefined,
+      host: process.env.PGHOST || undefined,
+      port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+      user: process.env.PGUSER || undefined,
+      password: process.env.PGPASSWORD || undefined,
+      database: process.env.PGDATABASE || undefined,
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 5000,
+      query_timeout: 10000
+    });
+
+    await dbHelpers.initAllTables(dbPool);
+    dbEnabled = true;
+  } catch (err) {
+    dbPool = null;
+    dbEnabled = false;
+    console.warn("Postgres connection failed (running with memory/file persistence):", err.message);
+  }
+}
+
+if (process.env.VERCEL) {
+  auth.assertProductionSecrets();
+  app.use((req, res, next) => {
+    if (!dbPool && databaseConfigured()) {
+      initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
+    }
+    ensureOrchestrator();
+    if (process.env.API_ONLY !== "1") ensureExecutionWorker();
+    next();
+  });
+}
 
 async function persistRun(run) {
   runs.set(run.id, run);
@@ -469,34 +564,95 @@ async function persistRun(run) {
   } catch (e) {
     console.error(`Failed to write run.json for ${run.id}:`, e.message);
   }
+
+  if (dbEnabled && dbPool) {
+    try {
+      await dbHelpers.upsertRun(dbPool, run);
+    } catch (e) {
+      console.error(`Failed to persist run ${run.id} to Postgres:`, e.message);
+    }
+  }
+
+  try {
+    const json = await fs.readFile(path.join(run.runDir, "run.json"));
+    await cloud.objectStore.put(`runs/${run.id}/run.json`, json, { contentType: "application/json" });
+  } catch (e) {
+    if (e.code !== "ENOENT") {
+      console.error(`Failed to persist run ${run.id} to object store:`, e.message);
+    }
+  }
+
+  await publishRunState(run);
+}
+
+async function publishRunState(run) {
+  if (!run || !run.id) return;
+  const snapshot = {
+    runId: run.id,
+    status: run.status,
+    stages: run.stages,
+    updatedAt: run.updatedAt
+  };
+  try {
+    await cloud.cache.set(`state.${run.id}`, snapshot, 86400);
+    await cloud.cache.publish(`state.${run.id}`, snapshot);
+  } catch (e) {
+    console.error(`Failed to publish run state ${run.id}:`, e.message);
+  }
+}
+
+async function enqueueRun(runId) {
+  await cloud.queue.publish(RUNS_REQUESTED, {
+    runId,
+    requestedAt: new Date().toISOString()
+  });
+}
+
+function ensureOrchestrator() {
+  if (orchestratorHandle) return orchestratorHandle;
+  orchestratorHandle = startOrchestrator({
+    queue: cloud.queue,
+    cache: cloud.cache,
+    processRun,
+    maxConcurrent: Number(process.env.ZERO_ORCH_CONCURRENCY || 2)
+  });
+  return orchestratorHandle;
+}
+
+async function runExecutionJob(job) {
+  const run = await getRun(job.runId);
+  if (!run) throw new Error(`Run not found: ${job.runId}`);
+  const report = await generateExecutionReport(run, Boolean(job.rerunFailedOnly));
+  run.artifacts.executionReport = report;
+  await persistRun(run);
+  return report;
+}
+
+function ensureExecutionWorker() {
+  if (executionHandle) return executionHandle;
+  executionHandle = startExecutionWorker({
+    queue: cloud.queue,
+    runJob: runExecutionJob,
+    maxConcurrent: Number(process.env.ZERO_EXEC_CONCURRENCY || 2),
+    maxAttempts: Number(process.env.ZERO_EXEC_ATTEMPTS || 2)
+  });
+  return executionHandle;
+}
+
+async function enqueueExecution(runId, rerunFailedOnly = false) {
+  return requestExecution(
+    cloud.queue,
+    { runId, rerunFailedOnly, topic: EXECUTION_REQUESTED },
+    { timeoutMs: Number(process.env.ZERO_EXEC_TIMEOUT_MS || 300000) }
+  );
 }
 
 async function persistAssets(run) {
-  if (!dbEnabled || !dbPool || !run.artifacts.automationBundle) return;
-
-  const script = run.artifacts.automationBundle.generatedPlaywrightScript || "";
-  const javaScript = run.artifacts.automationBundle.generatedSeleniumJava || "";
-  const manualTc = JSON.stringify(run.artifacts.manualTestCases || {}, null, 2);
-  const manager = JSON.stringify(run.artifacts.managerReport || {}, null, 2);
-
-  await dbPool.query("DELETE FROM qa_assets WHERE run_id = $1", [run.id]);
-  const values = [
-    run.id, "manual_test_cases", "manual_test_cases.json", manualTc,
-    run.id, "automation_script", "generated.spec.ts", script,
-    run.id, "manager_report", "manager_report.json", manager
-  ];
-  if (javaScript) {
-    await dbPool.query(
-      `INSERT INTO qa_assets (run_id, asset_type, asset_name, content_text)
-       VALUES ($1,$2,$3,$4),($1,$5,$6,$7),($1,$8,$9,$10),($1,$11,$12,$13)`,
-      [...values, run.id, "automation_script_java", "generated.java", javaScript]
-    );
-  } else {
-    await dbPool.query(
-      `INSERT INTO qa_assets (run_id, asset_type, asset_name, content_text)
-       VALUES ($1,$2,$3,$4),($1,$5,$6,$7),($1,$8,$9,$10)`,
-      values
-    );
+  if (!dbEnabled || !dbPool) return;
+  try {
+    await dbHelpers.replaceAssets(dbPool, run);
+  } catch (e) {
+    console.error(`Failed to persist assets for ${run.id}:`, e.message);
   }
 }
 
@@ -504,6 +660,7 @@ function toRunShape(row) {
   const input = row.input_json || {};
   return {
     id: row.id,
+    tenantId: row.tenant_id || input.tenantId || auth.LOCAL_TENANT,
     runDir: path.join(artifactsRoot, row.id),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -524,8 +681,30 @@ function toRunShape(row) {
   };
 }
 
+async function loadRunForRequest(req, res) {
+  const run = await getRun(req.params.id);
+  if (!run || !auth.canAccessRun(req.auth, run)) {
+    res.status(404).json({ error: "Run not found" });
+    return null;
+  }
+  return run;
+}
+
 async function getRun(id) {
   if (runs.has(id)) return runs.get(id);
+
+  if (dbEnabled && dbPool) {
+    try {
+      const row = await dbHelpers.getRunById(dbPool, id);
+      if (row) {
+        const run = toRunShape(row);
+        runs.set(id, run);
+        return run;
+      }
+    } catch (e) {
+      console.error(`Postgres getRun failed for ${id}:`, e.message);
+    }
+  }
 
   try {
     const runPath = path.join(artifactsRoot, id, "run.json");
@@ -599,6 +778,7 @@ function createRun(input) {
 
   const run = {
     id,
+    tenantId: input.tenantId || auth.LOCAL_TENANT,
     runDir: path.join(artifactsRoot, id),
     createdAt: now,
     updatedAt: now,
@@ -1410,7 +1590,13 @@ async function screenshotForCase(page, run, testId, status, attempt) {
   const fileName = `${testId}-${status}-attempt-${attempt}.png`;
   const absolutePath = path.join(run.runDir, fileName);
   await page.screenshot({ path: absolutePath, fullPage: false });
-  return `/artifacts/${run.id}/${fileName}`;
+  try {
+    const buf = await fs.readFile(absolutePath);
+    await cloud.objectStore.put(`runs/${run.id}/files/${fileName}`, buf, { contentType: "image/png" });
+  } catch (e) {
+    console.error(`objectStore put screenshot failed:`, e.message);
+  }
+  return `/api/runs/${run.id}/files/${fileName}`;
 }
 
 async function performLoginIfRequired(page, selectorCandidates, secret, trace) {
@@ -3766,6 +3952,7 @@ function generateDeliveryReport(requirements, managerReport, executionReport) {
 async function processRun(id) {
   const run = await getRun(id);
   if (!run) return;
+  if (run.status === "awaiting_uploads") return;
 
   try {
     run.status = "running";
@@ -3791,7 +3978,16 @@ async function processRun(id) {
       run.input._allElements = run.artifacts.webAnalysis.allElements;
       run.input._observations = run.artifacts.webAnalysis.observations;
     }
-    run.artifacts.requirements = consolidateRequirements(run.input);
+    run.artifacts.requirements = await applyLlm(
+      "ba",
+      consolidateRequirements(run.input),
+      run,
+      {
+        ottUrl: run.input.ottUrl,
+        profile: run.input.channelProfile,
+        notes: (run.input.notes || "").slice(0, 800)
+      }
+    );
     run.input.tcFileBuffer = null;
     setStage(run, "ba", "done");
     await persistRun(run);
@@ -3809,16 +4005,31 @@ async function processRun(id) {
     } else {
       run.artifacts.manualTestCases = generateManualCases(run.artifacts.requirements);
     }
+    run.artifacts.manualTestCases = await applyLlm(
+      "manualQa",
+      run.artifacts.manualTestCases,
+      run,
+      {
+        ottUrl: run.input.ottUrl,
+        caseCount: (run.artifacts.manualTestCases.testCases || []).length
+      }
+    );
     setStage(run, "manualQa", "done");
     await persistRun(run);
 
     setStage(run, "automationQa", "running");
-    run.artifacts.automationBundle = await generateAutomationBundle(run.input, run.artifacts.manualTestCases, run.artifacts.requirements);
+    run.artifacts.automationBundle = await applyLlm(
+      "automationQa",
+      await generateAutomationBundle(run.input, run.artifacts.manualTestCases, run.artifacts.requirements),
+      run,
+      { ottUrl: run.input.ottUrl, host: hostFromUrl(run.input.ottUrl) }
+    );
     setStage(run, "automationQa", "done");
     await persistRun(run);
 
     setStage(run, "execution", "running");
-    run.artifacts.executionReport = await generateExecutionReport(run, false);
+    await persistRun(run);
+    run.artifacts.executionReport = await enqueueExecution(run.id, false);
     setStage(run, "execution", "done");
     await persistRun(run);
 
@@ -3847,14 +4058,22 @@ async function processRun(id) {
     }
 
     setStage(run, "manager", "running");
-    run.artifacts.managerReport = generateManagerReport(
-      run.artifacts.requirements,
-      run.artifacts.manualTestCases,
-      run.artifacts.automationBundle,
-      run.artifacts.executionReport,
-      run.artifacts.accessibilityReport,
-      run.artifacts.performanceReport,
-      run.artifacts.securityReport
+    run.artifacts.managerReport = await applyLlm(
+      "manager",
+      generateManagerReport(
+        run.artifacts.requirements,
+        run.artifacts.manualTestCases,
+        run.artifacts.automationBundle,
+        run.artifacts.executionReport,
+        run.artifacts.accessibilityReport,
+        run.artifacts.performanceReport,
+        run.artifacts.securityReport
+      ),
+      run,
+      {
+        verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals,
+        ottUrl: run.input.ottUrl
+      }
     );
     setStage(run, "manager", "done");
     await persistRun(run);
@@ -3894,20 +4113,15 @@ async function processRun(id) {
   }
 }
 
-// --- Recording session API (CORS allowed for bookmarklet from OTT page) ---
-app.post("/api/recordings/start", (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  next();
-}, express.json(), (req, res) => {
+// --- Recording session API (explicit origins only — bookmarklet from allowlisted OTT pages) ---
+app.options("/api/recordings/*", auth.recordingCors);
+app.post("/api/recordings/start", auth.recordingCors, express.json(), (req, res) => {
   const ottUrl = String(req.body?.ottUrl || "").trim() || null;
   const sessionId = `rec-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   recordingSessions.set(sessionId, { ottUrl, events: [], createdAt: new Date().toISOString() });
   return res.json({ sessionId, ottUrl });
 });
-app.post("/api/recordings/events", (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  next();
-}, express.json(), (req, res) => {
+app.post("/api/recordings/events", auth.recordingCors, express.json(), (req, res) => {
   const sessionId = String(req.body?.sessionId || "").trim();
   const events = Array.isArray(req.body?.events) ? req.body.events : [];
   const session = recordingSessions.get(sessionId);
@@ -3915,10 +4129,7 @@ app.post("/api/recordings/events", (req, res, next) => {
   session.events.push(...events);
   return res.json({ ok: true, count: session.events.length });
 });
-app.post("/api/recordings/end", (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  next();
-}, express.json(), (req, res) => {
+app.post("/api/recordings/end", auth.recordingCors, express.json(), (req, res) => {
   const sessionId = String(req.body?.sessionId || "").trim();
   const session = recordingSessions.get(sessionId);
   if (!session) return res.status(404).json({ error: "Session not found" });
@@ -3946,9 +4157,8 @@ function getApiBase(req) {
   const protocol = req && req.protocol ? req.protocol : "http";
   return host ? protocol + "://" + host : "http://localhost:" + PORT;
 }
-app.get("/recorder.js", (req, res) => {
+app.get("/recorder.js", auth.recordingCors, (req, res) => {
   res.setHeader("Content-Type", "application/javascript");
-  res.setHeader("Access-Control-Allow-Origin", "*");
   const sessionId = String(req.query.sessionId || "").replace(/[^a-zA-Z0-9-]/g, "");
   const base = getApiBase(req);
   const script = `
@@ -4108,6 +4318,8 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     const enableAccessibility = req.body.enableAccessibility === "true" || req.body.enableAccessibility === "on";
     const enablePerformance = req.body.enablePerformance === "true" || req.body.enablePerformance === "on";
     const input = {
+      tenantId: (req.auth && req.auth.tenantId) || auth.LOCAL_TENANT,
+      ownerEmail: auth.identityEmail(req.auth),
       ottUrl,
       figmaUrl: figmaUrl || null,
       assertions,
@@ -4140,12 +4352,42 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
     }
     setRunSecret(run.id, { username: loginUsername, password: loginPassword });
 
-    await persistRun(run).catch(e => console.error("Initial run persistence failed:", e));
+    const objectKeys = {};
+    if (tcFile) {
+      const key = cloudHttp.objectKey(run.id, "inputs", tcFile.originalname);
+      await cloud.objectStore.put(key, tcFile.buffer, { contentType: tcFile.mimetype || "text/csv" });
+      objectKeys.tcFile = key;
+    }
+    if (recording) {
+      const key = cloudHttp.objectKey(run.id, "inputs", "recording.json");
+      await cloud.objectStore.put(key, Buffer.from(JSON.stringify(recording)), { contentType: "application/json" });
+      objectKeys.recordingFile = key;
+    }
+    run.input.objectKeys = objectKeys;
 
-    // Fire and forget
-    setTimeout(() => processRun(run.id).catch(e => console.error("Background processRun failed:", e)), 0);
-    
-    return res.status(202).json({ runId: run.id });
+    const requestedUploads = parseRequestedUploads(req.body);
+    const deferForPresign = requestedUploads.length > 0 && !tcFile && !recordingFile;
+    if (deferForPresign) {
+      run.status = "awaiting_uploads";
+      const uploads = [];
+      for (const field of requestedUploads) {
+        const key = cloudHttp.objectKey(run.id, "inputs", field);
+        objectKeys[field] = key;
+        uploads.push({
+          field,
+          key,
+          method: "PUT",
+          url: await cloud.objectStore.presignPut(key, 900)
+        });
+      }
+      run.input.objectKeys = objectKeys;
+      await persistRun(run).catch(e => console.error("Initial run persistence failed:", e));
+      return res.status(202).json({ runId: run.id, uploads });
+    }
+
+    await persistRun(run).catch(e => console.error("Initial run persistence failed:", e));
+    await enqueueRun(run.id);
+    return res.status(202).json({ runId: run.id, uploads: [] });
   } catch (err) {
     console.error("CRITICAL ENDPOINT FAILURE:", err);
     return res.status(500).json({ 
@@ -4160,8 +4402,89 @@ app.post("/api/runs", upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "r
   }
 });
 
-app.get("/api/runs", async (_req, res) => {
+function parseRequestedUploads(body) {
+  const raw = body && body.uploads;
+  if (Array.isArray(raw)) return raw.map((v) => String(v).trim()).filter(Boolean);
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+    } catch (_) {
+      return raw.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+app.post("/api/runs/:id/commit", async (req, res) => {
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
+  if (run.status !== "awaiting_uploads") {
+    return res.status(409).json({ error: "Run is not awaiting uploads" });
+  }
+
   try {
+    const keys = run.input.objectKeys || {};
+    if (keys.tcFile) {
+      const buf = await cloudHttp.readObjectBuffer(keys.tcFile);
+      run.input.tcFileBuffer = buf;
+      run.input.tcFileContent = buf.toString("utf8");
+      run.input.tcFileName = path.basename(keys.tcFile);
+      const ext = path.extname(run.input.tcFileName).toLowerCase();
+      if (ext === ".csv") run.input.executionMode = "uploaded_tc_only";
+      await fs.mkdir(run.runDir, { recursive: true });
+      await fs.writeFile(path.join(run.runDir, run.input.tcFileName), buf);
+    }
+    if (keys.recordingFile) {
+      const buf = await cloudHttp.readObjectBuffer(keys.recordingFile);
+      try {
+        run.artifacts.recording = JSON.parse(buf.toString("utf8"));
+        run.input.recording = run.artifacts.recording;
+      } catch (_) {
+        return res.status(400).json({ error: "recordingFile in object store is not valid JSON" });
+      }
+    }
+
+    run.status = "queued";
+    run.updatedAt = new Date().toISOString();
+    await persistRun(run);
+    await enqueueRun(run.id);
+    return res.status(202).json({ runId: run.id });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Could not read uploaded objects" });
+  }
+});
+
+app.get("/api/runs/:id/files/:name", async (req, res) => {
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
+  const name = path.basename(req.params.name);
+  const key = `runs/${run.id}/files/${name}`;
+  try {
+    const stream = await cloud.objectStore.get(key);
+    res.setHeader("Cache-Control", "private, no-store");
+    if (name.endsWith(".png")) res.setHeader("Content-Type", "image/png");
+    return stream.pipe(res);
+  } catch (_) {
+    const abs = path.join(run.runDir, name);
+    try {
+      await fs.access(abs);
+      return res.sendFile(abs);
+    } catch {
+      return res.status(404).json({ error: "File not found" });
+    }
+  }
+});
+
+app.get("/api/runs", async (req, res) => {
+  const tenantId = (req.auth && req.auth.tenantId) || auth.LOCAL_TENANT;
+  const visible = (run) => auth.canAccessRun({ tenantId }, run);
+  try {
+    if (dbEnabled && dbPool) {
+      const rows = await dbHelpers.listRunRows(dbPool, 50, tenantId);
+      return res.json({ source: "postgres", runs: rows.map(toRunShape).filter(visible) });
+    }
+
     const files = await fs.readdir(artifactsRoot);
     const loadedRuns = [];
     for (const file of files) {
@@ -4169,7 +4492,7 @@ app.get("/api/runs", async (_req, res) => {
       try {
         const data = await fs.readFile(runPath, "utf8");
         const run = JSON.parse(data);
-        loadedRuns.push(run);
+        if (visible(run)) loadedRuns.push(run);
       } catch (_) {
         // ignore files/folders that don't contain a valid run.json
       }
@@ -4178,34 +4501,83 @@ app.get("/api/runs", async (_req, res) => {
     loadedRuns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return res.json({ source: "file", runs: loadedRuns.slice(0, 20) });
   } catch (e) {
-    return res.json({ source: "memory", runs: Array.from(runs.values()).slice(-20).reverse() });
+    return res.json({
+      source: "memory",
+      runs: Array.from(runs.values()).filter(visible).slice(-20).reverse()
+    });
   }
 });
 
 app.get("/api/runs/:id", async (req, res) => {
-  const run = await getRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
   return res.json(run);
 });
 
+app.get("/api/runs/:id/stream", async (req, res) => {
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders && res.flushHeaders();
+
+  const writeEvent = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  writeEvent("state", {
+    runId: run.id,
+    status: run.status,
+    stages: run.stages,
+    updatedAt: run.updatedAt
+  });
+
+  const cached = await cloud.cache.get(`state.${run.id}`);
+  if (cached) writeEvent("state", cached);
+
+  const unsubscribe = cloud.cache.subscribe(`state.${req.params.id}`, (msg) => {
+    writeEvent("state", msg);
+    if (msg && (msg.status === "completed" || msg.status === "failed")) {
+      writeEvent("done", { runId: req.params.id, status: msg.status });
+    }
+  });
+
+  const heartbeat = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 15000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+});
+
 app.post("/api/runs/:id/rerun-failed", async (req, res) => {
-  const run = await getRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
   if (run.status === "running") return res.status(409).json({ error: "Run is already in progress" });
 
   try {
     run.status = "running";
     setStage(run, "execution", "running");
-    run.artifacts.executionReport = await generateExecutionReport(run, true);
+    await persistRun(run);
+    run.artifacts.executionReport = await enqueueExecution(run.id, true);
     setStage(run, "execution", "done");
     await persistRun(run);
 
     setStage(run, "manager", "running");
-    run.artifacts.managerReport = generateManagerReport(
-      run.artifacts.requirements,
-      run.artifacts.manualTestCases,
-      run.artifacts.automationBundle,
-      run.artifacts.executionReport
+    run.artifacts.managerReport = await applyLlm(
+      "manager",
+      generateManagerReport(
+        run.artifacts.requirements,
+        run.artifacts.manualTestCases,
+        run.artifacts.automationBundle,
+        run.artifacts.executionReport
+      ),
+      run,
+      { verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals }
     );
     setStage(run, "manager", "done");
 
@@ -4416,31 +4788,40 @@ async function sendPdfReport(run, res) {
 }
 
 app.get("/api/runs/:id/download", async (req, res) => {
-  const run = await getRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
   if (run.status !== "completed") return res.status(409).json({ error: "Run is not completed yet" });
 
-  if (String(req.query.format || "pdf").toLowerCase() !== "json") {
-    await sendPdfReport(run, res);
-    return;
+  const wantJson = String(req.query.format || "pdf").toLowerCase() === "json";
+  const wantSigned = req.query.signed === "1" || req.query.url === "1";
+
+  if (wantJson) {
+    const payload = {
+      id: run.id,
+      createdAt: run.createdAt,
+      updatedAt: run.updatedAt,
+      input: run.input,
+      artifacts: run.artifacts
+    };
+    const body = Buffer.from(JSON.stringify(payload, null, 2));
+    if (wantSigned) {
+      const key = `runs/${run.id}/reports/run.json`;
+      await cloud.objectStore.put(key, body, { contentType: "application/json" });
+      const url = await cloud.objectStore.presignGet(key, 300);
+      if (req.query.url === "1") return res.json({ url, key });
+      return res.redirect(302, url);
+    }
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename=run-${run.id}.json`);
+    return res.send(body);
   }
 
-  const payload = {
-    id: run.id,
-    createdAt: run.createdAt,
-    updatedAt: run.updatedAt,
-    input: run.input,
-    artifacts: run.artifacts
-  };
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename=run-${run.id}.json`);
-  return res.send(JSON.stringify(payload, null, 2));
+  await sendPdfReport(run, res);
 });
 
 app.get("/api/runs/:id/assets", async (req, res) => {
-  const run = await getRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await loadRunForRequest(req, res);
+  if (!run) return;
   if (!dbEnabled || !dbPool) {
     return res.json({
       source: "memory",
@@ -4493,8 +4874,7 @@ app.post("/api/element-log", async (req, res) => {
 const ALLOWED_PROVIDERS = ["claude", "openai", "gemini"];
 
 function getUserEmail(req) {
-  const h = req.get("X-User-Email") || req.get("x-user-email");
-  return (h && String(h).trim().toLowerCase()) || "default@local";
+  return auth.identityEmail(req.auth);
 }
 
 app.get("/api/provider-keys", async (req, res) => {
@@ -4742,7 +5122,9 @@ app.post("/api/capture-cms-screenshot", express.json({ limit: "32kb" }), async (
     await page.screenshot({ path: absPath, fullPage });
     await browser.close();
     browser = null;
-    const publicPath = `/artifacts/cms-captures/${fileName}`;
+    const key = `cms-captures/${fileName}`;
+    await cloud.objectStore.put(key, await fs.readFile(absPath), { contentType: "image/png" });
+    const publicPath = await cloud.objectStore.presignGet(key, 7 * 24 * 3600);
     return res.json({
       ok: true,
       screenshot: publicPath,
@@ -4800,11 +5182,13 @@ app.post("/api/capture-cms-signal-bulk", express.json({ limit: "1mb" }), async (
       try {
         await cmsCaptureSignalPage(page, url, waitMs, streamTab);
         await page.screenshot({ path: absPath, fullPage: true });
+        const key = `cms-captures/${fileName}`;
+        await cloud.objectStore.put(key, await fs.readFile(absPath), { contentType: "image/png" });
         results.push({
           ok: true,
           url,
           station: slug,
-          screenshot: `/artifacts/cms-captures/${fileName}`
+          screenshot: await cloud.objectStore.presignGet(key, 7 * 24 * 3600)
         });
       } catch (err) {
         results.push({
@@ -5013,6 +5397,38 @@ if (!process.env.VERCEL) {
     .then(() => fs.mkdir(publicDir, { recursive: true }))
     .then(() => fs.writeFile(path.join(publicDir, "record.html"), RECORD_PAGE_HTML).catch(() => { }))
     .then(async () => {
+      auth.assertProductionSecrets();
+      await initDatabase();
+      if (dbEnabled) {
+        console.log("Postgres persistence enabled");
+      } else if (databaseConfigured()) {
+        console.log("Postgres configured but unavailable; using memory/file persistence");
+      } else {
+        console.log("Postgres not configured. Running with memory/file persistence");
+      }
+
+      const apiOnly = process.env.API_ONLY === "1";
+      const orchOnly = process.env.ORCHESTRATOR_ONLY === "1";
+      const execOnly = process.env.EXECUTION_WORKER_ONLY === "1";
+
+      if (execOnly) {
+        ensureExecutionWorker();
+        console.log("Execution-worker-only mode — subscribed to execution.requested, no HTTP listen");
+        return;
+      }
+
+      if (!apiOnly) ensureOrchestrator();
+      if (!apiOnly && !orchOnly) ensureExecutionWorker();
+
+      if (orchOnly) {
+        console.log("Orchestrator-only mode — subscribed to runs.requested, no HTTP listen");
+        return;
+      }
+
+      if (apiOnly) {
+        console.log("API-only mode — publishes runs.requested, does not subscribe to execution");
+      }
+
       let server = null;
       let port = PORT;
       for (let attempt = 0; attempt <= 5; attempt++) {
@@ -5097,3 +5513,8 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+module.exports.processRun = processRun;
+module.exports.enqueueRun = enqueueRun;
+module.exports.enqueueExecution = enqueueExecution;
+module.exports.ensureOrchestrator = ensureOrchestrator;
+module.exports.ensureExecutionWorker = ensureExecutionWorker;

@@ -1,0 +1,47 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2;
+  padding: $s-3 0;
+  margin: $s-3 0 $s-5;
+}
+
+.tab {
+  @include focus-ring;
+  border: 1px solid var(--line);
+  color: var(--mute);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.45rem 0.75rem;
+  min-height: 2.5rem;
+  background: var(--panel);
+  border-radius: var(--radius);
+  transition:
+    color $dur-fast,
+    background $dur-fast,
+    border-color $dur-fast;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover { color: var(--text); border-color: var(--line-strong); }
+}
+
+.on {
+  color: var(--signal);
+  background: var(--tint-info);
+  border-color: color-mix(in srgb, var(--signal) 30%, var(--line));
+}
+
+.tag {
+  display: inline-block;
+  margin-left: $s-2;
+  font-size: 0.65rem;
+  color: var(--mute);
+  font-weight: 400;
+}

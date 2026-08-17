@@ -1,0 +1,27 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.subhead {
+  @include brand-heading($fs-xl);
+  margin: 0 0 $s-2;
+}
+
+.purpose {
+  color: var(--mute);
+  font-size: $fs-body;
+  margin: 0 0 $s-4;
+
+  strong { color: var(--text); font-weight: 500; }
+  code   { color: var(--signal); font-size: 0.85em; }
+}
+
+.list {
+  margin: $s-3 0 0;
+  padding-left: 1.1rem;
+  color: var(--mute);
+  font-size: $fs-body;
+
+  li { margin-bottom: 0.4rem; }
+  li strong { color: var(--text); font-weight: 500; }
+  li code { color: var(--signal); font-size: 0.9em; }
+}

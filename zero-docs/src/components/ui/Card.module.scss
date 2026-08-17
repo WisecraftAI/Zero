@@ -1,0 +1,54 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.card {
+  @include surface;
+  padding: $s-4;
+  border-radius: var(--radius);
+  transition: border-color $dur-fast $ease;
+
+  &:hover { border-color: var(--line-strong); }
+}
+
+.title {
+  @include brand-heading($fs-md);
+  margin: 0 0 $s-2;
+  color: var(--text);
+}
+
+.body {
+  color: var(--mute);
+  font-size: $fs-sm;
+
+  :global(code)   { color: var(--signal); font-size: 0.85em; }
+  :global(strong) { color: var(--text); font-weight: 500; }
+  :global(p)      { margin: 0 0 $s-2; &:last-child { margin-bottom: 0; } }
+}
+
+.gridAuto,
+.grid1,
+.grid2,
+.grid3 {
+  display: grid;
+  gap: $s-3;
+  grid-template-columns: 1fr;
+}
+
+@include up(md) {
+  .gridAuto,
+  .grid2,
+  .grid3 { grid-template-columns: 1fr 1fr; }
+}
+
+@include up(lg) {
+  .grid3 { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+@include up(xl) {
+  .gridAuto { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+@include up(xxl) {
+  .gridAuto { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .grid3 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+}

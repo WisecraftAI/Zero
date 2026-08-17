@@ -1,0 +1,2932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZER0 — Architecture Docs</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0b1220;
+      --panel: #121c2e;
+      --panel-2: #0f172a;
+      --line: #24314a;
+      --line-strong: #3a4d6e;
+      --mute: #8b9bb8;
+      --text: #e8eef9;
+      --signal: #3dd6c6;
+      --violet: #a78bfa;
+      --warn: #f0b429;
+      --danger: #f07178;
+      --glow: rgba(61, 214, 198, 0.18);
+      --max: 1080px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 15px;
+      line-height: 1.65;
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, var(--glow), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(240, 180, 41, 0.08), transparent 45%),
+        linear-gradient(180deg, #070b14 0%, var(--ink) 40%, #0a101c 100%);
+      min-height: 100vh;
+    }
+
+    a { color: var(--signal); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    a:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      padding: 2.25rem 0 2rem;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: auto -20% -40% 20%;
+      height: 180px;
+      background: linear-gradient(90deg, transparent, var(--signal), transparent);
+      opacity: 0.12;
+      filter: blur(24px);
+      animation: pulse 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.08; transform: translateX(-4%); }
+      50%      { opacity: 0.2;  transform: translateX(4%); }
+    }
+    .brand {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 800;
+      font-size: clamp(3rem, 10vw, 4.75rem);
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      margin: 0 0 0.9rem;
+      background: linear-gradient(135deg, #fff 30%, var(--signal));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: brandIn 0.7s ease-out both;
+    }
+    @keyframes brandIn {
+      from { opacity: 0; transform: translateY(12px); letter-spacing: 0.08em; }
+      to   { opacity: 1; transform: none;              letter-spacing: -0.04em; }
+    }
+    .kicker {
+      display: inline-block;
+      font-size: 0.68rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin: 0 0 0.75rem;
+    }
+    .lede {
+      max-width: 44rem;
+      margin: 0;
+      color: var(--mute);
+      font-size: 0.95rem;
+      animation: fadeUp 0.6s 0.15s ease-out both;
+    }
+    .lede strong { color: var(--text); font-weight: 500; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* Tabs */
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(7, 11, 20, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      margin: 1.75rem -1.25rem 0;
+      padding: 0 1.25rem;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+    }
+    .tab {
+      appearance: none;
+      background: none;
+      border: none;
+      color: var(--mute);
+      font-family: inherit;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1rem 1.1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+    .tab:hover { color: var(--text); }
+    .tab .tab-num {
+      font-size: 0.65rem;
+      color: var(--line-strong);
+    }
+    .tab[aria-selected="true"] {
+      color: var(--text);
+      border-bottom-color: var(--signal);
+    }
+    .tab[aria-selected="true"] .tab-num { color: var(--signal); }
+    .tab:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+
+    .panel { display: none; padding: 2.25rem 0 0; }
+    .panel[data-active="true"] { display: block; animation: panelIn 0.35s ease-out both; }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    section {
+      padding: 2.25rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    section:last-child { border-bottom: none; }
+
+    h2 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem;
+    }
+    .section-sub {
+      margin: 0 0 1.5rem;
+      color: var(--mute);
+      font-size: 0.85rem;
+    }
+    h3 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      margin: 0 0 0.35rem;
+    }
+
+    pre, .code {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 1rem 1.1rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .note {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-left: 3px solid var(--warn);
+      background: rgba(240, 180, 41, 0.06);
+      color: var(--mute);
+      font-size: 0.82rem;
+    }
+    .note strong { color: var(--warn); font-weight: 500; }
+    .note.danger { border-left-color: var(--danger); background: rgba(240, 113, 120, 0.06); }
+    .note.danger strong { color: var(--danger); }
+    .note.info { border-left-color: var(--signal); background: rgba(61, 214, 198, 0.06); }
+    .note.info strong { color: var(--signal); }
+
+    /* Diagram box */
+    .diagram {
+      margin-top: 1.25rem;
+      padding: 1.25rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      font-size: 0.72rem;
+      line-height: 1.45;
+      color: var(--mute);
+      overflow-x: auto;
+    }
+    .diagram .hi  { color: var(--signal); }
+    .diagram .vi  { color: var(--violet); }
+    .diagram .lo  { color: #5a6d8c; }
+    .diagram .bad { color: var(--danger); }
+
+    /* Pipeline (dot-timeline) */
+    .pipeline { display: grid; gap: 0; margin-top: 0.5rem; }
+    .stage {
+      display: grid;
+      grid-template-columns: 3.5rem 1fr;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-left: 2px solid var(--line);
+      margin-left: 1.1rem;
+      padding-left: 1.25rem;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .stage:hover { border-left-color: var(--signal); }
+    .stage:last-child { padding-bottom: 0; }
+    .stage::before {
+      content: "";
+      position: absolute;
+      left: -5px; top: 1.35rem;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--ink);
+      border: 2px solid var(--signal);
+      box-shadow: 0 0 0 3px var(--glow);
+    }
+    .stage-id { font-size: 0.7rem; color: var(--signal); letter-spacing: 0.06em; padding-top: 0.15rem; }
+    .stage p  { margin: 0; color: var(--mute); font-size: 0.82rem; }
+
+    /* Card grid */
+    .cards { display: grid; gap: 0.65rem; }
+    @media (min-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 1rem 1.1rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+    .card dt, .card h4 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin: 0 0 0.35rem;
+    }
+    .card dd, .card p {
+      margin: 0;
+      color: var(--mute);
+      font-size: 0.8rem;
+    }
+    .card code { color: var(--signal); font-size: 0.75rem; }
+
+    /* Flow strip */
+    .flow {
+      margin: 1.25rem 0 0;
+      padding: 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      color: var(--mute);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .flow .node  { color: var(--text); }
+    .flow .arrow { color: var(--signal); margin: 0 0.35rem; }
+
+    ul.compact {
+      margin: 0.75rem 0 0;
+      padding-left: 1.1rem;
+      color: var(--mute);
+      font-size: 0.85rem;
+    }
+    ul.compact li { margin-bottom: 0.4rem; }
+    ul.compact strong { color: var(--text); font-weight: 500; }
+
+    /* Flaw items */
+    .flaw {
+      margin: 0 0 0.85rem;
+      padding: 0.85rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--danger);
+    }
+    .flaw.p1 { border-left-color: var(--warn); }
+    .flaw.p2 { border-left-color: var(--line-strong); }
+    .flaw p  { margin: 0; color: var(--mute); font-size: 0.8rem; }
+    .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--danger);
+      margin-right: 0.5rem;
+    }
+    .flaw.p1 .tag { color: var(--warn); }
+    .flaw.p2 .tag { color: var(--mute); }
+
+    /* Provider table */
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 1rem;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    table.providers {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    table.providers th,
+    table.providers td {
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    table.providers thead th {
+      color: var(--signal);
+      font-weight: 500;
+      font-family: Syne, system-ui, sans-serif;
+      letter-spacing: 0.04em;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      background: var(--panel-2);
+      position: sticky;
+      top: 0;
+    }
+    table.providers tbody th {
+      color: var(--text);
+      font-weight: 500;
+      background: var(--panel-2);
+    }
+    table.providers td { color: var(--mute); }
+    table.providers tr:last-child th,
+    table.providers tr:last-child td { border-bottom: none; }
+
+    footer {
+      padding-top: 2rem;
+      color: var(--mute);
+      font-size: 0.75rem;
+    }
+
+    /* Sub-tabs (nested inside V3 panel) */
+    .subtabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      padding: 0.75rem;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      margin: 1rem 0 1.5rem;
+    }
+    .subtab {
+      appearance: none;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--mute);
+      font-family: inherit;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      padding: 0.5rem 0.85rem;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+    .subtab:hover { color: var(--text); border-color: var(--line-strong); }
+    .subtab[aria-selected="true"] {
+      color: var(--ink);
+      background: var(--signal);
+      border-color: var(--signal);
+    }
+    .subtab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+    .subtab .subtab-tag {
+      display: inline-block;
+      margin-left: 0.4rem;
+      font-size: 0.6rem;
+      opacity: 0.7;
+    }
+    .subpanel { display: none; }
+    .subpanel[data-active="true"] { display: block; animation: panelIn 0.3s ease-out both; }
+    .subpanel h3 { margin-top: 1.5rem; }
+    .subpanel h3:first-of-type { margin-top: 0; }
+    .subpanel .subhead {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin: 0 0 0.35rem;
+      background: linear-gradient(90deg, var(--text) 0%, var(--signal) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .subpanel .subpurpose {
+      color: var(--mute);
+      font-size: 0.85rem;
+      margin: 0 0 1rem;
+    }
+
+    /* Honesty split: works vs stub */
+    .honesty {
+      display: grid;
+      gap: 0.65rem;
+      margin: 0 0 1.5rem;
+    }
+    @media (min-width: 640px) { .honesty { grid-template-columns: 1fr 1fr; } }
+    .honesty .col {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 0.9rem 1rem;
+    }
+    .honesty .col.works { border-left: 3px solid var(--signal); }
+    .honesty .col.stub  { border-left: 3px solid var(--danger); }
+    .honesty h5 {
+      margin: 0 0 0.55rem;
+      font-family: Syne, system-ui, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .honesty .col.works h5 { color: var(--signal); }
+    .honesty .col.stub  h5 { color: var(--danger); }
+    .honesty ul { margin: 0; padding-left: 1.1rem; color: var(--mute); font-size: 0.78rem; }
+    .honesty li { margin-bottom: 0.35rem; }
+    .honesty li strong { color: var(--text); font-weight: 500; }
+
+    /* V3 in-tab quick nav */
+    .v3nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      padding: 0.75rem;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      margin: 0 0 1.75rem;
+    }
+    .v3nav a {
+      color: var(--mute);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      padding: 0.45rem 0.75rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .v3nav a:hover {
+      color: var(--ink);
+      background: var(--signal);
+      border-color: var(--signal);
+      text-decoration: none;
+    }
+    .v3nav a.hot {
+      color: var(--ink);
+      background: var(--signal);
+      border-color: var(--signal);
+    }
+    .v3nav a.hot:hover { filter: brightness(1.05); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header class="hero">
+      <span class="kicker">Architecture Docs</span>
+      <h1 class="brand">ZER0</h1>
+      <p class="lede">
+        <strong>Runtime today</strong>, <strong>the production blueprint</strong>,
+        <strong>the ship checklist</strong>, and <strong>the V3 repo + Docker shape</strong> —
+        one page, five tabs. Grounded in <code>server.js</code> + <code>lib/</code>, aimed at the
+        multi-cloud target in <code>public/architectureV2.html</code>.
+      </p>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="ZER0 architecture views">
+      <button class="tab" role="tab" id="tab-overview"  aria-controls="panel-overview"  aria-selected="true"  data-tab="overview">
+        <span class="tab-num">01</span> Overview
+      </button>
+      <button class="tab" role="tab" id="tab-today"     aria-controls="panel-today"     aria-selected="false" data-tab="today">
+        <span class="tab-num">02</span> Runtime Today
+      </button>
+      <button class="tab" role="tab" id="tab-blueprint" aria-controls="panel-blueprint" aria-selected="false" data-tab="blueprint">
+        <span class="tab-num">03</span> Production Blueprint
+      </button>
+      <button class="tab" role="tab" id="tab-checklist" aria-controls="panel-checklist" aria-selected="false" data-tab="checklist">
+        <span class="tab-num">04</span> Ship Checklist
+      </button>
+      <button class="tab" role="tab" id="tab-v3" aria-controls="panel-v3" aria-selected="false" data-tab="v3">
+        <span class="tab-num">05</span> Target V3 · Structure &amp; Docker
+      </button>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 1 · OVERVIEW                                            -->
+    <!-- ========================================================== -->
+    <div class="panel" data-active="true" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+
+      <section id="purpose">
+        <h2>What ZER0 is for</h2>
+        <p class="section-sub">One tool that compresses the QA architect + BA + manual + automation workflow behind a single URL.</p>
+        <p style="color: var(--mute); font-size: 0.9rem; margin: 0 0 1rem;">
+          Give ZER0 an <strong style="color: var(--text);">OTT URL</strong> and any of a
+          <strong style="color: var(--text);">test-case file</strong>,
+          <strong style="color: var(--text);">Figma link</strong>, or
+          <strong style="color: var(--text);">plain notes</strong>. It produces
+          consolidated <em>requirements</em>, an <em>app-specific manual test-case list</em>,
+          <em>Playwright + Java/Selenium scripts</em>, a Playwright execution report with
+          screenshots, and Manager / Delivery reports as PDF or JSON.
+        </p>
+        <p style="color: var(--mute); font-size: 0.9rem; margin: 0;">
+          The point is not "another test recorder." It's a single run that turns a link into a
+          full QA artifact set — usable by a solo QA on day one and portable into your real
+          Java/Maven suite when you want production coverage.
+        </p>
+      </section>
+
+      <section id="audience">
+        <h2>Who it's for</h2>
+        <p class="section-sub">Built for teams doing OTT / streaming / e-commerce QA under time pressure.</p>
+        <div class="cards">
+          <div class="card"><h4>QA architects &amp; leads</h4><p>Need consistent BRD → TC → script → report traceability across many channels. Get it in one run.</p></div>
+          <div class="card"><h4>Solo QA on a new product</h4><p>No test suite yet. Feed the site URL, pick a profile, get a manual list and a Java suite you can adapt.</p></div>
+          <div class="card"><h4>Delivery managers</h4><p>Need a stakeholder-ready Manager / Delivery report per run without chasing four people for pieces.</p></div>
+          <div class="card"><h4>Automation engineers</h4><p>Use the generated Playwright spec and Java/Selenium class as scaffolding; own execution in your own CI.</p></div>
+        </div>
+      </section>
+
+      <section id="how-people-use">
+        <h2>How people use it</h2>
+        <p class="section-sub">Six steps, from browser open to shippable report.</p>
+        <div class="pipeline">
+          <article class="stage"><div class="stage-id">01</div><div><h3>Open the UI</h3><p><code>npm start</code> then <code>http://localhost:3000</code>. Dashboard shows past runs.</p></div></article>
+          <article class="stage"><div class="stage-id">02</div><div><h3>Create a new run</h3><p>Enter the OTT URL, pick a channel profile, and provide any of: TC file (<code>.csv</code>, <code>.xlsx</code>, <code>.txt</code>, <code>.md</code>, <code>.json</code>), a Figma link, or BA notes.</p></div></article>
+          <article class="stage"><div class="stage-id">03</div><div><h3>Choose options</h3><p>Enable accessibility, performance, or security passes. Add login credentials (runtime-only). Toggle "show browser" for a headed Chromium.</p></div></article>
+          <article class="stage"><div class="stage-id">04</div><div><h3>Watch the pipeline</h3><p>Stages tick through in the detail view — BA → Manual → Automation → Execution → optional passes → Manager → Delivery.</p></div></article>
+          <article class="stage"><div class="stage-id">05</div><div><h3>Review artifacts</h3><p>Download requirements, manual TC list, Playwright spec, Java/Selenium class, PDF or JSON reports.</p></div></article>
+          <article class="stage"><div class="stage-id">06</div><div><h3>Take Java to prod</h3><p>Drop the generated Java class into your Maven/Gradle project, tune the locators for your app, run in your CI.</p></div></article>
+        </div>
+      </section>
+
+      <section id="how-it-works">
+        <h2>How it works under the hood</h2>
+        <p class="section-sub">A single Express process orchestrates the pipeline; Playwright drives a real Chromium locally.</p>
+        <ol class="compact" style="margin-top: 0;">
+          <li><strong>Intake:</strong> UI POSTs a multipart form to <code>/api/runs</code>. <code>server.js</code> creates the run, stores it in an in-memory Map and on disk at <code>artifacts/&lt;runId&gt;/run.json</code>.</li>
+          <li><strong>Stages:</strong> <code>processRun</code> walks <code>stageKeys</code>. Each agent is a deterministic template today — no LLM required — that consolidates inputs into typed artifacts.</li>
+          <li><strong>Locators:</strong> <code>lib/locatorRegistry.js</code> merges channel-profile selectors + this-run learned selectors + (when enabled) Postgres locators per host.</li>
+          <li><strong>Execution:</strong> <code>playwright.chromium.launch()</code> runs each test case; screenshots and traces land under <code>artifacts/&lt;runId&gt;/</code>.</li>
+          <li><strong>Reports:</strong> <code>pdfkit</code> renders the Manager PDF; a Delivery report is emitted as JSON. The UI polls <code>GET /api/runs/:id</code> until status is <code>completed</code>.</li>
+          <li><strong>Reuse:</strong> the Java/Selenium class is generated by <code>lib/javaSeleniumBuilder.js</code> from the same locator merge, so you can lift it into any Java project.</li>
+        </ol>
+        <p class="note info">Recording bookmarklet + <code>/record</code> page lets you capture real DOM element logs from any site; those feed the locator registry too.</p>
+      </section>
+
+      <section id="benefits">
+        <h2>Benefits</h2>
+        <p class="section-sub">What you actually get out of a run.</p>
+        <div class="cards">
+          <div class="card"><h4>One run, five artifacts</h4><p>Requirements, TC list, Playwright spec, Java class, and Manager/Delivery reports — from a single form submission.</p></div>
+          <div class="card"><h4>Channel-aware</h4><p>Built-in profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Selectors and journeys tuned per app family.</p></div>
+          <div class="card"><h4>Deterministic today</h4><p>Template-based agents — reproducible, no LLM cost, no prompt drift. LLM wiring is UI-ready when you want it.</p></div>
+          <div class="card"><h4>Portable output</h4><p>Java/Selenium class is plain text. Drop it in a Maven repo and run it against your own environments.</p></div>
+          <div class="card"><h4>Optional deep passes</h4><p>Accessibility, performance, and security stages toggle per run — feed straight into the Manager review.</p></div>
+          <div class="card"><h4>Traceability</h4><p>Every artifact links back to the run ID. PDF, JSON, and screenshots are downloadable per run.</p></div>
+        </div>
+      </section>
+
+      <section id="stack">
+        <h2>Complete tech stack</h2>
+        <p class="section-sub">From <code>package.json</code>, <code>client/package.json</code>, and the live code — nothing invented.</p>
+
+        <div class="cards" style="grid-template-columns: 1fr;">
+          <div class="card">
+            <h4>Backend runtime · Node.js</h4>
+            <p>
+              <code>express@4.19</code> ·
+              <code>playwright@1.52</code> (Chromium) ·
+              <code>multer@1.4</code> ·
+              <code>pdfkit@0.15</code> ·
+              <code>xlsx@0.18</code> ·
+              <code>pg@8.13</code> (client, currently stubbed off) ·
+              <code>uuid@10</code> ·
+              <code>dotenv@17</code>
+            </p>
+          </div>
+          <div class="card">
+            <h4>API surface &amp; middleware</h4>
+            <p>
+              <code>cors</code> · <code>helmet@8</code> · <code>compression</code> ·
+              <code>morgan</code> · <code>express-rate-limit@7</code> ·
+              <code>express-validator@7</code> · <code>swagger-jsdoc@6</code> +
+              <code>swagger-ui-express@5</code>
+            </p>
+          </div>
+          <div class="card">
+            <h4>Auth, secrets, logs</h4>
+            <p>
+              <code>jsonwebtoken@9</code> · <code>node-cache@5</code> ·
+              <code>winston@3</code> · <code>axios@1</code> ·
+              <code>cloudinary@2</code> (asset host, optional) ·
+              <em>encryption</em> in <code>lib/encryption.js</code>
+            </p>
+          </div>
+          <div class="card">
+            <h4>Frontend</h4>
+            <p>
+              <code>react@18</code> + <code>react-dom@18</code> ·
+              <code>vite@5</code> + <code>@vitejs/plugin-react@4</code> ·
+              plain CSS modules per view · Google Fonts (<em>Outfit</em>, <em>IBM Plex Mono</em>, <em>Syne</em>)
+            </p>
+          </div>
+          <div class="card">
+            <h4>Storage</h4>
+            <p>
+              Filesystem <code>artifacts/&lt;runId&gt;/</code> for run JSON + screenshots ·
+              In-memory Maps for live state · PostgreSQL schema in <code>lib/db.js</code>
+              (init disabled today) · Optional Cloudinary for asset hosting
+            </p>
+          </div>
+          <div class="card">
+            <h4>Dev · tooling · deploy</h4>
+            <p>
+              <code>eslint@9</code> · <code>jest@29</code> (configured, no suites yet) ·
+              <code>nodemon@3</code> · <code>vercel.json</code> routes ·
+              <code>npm run set-db</code> helper · <code>ml-training/</code> Python
+              (<code>scikit-learn</code>-style per-agent models, optional)
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="structure">
+        <h2>Project structure</h2>
+        <p class="section-sub">Real folders and files as they exist on disk today.</p>
+        <div class="diagram" role="img" aria-label="Project folder tree">
+<pre>Zero/
+├─ <span class="hi">server.js</span>                     Express monolith · 5099 lines · all stages + APIs
+├─ package.json                  backend deps + scripts (start · build · client · set-db · lint · test)
+├─ vercel.json                   Vercel routes: /api/* → server.js, /* → public/
+├─ .env.example                  Postgres + secrets template
+├─ AGENTS.md · README.md         agent + human docs
+├─ skills-lock.json              Cursor skills lockfile
+├─ amazon_test_cases.csv         sample TC input
+├─ iphone15_cart_test.csv        sample TC input
+│
+├─ <span class="hi">lib/</span>                          server modules imported by server.js
+│  ├─ db.js                      Postgres schema + helpers (init gated by databaseConfigured)
+│  ├─ apiKeyManager.js           per-tenant / per-user LLM key vault (encrypted at rest)
+│  ├─ encryption.js              symmetric encryption for stored secrets
+│  ├─ middleware.js              shared Express middleware
+│  ├─ logger.js                  Winston logger factory
+│  ├─ swagger.js                 OpenAPI spec + Swagger UI mount
+│  ├─ urlAnalyzer.js             lightweight crawl / heuristics
+│  ├─ urlAnalyzerPro.js          deeper Playwright crawl → BRD insights + TCs
+│  ├─ elementLogger.js           element-key normalizer for recording payloads
+│  ├─ ecommerceSelectors.js      selector library for e-commerce flows
+│  ├─ locatorRegistry.js         merge: profile · learned · DB → candidates
+│  ├─ scriptBuilder.js           Playwright spec generator
+│  └─ javaSeleniumBuilder.js     Java · Selenium · JUnit class generator
+│
+├─ <span class="hi">client/</span>                       React 18 + Vite SPA
+│  ├─ package.json               vite + react (no CSS framework)
+│  ├─ vite.config.js             build outDir: ../public · dev proxy to :3000
+│  ├─ index.html                 Vite entry
+│  ├─ public/
+│  │  ├─ favicon.svg
+│  │  └─ <span class="hi">architecture.html</span>         this docs page · <em>source of truth</em>
+│  └─ src/
+│     ├─ main.jsx · App.jsx · App.css · index.css
+│     ├─ layouts/AppShell.(jsx|css)
+│     ├─ components/            Topbar · Sidebar · Header · RunForm ·
+│     │                        PipelineFlow · PipelineStatus · TabContent ·
+│     │                        CmsScreenshotCapture
+│     └─ views/                 DashboardView · RunsListView · NewRunView ·
+│                              RunDetailView · LocatorsView ·
+│                              AgentsView · ApiKeysView · IntegrationsView
+│
+├─ <span class="hi">public/</span>                       Vite build output · statically served by Express
+│  ├─ index.html · assets/ · favicon.svg
+│  ├─ record.html                recording bookmarklet page
+│  └─ architecture.html          this docs page · <em>served copy</em>
+│
+├─ docs/
+│  └─ ARCHITECTURE.md            target IDE-style vision + production checklist
+├─ scripts/
+│  └─ set-database.js            npm run set-db · Postgres init helper
+├─ <span class="hi">ml-training/</span>                  optional Python quality models (separate runtime)
+│  ├─ requirements.txt · train_agents.py · predict_agent.py · README.md
+│  ├─ data/                      feedback JSONL
+│  └─ models/ba · manual_qa · automation_qa · manager
+│
+├─ <span class="lo">artifacts/</span>                    runtime output · gitignored
+│  ├─ &lt;runId&gt;/run.json + screenshots
+│  └─ cms-captures/              Stream-tab bulk captures
+├─ logs/                         Winston output
+├─ .agents/skills/               installed Cursor skills (mirror)
+└─ .cursor/skills/               project skills · <em>zero-architecture</em> · <em>zero-diagrams</em></pre>
+        </div>
+        <p class="note info">
+          <strong>Rule of thumb:</strong> UI changes live in <code>client/src/**</code> and require
+          <code>npm run build</code> so <code>public/</code> updates. Server behavior lives in
+          <code>server.js</code> and <code>lib/</code>. This docs page has two copies
+          (<code>client/public/architecture.html</code> is the source; <code>public/architecture.html</code>
+          is served) so a rebuild never wipes it.
+        </p>
+      </section>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 1 · RUNTIME TODAY                                       -->
+    <!-- ========================================================== -->
+    <div class="panel" role="tabpanel" id="panel-today" aria-labelledby="tab-today">
+
+      <section id="run">
+        <h2>How to run</h2>
+        <p class="section-sub">From the repository root.</p>
+        <pre><code>npm install
+npx playwright install chromium
+
+# builds the React client into public/
+npm run build
+
+# starts Express (default PORT=3000)
+npm start</code></pre>
+        <p class="note info">
+          <strong>Paste-safe:</strong> run each line separately. zsh has
+          <code>INTERACTIVE_COMMENTS</code> off by default, so inline
+          <code># comments</code> get forwarded to <code>vite build</code> and the build
+          fails with <code>Could not resolve entry module "#/index.html"</code>. Enable
+          once with <code>setopt interactive_comments</code>.
+        </p>
+        <ul class="compact">
+          <li><strong>Input:</strong> OTT URL required, plus at least one of Figma / TC file / BA notes (or Web Analyzer fills gaps).</li>
+          <li><strong>Default execution:</strong> minimal — load URL + screenshot so the pipeline completes.</li>
+          <li><strong>Full mode:</strong> <code>EXECUTION_MODE=full</code> for keyword/selector navigation (brittle).</li>
+        </ul>
+        <p class="note danger">
+          <strong>Postgres is hard-disabled</strong> in <code>server.js</code>
+          (<code>databaseConfigured()</code> returns <code>false</code>). Runs persist to
+          <code>artifacts/&lt;id&gt;/run.json</code> + in-memory Maps until that stub is restored.
+        </p>
+      </section>
+
+      <section id="arch-today">
+        <h2>System topology</h2>
+        <p class="section-sub">Single-process Node app + React SPA. Agents are deterministic templates / Playwright crawls — LLM key UI is not wired into the pipeline yet.</p>
+        <div class="diagram" role="img" aria-label="Current single-process architecture">
+<pre class="hi">   client/src ──npm run build──▶ public/
+        │
+        ▼
+┌──────────────────┐   /api/runs        ┌────────────────────────────┐
+│   React 18 SPA   │───────────────────▶│    Express  server.js      │
+│  run · agents    │◀───────poll────────│  processRun · Playwright   │
+│  keys · locators │  GET /api/runs/:id └─────┬──────────────┬───────┘
+└──────────────────┘                          │              │
+        │                                     ▼              ▼
+        │ /record · /recorder.js     ┌────────────────┐  Chromium
+        └───────────────────────────▶│     lib/       │      │
+                                     │ urlAnalyzerPro │      ▼
+                                     │ scriptBuilder  │  <span class="lo">artifacts/&lt;runId&gt;/</span>
+                                     │ javaSelenium…  │  <span class="lo">run.json · screenshots</span>
+                                     │ locatorRegistry│  <span class="lo">cms-captures/</span>
+                                     │ encryption     │
+                                     └───────┬────────┘
+                                             │
+                                      <span class="bad">DB stubbed off</span>
+                                             ▼
+                                     ┌─────────────────┐
+                                     │ PostgreSQL      │
+                                     │ schema in       │
+                                     │ lib/db.js only  │
+                                     └─────────────────┘</pre>
+        </div>
+        <p class="flow" aria-hidden="true">
+          <span class="node">UI</span><span class="arrow">→</span>
+          <span class="node">API</span><span class="arrow">→</span>
+          <span class="node">webAnalyzer?</span><span class="arrow">→</span>
+          <span class="node">BA</span><span class="arrow">→</span>
+          <span class="node">Manual</span><span class="arrow">→</span>
+          <span class="node">Automation</span><span class="arrow">→</span>
+          <span class="node">Execution</span><span class="arrow">→</span>
+          <span class="node">a11y/perf/sec?</span><span class="arrow">→</span>
+          <span class="node">Manager</span><span class="arrow">→</span>
+          <span class="node">Delivery</span>
+        </p>
+      </section>
+
+      <section id="pipeline">
+        <h2>Pipeline stages</h2>
+        <p class="section-sub">Order in <code>stageKeys</code> — <code>server.js</code>.</p>
+        <div class="pipeline">
+          <article class="stage"><div class="stage-id">00</div><div><h3>Web Analyzer</h3><p>When no TC file and notes are short — <code>urlAnalyzerPro</code> crawl; BRD insights + suggested TCs.</p></div></article>
+          <article class="stage"><div class="stage-id">01</div><div><h3>BA Agent</h3><p>Template consolidation of URL + Figma/TCs/notes/profile — not an LLM call today.</p></div></article>
+          <article class="stage"><div class="stage-id">02</div><div><h3>Manual QA</h3><p>Cases from CSV, UI rows, URL analysis, or channel templates.</p></div></article>
+          <article class="stage"><div class="stage-id">03</div><div><h3>Automation QA</h3><p>Locator merge → Playwright spec + Java/Selenium text builders.</p></div></article>
+          <article class="stage"><div class="stage-id">04</div><div><h3>Execution</h3><p>Playwright in-process. Default minimal = URL load + screenshot under <code>artifacts/</code>.</p></div></article>
+          <article class="stage"><div class="stage-id">opt</div><div><h3>Accessibility · Performance · Security</h3><p>UI-gated Playwright passes; security = headers/cookies/content heuristics.</p></div></article>
+          <article class="stage"><div class="stage-id">05</div><div><h3>Manager → Delivery</h3><p>Deterministic executive + stakeholder reports from prior artifacts.</p></div></article>
+        </div>
+      </section>
+
+      <section id="locators">
+        <h2>Locator resolution</h2>
+        <p class="section-sub"><code>lib/locatorRegistry.js</code> merge order.</p>
+        <div class="diagram" role="img" aria-label="Locator merge sequence">
+<pre>  <span class="hi">1. channel profile</span>      appProfiles in server.js
+         │
+         ▼
+  <span class="hi">2. learned in memory</span>    selectorMemory (this process)
+         │
+         ▼
+  <span class="hi">3. Postgres locators</span>    <span class="bad">inactive while DB stubbed</span>
+         │
+         ▼
+  merged candidates → Playwright + Java builders</pre>
+        </div>
+      </section>
+
+      <section id="layers">
+        <h2>Code layers</h2>
+        <p class="section-sub">Where behavior lives.</p>
+        <dl class="cards">
+          <div class="card"><dt><code>server.js</code> (~5k)</dt><dd>Express, all stages, PDF, recording bookmarklet, CMS capture, APIs.</dd></div>
+          <div class="card"><dt><code>lib/</code></dt><dd>urlAnalyzerPro, script/Java builders, locators, encryption, middleware, db helpers.</dd></div>
+          <div class="card"><dt><code>client/</code></dt><dd>React 18 + Vite — New Run, Detail, Agents, API Keys, Locators, Integrations.</dd></div>
+          <div class="card"><dt><code>docs/ARCHITECTURE.md</code></dt><dd>This model + IDE target + production checklist.</dd></div>
+        </dl>
+      </section>
+
+      <section id="notes">
+        <h2>Runtime notes</h2>
+        <p class="section-sub">Behaviors that affect use and extension.</p>
+        <ul class="compact">
+          <li><strong>Profiles:</strong> Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ecommerce helpers).</li>
+          <li><strong>Outputs:</strong> requirements, TCs, Playwright + Java text, reports, PDF/JSON download.</li>
+          <li><strong>CMS captures:</strong> separate Stream-tab flow → <code>artifacts/cms-captures/</code>.</li>
+          <li><strong>Login passwords:</strong> <code>runSecrets</code> only — not written into artifacts.</li>
+          <li><strong>Target vision:</strong> project-scoped recording → Java in SQL — see docs; not the live path.</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 2 · PRODUCTION BLUEPRINT                                -->
+    <!-- ========================================================== -->
+    <div class="panel" role="tabpanel" id="panel-blueprint" aria-labelledby="tab-blueprint">
+
+      <section id="why-change">
+        <h2>Why the shape has to change</h2>
+        <p class="section-sub">Today's runtime hits five walls before it can go multi-tenant on any cloud.</p>
+        <div class="cards">
+          <div class="card"><h4>Serverless ≠ Playwright</h4><p>Vercel functions can't host long-running Chromium. Execution must move to a durable worker host.</p></div>
+          <div class="card"><h4>State in Maps</h4><p><code>runs</code>, <code>runSecrets</code>, <code>recordingSessions</code>, <code>selectorMemory</code> — all in-process. Zero horizontal scale.</p></div>
+          <div class="card"><h4>Local disk artifacts</h4><p><code>artifacts/</code> is a filesystem path. Serverless has no persistent disk; workers can't share it.</p></div>
+          <div class="card"><h4>API does the work</h4><p><code>processRun</code> runs stages inside the request. Retries, back-pressure, and fan-out are impossible.</p></div>
+          <div class="card"><h4>Postgres optional</h4><p>Once orchestrators scale out, memory can't hold state. DB + Redis become required, not optional.</p></div>
+          <div class="card"><h4>Vendor-shaped code</h4><p>To move between AWS / GCP / Azure the domain code must stop knowing which SDK it's talking to.</p></div>
+        </div>
+      </section>
+
+      <section id="tiers">
+        <h2>Three tiers with one contract</h2>
+        <p class="section-sub">Split ZER0 into stateless intake, orchestration workers, and ephemeral execution — everything else hides behind adapters.</p>
+        <div class="diagram" role="img" aria-label="Three-tier split: API, Orchestrator, Execution">
+<pre>  <span class="hi">Tier</span>              <span class="hi">Runtime</span>                       <span class="hi">Owns</span>
+  ────────────────────────────────────────────────────────────────
+  edge + api        stateless containers /         auth, run intake,
+                    serverless functions           status stream, signed URLs
+
+  orchestration     long-lived workers             BA · Manual · Automation ·
+                                                   Manager · Delivery agents,
+                                                   LLM calls, DAG state
+
+  execution         ephemeral job containers       Playwright chromium runs,
+                                                   screenshots, element logs</pre>
+        </div>
+        <p class="note info">
+          <strong>Contract:</strong> every tier only talks to four provider-agnostic primitives —
+          <code>queue</code>, <code>object store</code>, <code>relational DB</code>, and
+          <code>KV / secrets</code>. Cloud SDKs live in <code>lib/cloud/*</code> adapters, never in agents.
+        </p>
+      </section>
+
+      <section id="blueprint">
+        <h2>Target architecture</h2>
+        <p class="section-sub">One picture, cloud-agnostic. Provider names appear only in the adapter tier.</p>
+        <div class="diagram" role="img" aria-label="Target multi-cloud architecture for ZER0">
+<pre>                    ┌──────────────────────────────────────┐
+                    │  <span class="hi">Edge · CDN · WAF</span>                     │
+                    │  <span class="lo">CloudFront · Cloud CDN · Front Door</span>   │
+                    └──────────────────┬───────────────────┘
+                                       ▼
+                    ┌──────────────────────────────────────┐
+                    │  <span class="hi">API Gateway</span>  (auth, rate limit)      │
+                    └───────┬──────────────────────────┬───┘
+                            │                          │
+                            ▼                          ▼
+                 ┌─────────────────────┐   ┌────────────────────┐
+                 │  <span class="hi">API service</span>        │   │  <span class="hi">Auth · OIDC</span>       │
+                 │  Node · Fastify     │   │  Cognito · Firebase│
+                 │  intake · status    │   │  Entra · Clerk     │
+                 └────┬────────┬───────┘   └────────────────────┘
+                      │        │
+        signed URL    │        │  publish
+   (browser uploads)  ▼        ▼
+        ┌─────────────────┐  ┌──────────────────────────────┐
+        │ <span class="hi">Object store</span>    │  │ <span class="hi">Event bus · queues</span>            │
+        │ S3 · GCS · Blob │  │ runs.requested · execution.* │
+        │ tcs · recordings│  │ reports.requested            │
+        │ screenshots     │  └────────┬─────────┬───────────┘
+        │ reports         │           │         │
+        └────────▲────────┘           ▼         │
+                 │              ┌─────────────┐ │
+                 │              │ <span class="hi">Orchestrator</span>│ │  fan-out per TC
+                 │              │ BA · Manual │ │
+                 │              │ Automation  │ │
+                 │              │ Manager     │ │
+                 │              │ Delivery    │ │
+                 │              └──┬───┬───┬──┘ │
+                 │                 │   │   │    │
+                 │       ┌─────────┘   │   └────┼───────┐
+                 │       ▼             ▼        ▼       ▼
+                 │  ┌─────────┐   ┌─────────┐  ┌──────────────┐
+                 │  │ <span class="hi">LLM</span>     │   │ <span class="hi">Postgres</span>│  │ <span class="hi">Execution</span>    │
+                 │  │ OpenAI  │   │ RDS ·   │  │ farm         │
+                 │  │ Bedrock │   │ Cloud SQL│ │ Playwright   │
+                 │  │ Vertex  │   │ Flexible │ │ chromium jobs│
+                 │  │ Azure OA│   │ Server  │  │ autoscaled   │
+                 │  └─────────┘   └────┬────┘  └───────┬──────┘
+                 │                     │               │
+                 └─────────────────────┘  <span class="lo">screenshots + traces</span>
+                                                       │
+                    ┌─────────────────┐                │
+                    │ <span class="hi">Redis · KV</span>      │◀───── run state · dedup
+                    │ ElastiCache ·   │
+                    │ Memorystore ·   │
+                    │ Cache for Redis │
+                    └─────────────────┘
+
+           ┌─────────────────────────────────────────────┐
+           │ <span class="hi">Observability</span>  OpenTelemetry → logs · metrics · traces │
+           └─────────────────────────────────────────────┘</pre>
+        </div>
+        <p class="note info">
+          Postgres and object storage become <strong>required</strong>. Redis handles run state
+          and SSE pub/sub across API replicas. The API never runs Chromium.
+        </p>
+      </section>
+
+      <section id="sequence">
+        <h2>Sequence · start-to-report</h2>
+        <p class="section-sub">Numbered flow for a single run. Every hop crosses a queue or storage boundary — nothing lives in memory across steps.</p>
+        <div class="diagram" role="img" aria-label="End-to-end run sequence">
+<pre> 1  Client   →  API GW → API           POST /api/runs (metadata only)
+ 2  API      →  Object store            presign PUT for tcFile / recordingFile
+ 3  API      →  Client                  201 { runId, uploadUrls }
+ 4  Client   →  Object store            PUT files directly (bypass API)
+ 5  API      →  Postgres                INSERT qa_runs (status = queued)
+ 6  API      →  Event bus               publish runs.requested { runId }
+ 7  API      →  Client                  open SSE /api/runs/:id/stream
+
+ 8  Bus      →  Orchestrator            deliver runs.requested
+ 9  Orch     →  Postgres                SELECT run
+10  Orch     →  Object store            GET inputs
+11  Orch     →  Secrets manager         fetch LLM + login secrets
+12  Orch     →  LLM                     BA agent prompt
+13  LLM      →  Orch                    requirements
+14  Orch     →  Postgres                persist artifacts.requirements
+15  Orch     →  Redis pub/sub           state → ba:done  →  API relays to SSE
+
+16  Orch     →  LLM                     Manual QA + Automation QA prompts
+17  LLM      →  Orch                    TCs + selector plan
+18  Orch     →  Postgres                merge with element_locators by host
+19  Orch     →  Event bus               publish execution.requested (per batch)
+
+20  loop per TC batch (fan-out)
+21    Bus    →  Execution worker        deliver execution.requested
+22    Job    →  Secrets manager         pull runtime login secret
+23    Job    →  Object store            download recording (if any)
+24    Job    →  <span class="hi">Playwright chromium</span>    isolated container run
+25    Job    →  Object store            PUT screenshots + traces
+26    Job    →  Postgres                upsert element_locators (learned)
+27    Job    →  Event bus               publish execution.completed
+28  end
+
+29  Bus      →  Orchestrator            aggregate execution.completed
+30  Orch     →  Postgres                write executionReport
+31  Orch     →  LLM                     Manager + Delivery prompts
+32  Orch     →  Postgres                qa_runs.status = completed
+33  Orch     →  Redis pub/sub           state → completed → SSE
+34  Client   →  API                     GET /api/runs/:id/download
+35  API      →  Object store            presign GET (report + screenshots)
+36  API      →  Client                  302 signed URL</pre>
+        </div>
+      </section>
+
+      <section id="providers">
+        <h2>Same code · four provider wirings</h2>
+        <p class="section-sub">The adapters in <code>lib/cloud/{queue,storage,secrets,db,cache}.js</code> are the only things that change.</p>
+        <div class="table-wrap">
+          <table class="providers">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>AWS</th>
+                <th>GCP</th>
+                <th>Azure</th>
+                <th>Vercel-hybrid</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th>Edge · WAF</th>       <td>CloudFront + WAF</td>        <td>Cloud CDN + Armor</td>      <td>Front Door + WAF</td>       <td>Vercel Edge</td></tr>
+              <tr><th>API runtime</th>      <td>ECS Fargate · Lambda</td>    <td>Cloud Run</td>              <td>Container Apps</td>         <td>Vercel Functions</td></tr>
+              <tr><th>Orchestrator</th>     <td>ECS service · EKS</td>       <td>Cloud Run jobs · GKE</td>   <td>Container Apps jobs</td>    <td>Fly.io · Railway</td></tr>
+              <tr><th>Execution farm</th>   <td>Fargate + Step Fns</td>      <td>Cloud Run jobs</td>         <td>Container Apps jobs</td>    <td>Browserless · Browserbase</td></tr>
+              <tr><th>Event bus</th>        <td>SQS · EventBridge</td>       <td>Pub/Sub</td>                <td>Service Bus</td>            <td>Upstash Kafka · QStash</td></tr>
+              <tr><th>Object store</th>     <td>S3</td>                      <td>GCS</td>                    <td>Blob Storage</td>           <td>R2 · S3</td></tr>
+              <tr><th>Relational</th>       <td>RDS · Aurora Postgres</td>   <td>Cloud SQL Postgres</td>     <td>Flexible Server</td>        <td>Neon · Supabase</td></tr>
+              <tr><th>Cache</th>            <td>ElastiCache Redis</td>       <td>Memorystore</td>            <td>Cache for Redis</td>        <td>Upstash Redis</td></tr>
+              <tr><th>Secrets</th>          <td>Secrets Manager</td>         <td>Secret Manager</td>         <td>Key Vault</td>              <td>Vercel env · Doppler</td></tr>
+              <tr><th>Auth</th>             <td>Cognito</td>                 <td>Identity Platform</td>      <td>Entra External ID</td>      <td>Clerk · Auth.js</td></tr>
+              <tr><th>Telemetry</th>        <td>CloudWatch · X-Ray</td>      <td>Cloud Ops</td>              <td>Monitor · App Insights</td> <td>Grafana Cloud · Honeycomb</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="adapters">
+        <h2>Cloud adapter contracts</h2>
+        <p class="section-sub">Tight interfaces so the domain code never imports a vendor SDK.</p>
+        <pre><code>// lib/cloud/index.d.ts
+
+export interface ObjectStore {
+  presignPut(key: string, ttlSec?: number): Promise&lt;string&gt;;
+  presignGet(key: string, ttlSec?: number): Promise&lt;string&gt;;
+  put(key: string, body: Buffer | Readable, meta?: object): Promise&lt;void&gt;;
+  get(key: string): Promise&lt;Readable&gt;;
+  remove(key: string): Promise&lt;void&gt;;
+}
+
+export interface Queue&lt;T&gt; {
+  publish(topic: string, msg: T, opts?: { dedupId?: string }): Promise&lt;void&gt;;
+  subscribe(topic: string, handler: (msg: T) =&gt; Promise&lt;void&gt;): Unsubscribe;
+}
+
+export interface Secrets {
+  get(name: string): Promise&lt;string&gt;;
+  put(name: string, value: string): Promise&lt;void&gt;;
+}
+
+export interface Cache {
+  get&lt;T&gt;(key: string): Promise&lt;T | null&gt;;
+  set&lt;T&gt;(key: string, val: T, ttlSec?: number): Promise&lt;void&gt;;
+  publish(channel: string, msg: unknown): Promise&lt;void&gt;;
+  subscribe(channel: string, cb: (msg: unknown) =&gt; void): Unsubscribe;
+}
+
+// wired once at boot from process.env.ZERO_CLOUD = "aws" | "gcp" | "azure" | "vercel"</code></pre>
+      </section>
+
+      <section id="milestones">
+        <h2>Rollout milestones</h2>
+        <p class="section-sub">Order matters — each milestone unblocks the next.</p>
+        <div class="pipeline">
+          <article class="stage"><div class="stage-id">M1</div><div><h3>Durable store</h3><p>Restore <code>databaseConfigured()</code>, wire Postgres for <code>qa_runs</code>, <code>qa_assets</code>, <code>element_locators</code>. Kill in-memory Maps.</p></div></article>
+          <article class="stage"><div class="stage-id">M2</div><div><h3>Object store + signed URLs</h3><p>Move <code>artifacts/</code> off local disk. Browser uploads via presigned PUT. API never streams big bodies.</p></div></article>
+          <article class="stage"><div class="stage-id">M3</div><div><h3>Queue + orchestrator</h3><p>Extract <code>processRun</code> into a worker consuming <code>runs.requested</code>. API returns immediately.</p></div></article>
+          <article class="stage"><div class="stage-id">M4</div><div><h3>Execution farm</h3><p>Playwright runs in container jobs behind <code>execution.requested</code>. Fan-out per TC batch; retries via queue.</p></div></article>
+          <article class="stage"><div class="stage-id">M5</div><div><h3>Auth + ACL</h3><p>Real OIDC, per-tenant scoping on runs and artifacts, presigned reads only.</p></div></article>
+          <article class="stage"><div class="stage-id">M6</div><div><h3>LLM wiring</h3><p>Provider keys UI actually calls BA/Manager. Add rate-limit, cost caps, prompt versioning.</p></div></article>
+          <article class="stage"><div class="stage-id">M7</div><div><h3>Multi-cloud adapters</h3><p><code>lib/cloud/*</code> implementations for AWS + one other. IaC modules per provider. Smoke tests in CI.</p></div></article>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 3 · SHIP CHECKLIST                                      -->
+    <!-- ========================================================== -->
+    <div class="panel" role="tabpanel" id="panel-checklist" aria-labelledby="tab-checklist">
+
+      <section id="p0">
+        <h2>P0 · blockers before any external use</h2>
+        <p class="section-sub">These are correctness or safety issues, not polish.</p>
+
+        <div class="flaw">
+          <h3><span class="tag">P0</span> Postgres hard-disabled</h3>
+          <p><code>databaseConfigured()</code> returns false; locator reuse, <code>qa_assets</code>, projects, and key persistence never activate. Restore init or drop SQL claims.</p>
+        </div>
+        <div class="flaw">
+          <h3><span class="tag">P0</span> No real auth</h3>
+          <p>Identity is a spoofable <code>X-User-Email</code>; <code>apiKeyAuth</code> accepts any non-empty key. Runs and artifacts are unscoped.</p>
+        </div>
+        <div class="flaw">
+          <h3><span class="tag">P0</span> Public artifacts + open recording CORS</h3>
+          <p><code>/artifacts</code> is static-served; recording POSTs set <code>Access-Control-Allow-Origin: *</code>.</p>
+        </div>
+        <div class="flaw">
+          <h3><span class="tag">P0</span> In-process Playwright, no queue</h3>
+          <p><code>processRun</code> launches Chromium in the API process with no concurrency cap — multi-run DoS / OOM risk.</p>
+        </div>
+        <div class="flaw">
+          <h3><span class="tag">P0</span> Minimal execution ≠ E2E proof</h3>
+          <p>Default checks pass on URL load. Manager "Go" must not be treated as release proof without full mode or external runners.</p>
+        </div>
+      </section>
+
+      <section id="p1">
+        <h2>P1 · gaps before scale</h2>
+        <p class="section-sub">These bite the moment there's more than one instance or user.</p>
+
+        <div class="flaw p1"><h3><span class="tag">P1</span> Memory-bound state</h3><p>Runs, recordings, secrets, selector memory are Maps — broken across instances and restarts (except <code>run.json</code>).</p></div>
+        <div class="flaw p1"><h3><span class="tag">P1</span> Wrong host for Playwright</h3><p>Vercel <code>/tmp</code> + serverless timeouts vs long Chromium work; need a durable worker host.</p></div>
+        <div class="flaw p1"><h3><span class="tag">P1</span> Default encryption secret</h3><p><code>KEY_ENC_SECRET</code> falls back to a fixed dev string — refuse to start in production without it.</p></div>
+        <div class="flaw p1"><h3><span class="tag">P1</span> Ops / config</h3><p>No tests despite Jest; CSP allows unsafe-eval; CORS wildcards for Railway/Vercel; example env embeds a live hostname.</p></div>
+      </section>
+
+      <section id="p2">
+        <h2>P2 · later</h2>
+        <p class="section-sub">Real improvements, but not blockers.</p>
+
+        <div class="flaw p2"><h3><span class="tag">P2</span> LLM UI is disconnected</h3><p>Provider keys + agent settings APIs exist; BA/Manager never call Claude/OpenAI/Gemini.</p></div>
+        <div class="flaw p2"><h3><span class="tag">P2</span> IDE vision unfinished</h3><p>No <code>/api/projects</code>; stored scripts / recordings tables unused while DB is off.</p></div>
+        <div class="flaw p2"><h3><span class="tag">P2</span> Monolith + middleware order</h3><p>Split routers/worker from <code>server.js</code>; fix duplicate error handlers vs SPA catch-all.</p></div>
+      </section>
+
+      <section id="sequence-fix">
+        <h2>Recommended sequence</h2>
+        <p class="section-sub">One right order to attack the list without wasted work.</p>
+        <ol class="compact" style="counter-reset: step;">
+          <li><strong>Unlock durable store</strong> — turn Postgres back on and wire the real tables.</li>
+          <li><strong>Auth + artifact ACL</strong> — replace header-based identity, presign artifact reads.</li>
+          <li><strong>Queued Playwright workers</strong> — move Chromium out of the API process.</li>
+          <li><strong>Honest Go / No-Go semantics</strong> — minimal execution stops implying release proof.</li>
+          <li><strong>Wire or defer LLM</strong> — either connect the key UI, or hide it until it works.</li>
+          <li><strong>CI smoke + container image</strong> — one repeatable image, one green test path.</li>
+        </ol>
+        <p class="note">Full detail lives in <code>docs/ARCHITECTURE.md</code>.</p>
+      </section>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 5 · TARGET V3 · PROJECT STRUCTURE + DOCKER              -->
+    <!-- ========================================================== -->
+    <div class="panel" role="tabpanel" id="panel-v3" aria-labelledby="tab-v3">
+
+      <nav class="v3nav" aria-label="V3 quick jump">
+        <a href="#v3-why">Why</a>
+        <a href="#v3-layout">Layout</a>
+        <a href="#v3-map">Move map</a>
+        <a href="#v3-lld" class="hot">LLD per project ▾</a>
+        <a href="#v3-connect">Connect AWS/GCP/Azure</a>
+        <a href="#v3-per-app">SAD per-app</a>
+        <a href="#v3-images">Docker images</a>
+        <a href="#v3-dockerfiles">Dockerfiles</a>
+        <a href="#v3-compose">Compose</a>
+        <a href="#v3-commands">Commands</a>
+        <a href="#v3-order">Migration order</a>
+        <a href="#v3-smell">Quality gates</a>
+        <a href="#v3-tests">Tests</a>
+        <a href="#v3-best">Conventions</a>
+        <a href="#v3-cross">Cross-cutting</a>
+        <a href="#v3-risks">Risks</a>
+      </nav>
+
+      <section id="v3-why">
+        <h2>Why the repo shape has to change</h2>
+        <p class="section-sub">The blueprint in <code>architectureV2.html</code> defines three tiers. The repo today can only ever build one artifact.</p>
+        <div class="cards">
+          <div class="card"><h4>One file holds three tiers</h4><p><code>server.js</code> is 5,099 lines: 46 routes, every stage agent, and the Playwright driver. API, orchestrator, and executor cannot be deployed or scaled apart.</p></div>
+          <div class="card"><h4>Root npm is ambiguous</h4><p>Root <code>package.json</code> is simultaneously the server, the build orchestrator for <code>client/</code>, and the deploy target. Nothing declares which service it is.</p></div>
+          <div class="card"><h4>S0 done — still one image</h4><p><code>Dockerfile</code> + <code>docker-compose.yml</code> + sidecars (Postgres / Redis / MinIO) exist. The image is still the monolith — Chromium ships with the API until S4.</p></div>
+          <div class="card"><h4>Chromium travels everywhere</h4><p><code>playwright</code> sits in root dependencies, so any image built from root ships a browser — including the tier that must never launch one.</p></div>
+          <div class="card"><h4>Local deps are path-coupled</h4><p><code>lib/</code> is shared by <code>require("./lib/...")</code>. A worker in another container cannot import it without copying the whole repo.</p></div>
+          <div class="card"><h4>Artifacts are a local folder</h4><p><code>artifacts/&lt;runId&gt;/</code> only works when one process writes and reads it. Split tiers need an object store from day one.</p></div>
+        </div>
+        <p class="note info">
+          <strong>V3 is a packaging change, not a redesign.</strong> The tiers, primitives, and
+          <code>lib/cloud</code> contracts stay exactly as drawn in
+          <a href="/architectureV2.html">architectureV2.html</a>. V3 only decides which files live
+          where and which image runs them.
+        </p>
+      </section>
+
+      <section id="v3-layout">
+        <h2>Target V3 repo layout</h2>
+        <p class="section-sub">npm workspaces. Three deployable apps, one web bundle, shared packages, one image per app.</p>
+        <div class="diagram" role="img" aria-label="Target V3 monorepo folder tree">
+<pre>zero/
+├─ <span class="hi">package.json</span>                  workspaces root · <em>no app code, no runtime deps</em>
+├─ <span class="hi">docker-compose.yml</span>            full local stack (7 services)
+├─ .dockerignore · .env.example
+├─ AGENTS.md · README.md
+│
+├─ <span class="hi">apps/</span>                         one deployable service per folder
+│  ├─ <span class="hi">api/</span>                       stateless intake · <span class="bad">never launches Chromium</span>
+│  │  ├─ Dockerfile              node:20-alpine · ~180 MB
+│  │  ├─ package.json            express · helmet · rate-limit · swagger
+│  │  └─ src/
+│  │     ├─ server.js            boot only (~80 lines)
+│  │     ├─ routes/              runs · locators · recordings · health · cms
+│  │     ├─ http/                middleware · logger · swagger · errors
+│  │     └─ sse/                 status stream, fed by cache.subscribe
+│  │
+│  ├─ <span class="hi">orchestrator/</span>              long-lived worker · consumes runs.requested
+│  │  ├─ Dockerfile              node:20-alpine · no browser
+│  │  ├─ package.json
+│  │  └─ src/
+│  │     ├─ worker.js            queue subscribe loop
+│  │     ├─ dag.js               stageKeys walk + retry/resume
+│  │     └─ agents/              ba · manualQa · automationQa · manager · delivery
+│  │
+│  └─ <span class="hi">executor/</span>                  ephemeral job · consumes execution.requested
+│     ├─ Dockerfile              <span class="hi">mcr.microsoft.com/playwright</span> · ~1.6 GB
+│     ├─ package.json            playwright only lives here
+│     └─ src/
+│        ├─ worker.js            job runner + concurrency cap
+│        └─ passes/              a11y · performance · security
+│
+├─ <span class="hi">packages/</span>                     shared libs · imported by name, not by path
+│  ├─ cloud/                     <em>moved from lib/cloud</em> · queue · objectStore · secrets · cache
+│  │  └─ src/{local,aws,gcp,azure,vercel}/
+│  ├─ domain/                    stageKeys · appProfiles · run model · zod schemas
+│  ├─ locators/                  locatorRegistry · elementLogger · ecommerceSelectors
+│  ├─ builders/                  scriptBuilder · javaSeleniumBuilder
+│  ├─ analyzer/                  urlAnalyzer · urlAnalyzerPro
+│  └─ db/                        pg pool · schema · <span class="hi">migrations/</span> (versioned SQL)
+│
+├─ <span class="hi">web/</span>                          <em>moved from client/</em> · React 18 + Vite
+│  ├─ Dockerfile                 vite build → nginx:alpine · ~25 MB
+│  ├─ nginx.conf                 SPA fallback + /api proxy
+│  ├─ public/architecture.html   this page · <em>source of truth</em>
+│  └─ src/                       views · components · layouts (unchanged)
+│
+├─ infra/                        terraform per provider (M7)
+│  └─ {aws,gcp,azure}/
+├─ agent-workflow/               M1–M7 milestones · progress.json
+├─ docs/ · scripts/ · ml-training/
+└─ <span class="lo">artifacts/</span>                    <span class="bad">deleted</span> — replaced by object store (MinIO local, S3 prod)</pre>
+        </div>
+        <p class="note info">
+          <strong>The rule that fixes root npm:</strong> the root <code>package.json</code> declares
+          <code>"workspaces": ["apps/*", "packages/*", "web"]</code> and <em>zero</em> runtime
+          dependencies. Every dependency belongs to the workspace that imports it — which is what
+          keeps <code>playwright</code> out of the API image.
+        </p>
+      </section>
+
+      <section id="v3-map">
+        <h2>Where today's code moves</h2>
+        <p class="section-sub">Every current file has exactly one destination. Nothing is rewritten in the move.</p>
+        <div class="table-wrap">
+          <table class="providers">
+            <thead>
+              <tr><th>Today</th><th>V3 destination</th><th>Runs in</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>46 <code>app.get/post</code> handlers</th> <td>apps/api/src/routes/*</td>          <td>api</td></tr>
+              <tr><th><code>processRun</code> + stage walk</th>  <td>apps/orchestrator/src/dag.js</td>   <td>orchestrator</td></tr>
+              <tr><th>BA · Manual · Automation agents</th>       <td>apps/orchestrator/src/agents/</td>  <td>orchestrator</td></tr>
+              <tr><th>Manager · Delivery + pdfkit</th>           <td>apps/orchestrator/src/agents/</td>  <td>orchestrator</td></tr>
+              <tr><th><code>chromium.launch()</code> + retries</th><td>apps/executor/src/worker.js</td>  <td>executor</td></tr>
+              <tr><th>a11y / perf / security passes</th>         <td>apps/executor/src/passes/</td>      <td>executor</td></tr>
+              <tr><th><code>stageKeys</code>, <code>appProfiles</code></th><td>packages/domain</td>      <td>shared</td></tr>
+              <tr><th><code>lib/locatorRegistry</code> + <code>elementLogger</code></th><td>packages/locators</td><td>shared</td></tr>
+              <tr><th><code>lib/scriptBuilder</code> + <code>javaSeleniumBuilder</code></th><td>packages/builders</td><td>shared</td></tr>
+              <tr><th><code>lib/urlAnalyzer(Pro)</code></th>     <td>packages/analyzer</td>              <td>orchestrator</td></tr>
+              <tr><th><code>lib/db.js</code></th>                <td>packages/db + migrations/</td>      <td>shared</td></tr>
+              <tr><th><code>lib/cloud/*</code></th>              <td>packages/cloud <em>(contract unchanged)</em></td><td>shared</td></tr>
+              <tr><th><code>lib/middleware · logger · swagger</code></th><td>apps/api/src/http/</td>     <td>api</td></tr>
+              <tr><th><code>client/</code></th>                  <td>web/</td>                           <td>nginx</td></tr>
+              <tr><th><code>artifacts/&lt;runId&gt;/</code></th>       <td>object store bucket <code>zero-artifacts</code></td><td>—</td></tr>
+              <tr><th>in-memory <code>runs</code> Map</th>       <td>Postgres <code>qa_runs</code> + Redis</td><td>—</td></tr>
+              <tr><th><code>runSecrets</code> Map</th>           <td>secrets adapter (never on disk)</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note danger">
+          <strong>Do not move and refactor in the same commit.</strong> Move files, fix imports,
+          prove the stack boots, then change behavior. The absence of a test suite means a
+          simultaneous move-and-rewrite has nothing to catch regressions.
+        </p>
+      </section>
+
+      <section id="v3-images">
+        <h2>Four images, one compose</h2>
+        <p class="section-sub">Chromium exists in exactly one image. That single constraint is what makes the API tier cheap and horizontally scalable.</p>
+        <div class="diagram" role="img" aria-label="Container topology for the V3 local stack">
+<pre>  <span class="hi">image</span>              <span class="hi">base</span>                          <span class="hi">size</span>      <span class="hi">scale</span>       <span class="hi">browser</span>
+  ──────────────────────────────────────────────────────────────────────────────
+  zero-web           nginx:alpine                  ~25 MB    CDN         <span class="bad">no</span>
+  zero-api           node:20-alpine                ~180 MB   N replicas  <span class="bad">no</span>
+  zero-orchestrator  node:20-alpine                ~180 MB   N workers   <span class="bad">no</span>
+  zero-executor      mcr…/playwright:v1.52-jammy   ~1.6 GB   0→N jobs    <span class="hi">yes</span>
+
+                          ┌──────────────┐
+                          │  <span class="hi">zero-web</span>    │  :8080  nginx · SPA + /api proxy
+                          └──────┬───────┘
+                                 ▼
+                          ┌──────────────┐
+                          │  <span class="hi">zero-api</span>    │  :3000  stateless · SSE · presign
+                          └──┬────────┬──┘
+                 publish     │        │   read/write
+           runs.requested    ▼        ▼
+        ┌────────────┐  ┌─────────┐  ┌──────────┐  ┌─────────┐
+        │  <span class="hi">redis</span>     │  │ <span class="hi">postgres</span>│  │  <span class="hi">minio</span>   │  │ (secrets)│
+        │  queue+pub │  │  :5432  │  │  :9000   │  │  env/kv  │
+        └─────┬──────┘  └────▲────┘  └────▲─────┘  └─────────┘
+              │              │            │
+              ▼              │            │
+     ┌──────────────────┐    │            │
+     │ <span class="hi">zero-orchestrator</span>│────┘            │
+     │  BA · Manual ·   │                 │
+     │  Automation ·    │  publish        │
+     │  Manager ·       │  execution.requested
+     │  Delivery        │                 │
+     └────────┬─────────┘                 │
+              ▼                           │
+     ┌──────────────────┐                 │
+     │  <span class="hi">zero-executor</span>   │─────────────────┘  screenshots · traces
+     │  playwright job  │
+     └──────────────────┘</pre>
+        </div>
+        <p class="note info">
+          <code>minio</code> stands in for S3/GCS/Blob locally, and <code>redis</code> stands in for
+          the managed queue plus SSE pub/sub. Both are swapped by changing
+          <code>ZERO_CLOUD</code> — no application code changes.
+        </p>
+      </section>
+
+      <section id="v3-dockerfiles">
+        <h2>Dockerfiles</h2>
+        <p class="section-sub">Multi-stage, non-root, workspace-aware. Lockfile-only layers first so dependency installs cache across code edits.</p>
+
+        <h3>apps/api/Dockerfile</h3>
+        <pre><code># ---------- deps ----------
+FROM node:20-alpine AS deps
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY apps/api/package.json         apps/api/
+COPY packages/cloud/package.json   packages/cloud/
+COPY packages/domain/package.json  packages/domain/
+COPY packages/db/package.json      packages/db/
+RUN npm ci --omit=dev --workspace apps/api --include-workspace-root
+
+# ---------- runner ----------
+FROM node:20-alpine AS runner
+ENV NODE_ENV=production PORT=3000
+WORKDIR /repo
+RUN apk add --no-cache tini
+COPY --from=deps /repo/node_modules ./node_modules
+COPY packages/ ./packages/
+COPY apps/api/ ./apps/api/
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD wget -qO- http://127.0.0.1:3000/health || exit 1
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "apps/api/src/server.js"]</code></pre>
+        <p class="note danger">
+          <strong>No <code>playwright</code> here — deliberately.</strong> If a future import pulls
+          Chromium into this image, the API tier silently becomes unschedulable again. Enforce it in
+          CI: fail the build if <code>apps/api</code> resolves <code>playwright</code>.
+        </p>
+
+        <h3>apps/orchestrator/Dockerfile</h3>
+        <pre><code>FROM node:20-alpine AS deps
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY apps/orchestrator/package.json  apps/orchestrator/
+COPY packages/cloud/package.json     packages/cloud/
+COPY packages/domain/package.json    packages/domain/
+COPY packages/db/package.json        packages/db/
+COPY packages/builders/package.json  packages/builders/
+COPY packages/locators/package.json  packages/locators/
+COPY packages/analyzer/package.json  packages/analyzer/
+RUN npm ci --omit=dev --workspace apps/orchestrator --include-workspace-root
+
+FROM node:20-alpine AS runner
+ENV NODE_ENV=production
+WORKDIR /repo
+RUN apk add --no-cache tini
+COPY --from=deps /repo/node_modules ./node_modules
+COPY packages/ ./packages/
+COPY apps/orchestrator/ ./apps/orchestrator/
+USER node
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "apps/orchestrator/src/worker.js"]</code></pre>
+
+        <h3>apps/executor/Dockerfile</h3>
+        <pre><code># Pinned to the playwright version in packages — mismatch breaks the bundled browser.
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy AS runner
+ENV NODE_ENV=production \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+WORKDIR /repo
+
+COPY package.json package-lock.json ./
+COPY apps/executor/package.json      apps/executor/
+COPY packages/cloud/package.json     packages/cloud/
+COPY packages/domain/package.json    packages/domain/
+COPY packages/locators/package.json  packages/locators/
+COPY packages/db/package.json        packages/db/
+RUN npm ci --omit=dev --workspace apps/executor --include-workspace-root
+
+COPY packages/ ./packages/
+COPY apps/executor/ ./apps/executor/
+
+# pwuser ships with the base image and owns the browser cache
+USER pwuser
+CMD ["node", "apps/executor/src/worker.js"]</code></pre>
+        <p class="note">
+          <strong>Version lock:</strong> the tag <code>v1.52.0-jammy</code> must track
+          <code>playwright</code> in <code>apps/executor/package.json</code>. Drifting them is the
+          most common cause of "browser not found" in CI.
+        </p>
+
+        <h3>web/Dockerfile</h3>
+        <pre><code>FROM node:20-alpine AS build
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY web/package.json web/
+RUN npm ci --workspace web --include-workspace-root
+COPY web/ ./web/
+RUN npm run build --workspace web
+
+FROM nginx:alpine AS runner
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /repo/web/dist /usr/share/nginx/html
+EXPOSE 8080</code></pre>
+      </section>
+
+      <section id="v3-compose">
+        <h2>docker-compose.yml</h2>
+        <p class="section-sub">The whole platform on a laptop: Postgres, Redis, MinIO, and the four app images.</p>
+        <pre><code>name: zero
+
+x-node-env: &amp;node-env
+  ZERO_CLOUD: local
+  DATABASE_URL: postgres://zero:zero@postgres:5432/zero
+  REDIS_URL: redis://redis:6379
+  S3_ENDPOINT: http://minio:9000
+  S3_BUCKET: zero-artifacts
+  S3_ACCESS_KEY: zerominio
+  S3_SECRET_KEY: zerominio123
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zero
+      POSTGRES_PASSWORD: zero
+      POSTGRES_DB: zero
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zero"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: zerominio
+      MINIO_ROOT_PASSWORD: zerominio123
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    command: ["node", "packages/db/migrate.js"]
+    environment: *node-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment: *node-env
+    ports: ["3000:3000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis:   { condition: service_healthy }
+      minio:   { condition: service_healthy }
+
+  orchestrator:
+    build: { context: ., dockerfile: apps/orchestrator/Dockerfile }
+    environment: *node-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis:   { condition: service_healthy }
+    deploy:
+      replicas: 1
+
+  executor:
+    build: { context: ., dockerfile: apps/executor/Dockerfile }
+    environment:
+      &lt;&lt;: *node-env
+      EXECUTION_MODE: minimal
+      MAX_CONCURRENT_JOBS: "2"
+    shm_size: 1gb          # Chromium crashes on the 64 MB default
+    depends_on:
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    deploy:
+      replicas: 2
+
+  web:
+    build: { context: ., dockerfile: web/Dockerfile }
+    ports: ["8080:8080"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  miniodata:</code></pre>
+        <p class="note danger">
+          <strong><code>shm_size: 1gb</code> is not optional.</strong> Docker's default 64 MB
+          <code>/dev/shm</code> makes Chromium crash on real pages. The alternative —
+          <code>--disable-dev-shm-usage</code>, already passed in <code>server.js</code> — trades
+          crashes for slower disk-backed shared memory.
+        </p>
+      </section>
+
+      <section id="v3-dockerignore">
+        <h2>.dockerignore</h2>
+        <p class="section-sub">Without this, the build context includes <code>node_modules</code>, <code>artifacts/</code>, and the 288 KB lockfile churn — minutes per build.</p>
+        <pre><code>node_modules
+**/node_modules
+**/dist
+**/.vite
+
+artifacts
+logs
+ml-training/models
+ml-training/data
+
+.git
+.github
+.cursor
+.agents
+*.md
+!README.md
+
+.env
+.env.*
+!.env.example
+
+Dockerfile*
+docker-compose*.yml
+coverage
+*.log
+.DS_Store</code></pre>
+      </section>
+
+      <section id="v3-commands">
+        <h2>Local development</h2>
+        <p class="section-sub">Two modes: full containers for parity, or hybrid with hot reload on the parts you're editing.</p>
+
+        <h3>Full stack in Docker</h3>
+        <pre><code>cp .env.example .env
+docker compose up --build
+
+# web  http://localhost:8080
+# api  http://localhost:3000/health
+# minio console http://localhost:9001</code></pre>
+
+        <h3>Hybrid — infra in Docker, apps on host</h3>
+        <pre><code>docker compose up -d postgres redis minio
+npm install                       # once, hoists all workspaces
+
+npm run dev --workspace apps/api
+npm run dev --workspace apps/orchestrator
+npm run dev --workspace apps/executor
+npm run dev --workspace web       # vite :5173, proxies /api → :3000</code></pre>
+
+        <h3>Targeted rebuilds</h3>
+        <pre><code>docker compose build api            # one service
+docker compose up -d --scale executor=4
+docker compose logs -f orchestrator
+docker compose run --rm migrate    # re-run migrations
+docker compose down -v             # reset Postgres + MinIO</code></pre>
+
+        <p class="note info">
+          <strong>What replaces <code>npm run build</code>:</strong> today the root script does
+          <code>cd client &amp;&amp; npm install &amp;&amp; npm run build</code> to populate
+          <code>public/</code>. In V3 the web image builds its own bundle and nginx serves it, so
+          the backend never depends on a frontend build step to start.
+        </p>
+      </section>
+
+      <section id="v3-order">
+        <h2>Migration order</h2>
+        <p class="section-sub">Restructuring is worthless if it stalls halfway. This order keeps the app runnable after every step, and lines up with the M1–M7 milestones in <code>agent-workflow/</code>.</p>
+        <div class="pipeline">
+          <article class="stage"><div class="stage-id">S0</div><div><h3>Containerize what exists · done</h3><p>One <code>Dockerfile</code> + <code>docker-compose.yml</code> for today's monolith, plus Postgres/Redis/MinIO. No code moves. This alone gives a reproducible environment and unblocks M1.</p></div></article>
+          <article class="stage"><div class="stage-id">S1</div><div><h3>Add a smoke test · done</h3><p>Jest boots the app, starts a run, and (when Postgres is up) asserts a <code>qa_runs</code> row. Without that, moving 5,099 lines is unverifiable.</p></div></article>
+          <article class="stage"><div class="stage-id">S2</div><div><h3>Turn on workspaces</h3><p>Root becomes workspaces-only. Move <code>lib/*</code> into <code>packages/*</code> and <code>client/</code> into <code>web/</code>. Imports change from paths to package names. Still one server process.</p></div></article>
+          <article class="stage"><div class="stage-id">S3</div><div><h3>Split routes from stages</h3><p>Carve <code>server.js</code> into <code>apps/api/src/routes/*</code> and an in-process orchestrator module. Same container, two clear halves — the last step that's a pure refactor.</p></div></article>
+          <article class="stage"><div class="stage-id">S4</div><div><h3>Extract the executor</h3><p>Move Chromium behind <code>execution.requested</code>. Now <code>playwright</code> can leave the API image. Delivers <strong>M4</strong>, the acceptance floor.</p></div></article>
+          <article class="stage"><div class="stage-id">S5</div><div><h3>Extract the orchestrator</h3><p>Its own image consuming <code>runs.requested</code>. API returns <code>202</code> immediately and relays status over SSE from Redis pub/sub. Delivers <strong>M3</strong>.</p></div></article>
+          <article class="stage"><div class="stage-id">S6</div><div><h3>Swap local adapters for cloud</h3><p><code>ZERO_CLOUD=aws</code> and friends under <code>packages/cloud</code>, with <code>infra/</code> Terraform per provider. Delivers <strong>M7</strong>.</p></div></article>
+        </div>
+        <p class="note info">
+          <strong>Current position:</strong> S0 + S1 + M1–M7 are done. <code>ZERO_CLOUD=aws|gcp</code>
+          adapters and IaC ship; default runtime is still <code>local</code>.
+        </p>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Provider connect                            -->
+      <!-- ================================================ -->
+      <section id="v3-connect">
+        <h2>Connect to AWS · GCP · Azure · Vercel-hybrid</h2>
+        <p class="section-sub">Every provider swap is one env variable plus one adapter file. The domain code never changes and never imports a vendor SDK.</p>
+
+        <div class="diagram" role="img" aria-label="Provider selection at boot">
+<pre>          apps/*  ──── require('@zero/cloud')
+                          │
+                          ▼
+                  packages/cloud/index.js
+                          │
+             switch (process.env.<span class="hi">ZERO_CLOUD</span>)
+                │        │        │        │        │
+                ▼        ▼        ▼        ▼        ▼
+              local     aws      gcp     azure   vercel
+              (dev)    S3+SQS   GCS+PS  Blob+SB  R2+QStash
+                         │        │        │        │
+                         └────── same interface ────┘
+                     ObjectStore · Queue · Secrets · Cache</pre>
+        </div>
+
+        <h3>Environment matrix</h3>
+        <div class="table-wrap">
+          <table class="providers">
+            <thead>
+              <tr><th>Variable</th><th>local</th><th>aws</th><th>gcp</th><th>azure</th><th>vercel</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>ZERO_CLOUD</th>          <td>local</td>                <td>aws</td>                    <td>gcp</td>                     <td>azure</td>                     <td>vercel</td></tr>
+              <tr><th>DATABASE_URL</th>        <td>postgres://…docker</td>   <td>RDS/Aurora URL</td>         <td>Cloud SQL socket</td>        <td>Flexible Server URL</td>       <td>Neon/Supabase URL</td></tr>
+              <tr><th>Object store</th>        <td>MinIO :9000</td>          <td>S3_BUCKET · AWS_REGION</td> <td>GCS_BUCKET · GOOGLE_PROJECT</td> <td>AZ_STORAGE_ACCOUNT · AZ_CONTAINER</td> <td>R2_BUCKET · R2_ENDPOINT</td></tr>
+              <tr><th>Queue</th>               <td>in-process</td>           <td>SQS_URL_RUNS · SQS_URL_EXEC</td> <td>PUBSUB_TOPIC_RUNS · …EXEC</td> <td>SB_QUEUE_RUNS · …EXEC</td>   <td>QSTASH_URL · QSTASH_TOKEN</td></tr>
+              <tr><th>Cache · pub/sub</th>     <td>node-cache</td>           <td>REDIS_URL (ElastiCache)</td> <td>REDIS_URL (Memorystore)</td> <td>REDIS_URL (Azure Cache)</td>   <td>UPSTASH_REDIS_URL</td></tr>
+              <tr><th>Secrets</th>             <td>.env file</td>            <td>AWS_SECRETS_PREFIX</td>      <td>GCP_SECRETS_PROJECT</td>    <td>AZ_KEYVAULT_URL</td>          <td>VERCEL env / Doppler</td></tr>
+              <tr><th>Identity</th>            <td>—</td>                    <td>IAM role via IRSA / task role</td> <td>Workload Identity</td>  <td>Managed Identity</td>          <td>Static tokens</td></tr>
+              <tr><th>Signed URLs TTL</th>     <td>900s</td>                 <td>900s SigV4</td>              <td>900s V4</td>                 <td>900s SAS</td>                  <td>900s</td></tr>
+              <tr><th>Cost floor / mo</th>     <td>$0</td>                   <td>~$60 (RDS t4g.micro + NAT)</td> <td>~$50 (Cloud SQL f1-micro)</td> <td>~$55 (Flexible burstable)</td> <td>~$25 (Neon + Upstash free tiers)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="note danger">
+          <strong>Never bake static keys into images.</strong> Prefer IRSA (AWS), Workload Identity
+          (GCP), or Managed Identity (Azure). Static access keys are only acceptable for local /
+          Vercel and should rotate through the secrets adapter, never <code>process.env</code>
+          directly.
+        </p>
+
+        <h3>Adapter template · AWS queue</h3>
+        <p class="section-sub">Same shape as <code>packages/cloud/local/queue.js</code>. Domain code sees identical <code>publish</code> / <code>subscribe</code>.</p>
+        <pre><code>// packages/cloud/aws/queue.js
+'use strict';
+const { SQSClient, SendMessageCommand, ReceiveMessageCommand,
+        DeleteMessageCommand } = require('@aws-sdk/client-sqs');
+
+const region = process.env.AWS_REGION || 'us-east-1';
+const client = new SQSClient({ region });                 // IRSA / task role
+const topicToUrl = {
+  'runs.requested':      process.env.SQS_URL_RUNS,
+  'execution.requested': process.env.SQS_URL_EXEC,
+  'execution.completed': process.env.SQS_URL_EXEC_DONE,
+};
+
+async function publish(topic, msg, opts = {}) {
+  const QueueUrl = topicToUrl[topic];
+  if (!QueueUrl) throw new Error(`Unknown topic: ${topic}`);
+  await client.send(new SendMessageCommand({
+    QueueUrl,
+    MessageBody: JSON.stringify(msg),
+    MessageDeduplicationId: opts.dedupId,      // FIFO queues only
+    MessageGroupId:         opts.groupId,      // FIFO queues only
+  }));
+}
+
+function subscribe(topic, handler) {
+  const QueueUrl = topicToUrl[topic];
+  let stopped = false;
+  (async function loop() {
+    while (!stopped) {
+      const { Messages = [] } = await client.send(new ReceiveMessageCommand({
+        QueueUrl, MaxNumberOfMessages: 10, WaitTimeSeconds: 20,
+        VisibilityTimeout: 300,                // longer than the slowest handler
+      }));
+      for (const m of Messages) {
+        try {
+          await handler(JSON.parse(m.Body));
+          await client.send(new DeleteMessageCommand({
+            QueueUrl, ReceiptHandle: m.ReceiptHandle,
+          }));
+        } catch (err) {
+          // leave on queue → SQS redrives to DLQ after maxReceiveCount
+          console.error('[aws.queue] handler error:', err);
+        }
+      }
+    }
+  })();
+  return () => { stopped = true; };
+}
+
+module.exports = { publish, subscribe };</code></pre>
+
+        <h3>Adapter template · GCP object store</h3>
+        <pre><code>// packages/cloud/gcp/storage.js
+'use strict';
+const { Storage } = require('@google-cloud/storage');
+
+const bucket = new Storage().bucket(process.env.GCS_BUCKET);
+
+module.exports = {
+  async presignPut(key, ttlSec = 900) {
+    const [url] = await bucket.file(key).getSignedUrl({
+      version: 'v4', action: 'write',
+      expires: Date.now() + ttlSec * 1000,
+      contentType: 'application/octet-stream',
+    });
+    return url;
+  },
+  async presignGet(key, ttlSec = 900) {
+    const [url] = await bucket.file(key).getSignedUrl({
+      version: 'v4', action: 'read',
+      expires: Date.now() + ttlSec * 1000,
+    });
+    return url;
+  },
+  put:    (key, body, meta) => bucket.file(key).save(body, { metadata: meta }),
+  get:    (key)              => bucket.file(key).createReadStream(),
+  remove: (key)              => bucket.file(key).delete().catch(() =&gt; {}),
+};</code></pre>
+
+        <h3>Bootstrap · what the operator does per cloud</h3>
+        <div class="cards">
+          <div class="card"><h4>AWS</h4><p>Terraform in <code>infra/aws/</code>: VPC · RDS Postgres · S3 bucket + lifecycle · SQS (runs, exec, DLQ) · ElastiCache · Secrets Manager · ECR · ECS Fargate services for api/orchestrator · Fargate task for executor with <code>shm-size=1g</code>. IAM: one role per service, least privilege on the specific ARNs.</p></div>
+          <div class="card"><h4>GCP</h4><p>Terraform in <code>infra/gcp/</code>: Cloud SQL Postgres · GCS bucket · Pub/Sub topics + subscriptions · Memorystore Redis · Secret Manager · Artifact Registry · Cloud Run (api) · Cloud Run Jobs (orchestrator, executor). Workload Identity binds each service account.</p></div>
+          <div class="card"><h4>Azure</h4><p>Terraform in <code>infra/azure/</code>: Flexible Postgres · Blob Storage · Service Bus · Cache for Redis · Key Vault · ACR · Container Apps (api, orchestrator) · Container Apps Job (executor). Managed Identity per app, Key Vault reference in env.</p></div>
+          <div class="card"><h4>Vercel-hybrid</h4><p>Vercel Functions (api), Neon/Supabase Postgres, Cloudflare R2, Upstash Redis + QStash for queue, Browserless or Browserbase for executor. Cheapest path for &lt; 100 runs/day; ceiling is executor throughput.</p></div>
+        </div>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Per-app architecture                        -->
+      <!-- ================================================ -->
+      <section id="v3-per-app">
+        <h2>Per-app SAD</h2>
+        <p class="section-sub">One diagram + one interface contract per workspace. If a file doesn't fit its app's contract, it's in the wrong repo.</p>
+
+        <!-- WEB -->
+        <h3>web · SPA + edge proxy</h3>
+        <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.6rem;">
+          <strong style="color: var(--text);">Owns:</strong> presentation, routing, form validation,
+          SSE consumption. <strong style="color: var(--text);">Never owns:</strong> business rules,
+          artifact bytes, secrets.
+        </p>
+        <div class="diagram" role="img" aria-label="web internal architecture">
+<pre>                    browser
+                      │
+                      ▼
+              ┌────────────────┐    /            → static SPA (React 18 + Vite)
+              │  nginx:alpine  │    /api/*       → proxy to zero-api:3000
+              │   8080         │    /health      → 200 OK
+              │                │    cache-control immutable for /assets/*
+              └────────────────┘
+                      │
+                      ▼
+             ┌───────────────────┐
+             │  React app        │
+             │  ─────────────    │
+             │  router  →  views │  DashboardView · RunsListView · RunDetailView
+             │              │    │  NewRunView · LocatorsView · ApiKeysView …
+             │              ▼    │
+             │           useRun  │──── fetch /api/runs
+             │           useSSE  │──── EventSource /api/runs/:id/stream
+             │              │    │
+             │              ▼    │
+             │        components │  RunForm · PipelineFlow · PipelineStatus …
+             └───────────────────┘</pre>
+        </div>
+        <ul class="compact">
+          <li><strong>State:</strong> per-view hooks, no global store. Server is source of truth via SSE + polling fallback.</li>
+          <li><strong>Uploads:</strong> browser <code>PUT</code>s directly to presigned URL from <code>/api/runs</code>. Web never proxies file bytes.</li>
+          <li><strong>Errors:</strong> one <code>ErrorBoundary</code> per view; toasts for API failures.</li>
+        </ul>
+
+        <!-- API -->
+        <h3>api · stateless intake</h3>
+        <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.6rem;">
+          <strong style="color: var(--text);">Owns:</strong> authn, request validation, DB writes
+          for run metadata, presigned URLs, SSE relay.
+          <strong style="color: var(--text);">Never owns:</strong> Chromium, LLM calls, PDF
+          rendering, long-running work.
+        </p>
+        <div class="diagram" role="img" aria-label="api internal architecture">
+<pre>                    web / cli
+                      │
+                      ▼
+       ┌─────────────────────────────────────────────────┐
+       │  Express (apps/api)                             │
+       │  ─────────────────────────────────────────────  │
+       │  requestId → helmet → cors → rateLimit →        │
+       │              auth (OIDC verifier) →             │
+       │                    validate (zod) →             │
+       │                          route handler          │
+       │                                │                │
+       │  ┌────────────┬────────────────┼────────────┐   │
+       │  ▼            ▼                ▼            ▼   │
+       │ routes/runs  routes/locators  routes/sse  routes/health
+       │  │              │              │             │  │
+       │  │              │              ▼             │  │
+       │  │              │      Cache.subscribe        │
+       │  │              │      state.&lt;runId&gt;         │
+       │  ▼              ▼                             │  │
+       │ @zero/db     @zero/locators                   │  │
+       │  │              │                             │  │
+       │  ▼              ▼                             │  │
+       │ Postgres     Postgres (element_locators)      │  │
+       │  │                                            │  │
+       │  ▼   publish runs.requested                   │  │
+       │ Queue                                         │  │
+       └───────────────────────────────────────────────┘</pre>
+        </div>
+        <ul class="compact">
+          <li><strong>SLA:</strong> p99 &lt; 200 ms for intake; SSE keep-alive every 15 s.</li>
+          <li><strong>Deps allowed:</strong> <code>@zero/cloud · @zero/domain · @zero/db · @zero/locators</code>. Anything under <code>@zero/builders</code> or <code>@zero/analyzer</code> is a smell.</li>
+          <li><strong>Failure mode:</strong> queue publish failure ⇒ 503 + do not persist run; keeps DB and queue in lockstep.</li>
+        </ul>
+
+        <!-- ORCHESTRATOR -->
+        <h3>orchestrator · stage DAG worker</h3>
+        <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.6rem;">
+          <strong style="color: var(--text);">Owns:</strong> stage walk, agent prompts, LLM calls,
+          PDF, fan-out to executor.
+          <strong style="color: var(--text);">Never owns:</strong> HTTP surface, browser control.
+        </p>
+        <div class="diagram" role="img" aria-label="orchestrator internal architecture">
+<pre>      Queue.subscribe('runs.requested')
+                │
+                ▼
+       ┌────────────────────────────────┐
+       │  DAG walker (dag.js)           │
+       │  ─────────────                 │
+       │  loadRun(runId) →              │
+       │    for stage of stageKeys:     │
+       │      if skip(stage) continue   │
+       │      artifact = agent(stage)   │
+       │      persist(artifact)         │
+       │      cache.publish(state)      │
+       └────────────────────────────────┘
+                │
+   ┌────────────┼─────────────┬───────────────┐
+   ▼            ▼             ▼               ▼
+  agents/ba  agents/manualQa agents/automation agents/manager
+   │            │                │             │
+   │            │                │             ▼
+   │            │                │        pdfkit → objectStore.put(reports/*)
+   │            │                │
+   │            │                ▼
+   │            │       Queue.publish('execution.requested', batch)
+   │            │                │
+   ▼            ▼                ▼
+  LLM (via secrets)     Postgres artifacts       @zero/locators merge</pre>
+        </div>
+        <ul class="compact">
+          <li><strong>Idempotency:</strong> every stage keyed by <code>(runId, stage)</code>; re-delivery is safe.</li>
+          <li><strong>Resume:</strong> on restart, <code>SELECT</code> in-flight runs and re-walk from last <code>completed_at</code>.</li>
+          <li><strong>Back-pressure:</strong> per-instance concurrency = <code>MAX_INFLIGHT_RUNS</code>; queue does the rest.</li>
+        </ul>
+
+        <!-- EXECUTOR -->
+        <h3>executor · ephemeral Playwright job</h3>
+        <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.6rem;">
+          <strong style="color: var(--text);">Owns:</strong> one Chromium process per job, screenshots,
+          traces, learned selectors.
+          <strong style="color: var(--text);">Never owns:</strong> DB writes for runs, LLM,
+          multi-tenant knowledge.
+        </p>
+        <div class="diagram" role="img" aria-label="executor internal architecture">
+<pre>      Queue.subscribe('execution.requested')
+                │
+                ▼
+       ┌────────────────────────────────┐
+       │  worker.js                     │
+       │  ────────                      │
+       │  semaphore(MAX_CONCURRENT_JOBS)│
+       │  for msg in queue:             │
+       │    slot = await sem.acquire()  │
+       │    runJob(msg).finally(release)│
+       └────────────────────────────────┘
+                │
+                ▼
+       ┌────────────────────────────────┐
+       │  runJob                        │
+       │  ─────                         │
+       │  secrets.get(login)            │  ← never logged
+       │  ctx = chromium.launchContext()│  --no-sandbox --disable-dev-shm-usage
+       │  page = ctx.newPage()          │
+       │  for step in tc.steps:         │
+       │    play(step); trace(step)     │
+       │  objectStore.put(shots/…)      │
+       │  db.upsert(element_locators)   │
+       │  queue.publish(execution.completed)
+       │  ctx.close()                   │
+       └────────────────────────────────┘</pre>
+        </div>
+        <ul class="compact">
+          <li><strong>Isolation:</strong> new browser context per job — cookies never cross jobs.</li>
+          <li><strong>Timeouts:</strong> <code>job &lt; 5 min</code>, <code>step &lt; 30 s</code>. Beyond that, cancel and mark <code>failed</code>; queue redrives once, then DLQ.</li>
+          <li><strong>Resource floor:</strong> 1 vCPU + 2 GB RAM + 1 GB <code>/dev/shm</code> per concurrent job — undersized nodes will thrash.</li>
+        </ul>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Quality gates                               -->
+      <!-- ================================================ -->
+      <section id="v3-smell">
+        <h2>How do you know it doesn't smell?</h2>
+        <p class="section-sub">Ten enforceable gates. Each is a command that returns non-zero on regression. If they're not in CI, the split rots inside a month.</p>
+
+        <div class="flaw"><h3><span class="tag">GATE-1</span> API image contains no browser</h3><p><code>docker run --rm zero-api ls -R node_modules | grep -E 'playwright|chromium' &amp;&amp; exit 1 || true</code>. Prevents Chromium from silently re-entering the stateless tier.</p></div>
+
+        <div class="flaw"><h3><span class="tag">GATE-2</span> No cross-app imports</h3><p><code>npx depcruise apps/api --config .dependency-cruiser.js</code> with a rule that forbids <code>apps/*</code> importing anything under a sibling <code>apps/*</code>. Apps talk via queue only.</p></div>
+
+        <div class="flaw"><h3><span class="tag">GATE-3</span> Domain code doesn't know AWS/GCP/Azure exist</h3><p><code>rg "from '@aws-sdk|@google-cloud|@azure/" apps packages -g '!packages/cloud/**' &amp;&amp; exit 1</code>. Only <code>packages/cloud/{aws,gcp,azure}</code> may import vendor SDKs.</p></div>
+
+        <div class="flaw"><h3><span class="tag">GATE-4</span> No circular deps</h3><p><code>npx madge --circular packages apps</code>. First circular import is where the split starts leaking.</p></div>
+
+        <div class="flaw"><h3><span class="tag">GATE-5</span> API package size budget</h3><p><code>docker image inspect zero-api --format '{{.Size}}'</code> stays under 250 MB. Regressions usually mean a stray transitive dep dragged Playwright or Puppeteer back in.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">GATE-6</span> No <code>process.env</code> outside <code>config.js</code></h3><p><code>rg "process\\.env\\." apps -g '!**/config.js' -g '!**/*.test.js'</code>. Every service reads env exactly once at boot; the rest of the code takes a validated config object.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">GATE-7</span> No <code>console.log</code> in shipped code</h3><p><code>rg "console\\.(log|error|warn)" apps packages -g '!**/*.test.js'</code>. Use the structured <code>logger</code> from <code>@zero/observability</code>.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">GATE-8</span> No secrets in artifacts</h3><p>Test that greps run artifacts for known secret shapes (JWT, AWS key, bearer) and fails the build. <code>lib/apiKeyManager</code> exists; enforce it.</p></div>
+
+        <div class="flaw p2"><h3><span class="tag">GATE-9</span> Contract tests on adapters</h3><p>Every provider under <code>packages/cloud/*</code> passes the same conformance suite: <code>presignPut · presignGet · put · get · remove · publish · subscribe · get · set · publish · subscribe</code>. Same test file, four provider fixtures.</p></div>
+
+        <div class="flaw p2"><h3><span class="tag">GATE-10</span> Migrations are forward-only + reversible</h3><p><code>packages/db/migrate.js up &amp;&amp; migrate.js down &amp;&amp; migrate.js up</code> succeeds in CI. No hand-edited SQL after merge.</p></div>
+
+        <p class="note info">
+          <strong>Wire order:</strong> gates 1–5 in a required pre-merge job (block merge); gates
+          6–8 in a nightly job that files issues; gates 9–10 in the release job.
+        </p>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Test strategy                               -->
+      <!-- ================================================ -->
+      <section id="v3-tests">
+        <h2>Test strategy · per workspace</h2>
+        <p class="section-sub">Pyramid, not iceberg. Fast unit tests where possible, one honest end-to-end that boots the compose stack.</p>
+
+        <div class="table-wrap">
+          <table class="providers">
+            <thead>
+              <tr><th>Workspace</th><th>Tier</th><th>Tool</th><th>Coverage floor</th><th>Runs in</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>packages/domain</th>    <td>unit</td>         <td>vitest</td>        <td>90 %</td>  <td>node</td></tr>
+              <tr><th>packages/locators</th>  <td>unit</td>         <td>vitest</td>        <td>85 %</td>  <td>node</td></tr>
+              <tr><th>packages/builders</th>  <td>unit + snapshot</td><td>vitest</td>      <td>85 %</td>  <td>node</td></tr>
+              <tr><th>packages/analyzer</th>  <td>unit</td>         <td>vitest + nock</td> <td>80 %</td>  <td>node</td></tr>
+              <tr><th>packages/db</th>        <td>integration</td>  <td>vitest + pg</td>   <td>schema round-trip</td><td>compose (postgres)</td></tr>
+              <tr><th>packages/cloud/local</th><td>contract</td>    <td>vitest</td>        <td>reference suite</td><td>node</td></tr>
+              <tr><th>packages/cloud/aws</th> <td>contract</td>     <td>vitest + LocalStack</td><td>same suite</td><td>compose (localstack)</td></tr>
+              <tr><th>apps/api</th>           <td>integration</td>  <td>vitest + supertest</td><td>75 % routes</td><td>node + fakes</td></tr>
+              <tr><th>apps/orchestrator</th>  <td>integration</td>  <td>vitest + fake queue</td><td>DAG paths</td><td>node</td></tr>
+              <tr><th>apps/executor</th>      <td>integration</td>  <td>playwright test</td><td>3 golden flows</td><td>compose (playwright img)</td></tr>
+              <tr><th>web</th>                <td>component + a11y</td><td>vitest + testing-library + axe</td><td>views &amp; forms</td><td>jsdom</td></tr>
+              <tr><th>e2e</th>                <td>smoke</td>         <td>bash + curl + jq</td><td>1 run start→completed</td><td><code>docker compose</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Fake adapters — the reason apps stay fast</h3>
+        <pre><code>// apps/api/test/helpers/fakeCloud.js
+const store = new Map();
+const subs  = new Map();
+module.exports = {
+  objectStore: {
+    put:  async (k, b) =&gt; store.set(k, Buffer.from(b)),
+    get:  async (k)    =&gt; store.get(k),
+    presignPut: async (k) =&gt; `fake://put/${k}`,
+    presignGet: async (k) =&gt; `fake://get/${k}`,
+    remove: async (k)     =&gt; store.delete(k),
+  },
+  queue: {
+    async publish(t, m) { (subs.get(t) || []).forEach((h) =&gt; h(m)); },
+    subscribe(t, h) { subs.set(t, [...(subs.get(t) || []), h]); return () =&gt; {}; },
+  },
+  // secrets/cache follow the same pattern
+};</code></pre>
+        <p class="note info">
+          Apps get injected a cloud bundle in tests — no <code>ZERO_CLOUD</code> switch, no real
+          network. This is why the api integration suite finishes in seconds.
+        </p>
+
+        <h3>Golden e2e</h3>
+        <pre><code># e2e/smoke.sh — runs against docker compose up
+set -euo pipefail
+API=http://localhost:3000
+
+runId=$(curl -sf -X POST $API/api/runs \
+  -F 'url=https://example.com' -F 'profile=Generic' \
+  -F 'tcFile=@fixtures/tiny.csv' | jq -r .runId)
+
+for _ in $(seq 1 60); do
+  status=$(curl -sf $API/api/runs/$runId | jq -r .status)
+  [ "$status" = completed ] &amp;&amp; break
+  [ "$status" = failed    ] &amp;&amp; { echo "run failed"; exit 1; }
+  sleep 2
+done
+[ "$status" = completed ] || { echo "timed out"; exit 1; }
+
+curl -sfI "$(curl -sf $API/api/runs/$runId/download | jq -r .url)" | head -1</code></pre>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Best practices per repo                     -->
+      <!-- ================================================ -->
+      <section id="v3-best">
+        <h2>Per-workspace conventions</h2>
+        <p class="section-sub">Non-negotiable rules that keep the split healthy. Enforced by the gates above.</p>
+
+        <div class="cards" style="grid-template-columns: 1fr;">
+          <div class="card">
+            <h4>Every workspace</h4>
+            <p>
+              <code>type: "module"</code>, Node 20 LTS · one <code>src/</code> tree · one
+              <code>test/</code> tree · <code>src/config.js</code> is the only reader of
+              <code>process.env</code> and exports a frozen, zod-validated object ·
+              <code>src/logger.js</code> re-exports pino/winston from
+              <code>@zero/observability</code> with a bound service name · exports declared in
+              <code>package.json#exports</code>, no deep imports.
+            </p>
+          </div>
+          <div class="card">
+            <h4>apps/api</h4>
+            <p>
+              Route files return a router only; no side effects at import · zod schemas at the
+              boundary, typed handlers · every route returns within 250 ms budget or streams · SSE
+              handlers use <code>cache.subscribe</code>, never poll DB · errors funnel through one
+              <code>errorHandler</code> middleware that maps to <code>{ code, message, requestId }</code>.
+            </p>
+          </div>
+          <div class="card">
+            <h4>apps/orchestrator</h4>
+            <p>
+              One agent = one file, one exported <code>run(runId, ctx)</code> · agents receive a
+              <code>ctx</code> with <code>db · objectStore · secrets · llm · logger</code> — never
+              call adapters directly · every write is idempotent on <code>(runId, stage)</code> ·
+              retries are the queue's job, not the agent's · no <code>setTimeout</code>-based
+              waits.
+            </p>
+          </div>
+          <div class="card">
+            <h4>apps/executor</h4>
+            <p>
+              One job = one browser context, always closed in <code>finally</code> · per-step
+              timeout via <code>page.setDefaultTimeout</code> · screenshots and traces uploaded
+              through <code>objectStore</code>, never written next to the process · learned
+              selectors upserted in a single batched statement · no HTTP server, only queue
+              subscription.
+            </p>
+          </div>
+          <div class="card">
+            <h4>packages/cloud</h4>
+            <p>
+              Each provider exports the exact same surface as <code>index.d.ts</code> — the
+              conformance suite (<span class="tag" style="color: var(--signal); margin: 0;">GATE-9</span>) is the source of truth · no cross-provider imports · adapters throw
+              typed errors (<code>NotFound · Conflict · Throttled</code>) that the domain code can
+              switch on without knowing the vendor.
+            </p>
+          </div>
+          <div class="card">
+            <h4>packages/domain, locators, builders, analyzer, db</h4>
+            <p>
+              Pure functions where possible, no I/O at import · zero dependencies on
+              <code>express</code>, <code>playwright</code>, or cloud SDKs · snapshot tests for
+              anything that emits code (Playwright spec, Java class) · db package owns migrations
+              and a thin pg pool factory only.
+            </p>
+          </div>
+          <div class="card">
+            <h4>web</h4>
+            <p>
+              One view = one folder, colocated <code>.css</code> · data-fetching hooks live under
+              <code>src/data/</code>, never inside components · no <code>useEffect</code> for
+              server state — use a query hook · SSE via a single provider that debounces state
+              updates · axe smoke test per view.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Cross-cutting                               -->
+      <!-- ================================================ -->
+      <section id="v3-cross">
+        <h2>Cross-cutting concerns</h2>
+        <p class="section-sub">Concerns that touch every service. Standardize once, or every app reinvents them badly.</p>
+
+        <div class="cards">
+          <div class="card"><h4>Observability</h4><p>OpenTelemetry SDK auto-instruments express/pg/aws-sdk. One <code>traceparent</code> follows a run across api → queue → orchestrator → executor. Logs are JSON via pino, always include <code>runId</code>, <code>service</code>, <code>traceId</code>. Metrics: <code>runs_started</code>, <code>runs_completed</code>, <code>stage_duration_ms</code>, <code>queue_lag</code>, <code>executor_slots_used</code>.</p></div>
+          <div class="card"><h4>Config</h4><p><code>src/config.js</code> = <code>zod.parse(process.env)</code>. Boot fails fast on missing/invalid config. Never read env below this file.</p></div>
+          <div class="card"><h4>Secrets</h4><p>Only <code>secrets.get()</code>. Prod refuses to boot if <code>KEY_ENC_SECRET</code> falls back to the dev default. Login passwords for a run never enter Postgres or artifacts.</p></div>
+          <div class="card"><h4>Health &amp; readiness</h4><p><code>/health</code> liveness (200 if event loop alive). <code>/ready</code> checks DB, queue, object store round-trip. K8s probes: liveness=<code>/health</code>, readiness=<code>/ready</code>.</p></div>
+          <div class="card"><h4>Error taxonomy</h4><p>Four base classes in <code>@zero/domain/errors</code>: <code>ValidationError</code> → 400, <code>NotFound</code> → 404, <code>Conflict</code> → 409, <code>InternalError</code> → 500. Handlers throw; middleware maps.</p></div>
+          <div class="card"><h4>Auth &amp; multi-tenant</h4><p>OIDC verifier on api; every DB write scoped by <code>tenant_id</code>; presigned reads only. Adapter surface has no tenant knowledge — namespacing happens in <code>@zero/domain</code>.</p></div>
+        </div>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Risks & tradeoffs                           -->
+      <!-- ================================================ -->
+      <section id="v3-risks">
+        <h2>Risks &amp; tradeoffs</h2>
+        <p class="section-sub">Where V3 is fragile, and what to do about it.</p>
+
+        <div class="flaw"><h3><span class="tag">R1</span> Adapter drift</h3><p>Provider adapters silently diverge in edge behavior (retry semantics, error shapes, event ordering). <strong>Mitigation:</strong> the shared conformance suite (GATE-9) runs against every provider in CI; providers without green cannot ship.</p></div>
+
+        <div class="flaw"><h3><span class="tag">R2</span> Executor cold start</h3><p>Chromium image is ~1.6 GB and slow to schedule. First job of the day can wait 30–60 s. <strong>Mitigation:</strong> keep <code>min_replicas=1</code> for the executor deployment; autoscale up on queue depth, not on CPU.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">R3</span> Queue exactly-once fantasy</h3><p>SQS/PubSub/Service Bus all deliver at-least-once. Idempotency must live in the handler, not the queue. <strong>Mitigation:</strong> every write keyed by <code>(runId, stage)</code>; DB uniqueness catches replays.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">R4</span> Monorepo build times</h3><p>Naive builds rebuild everything on any change. <strong>Mitigation:</strong> turborepo or nx with per-workspace caches, or lockfile-only copy in Dockerfiles (already shown) so <code>npm ci</code> caches across commits.</p></div>
+
+        <div class="flaw p1"><h3><span class="tag">R5</span> SSE behind load balancers</h3><p>Sticky sessions or cache-fanout matter. If the API is behind an LB without sticky, one replica publishes state and another holds the connection. <strong>Mitigation:</strong> every replica subscribes to Redis pub/sub for <code>state.&lt;runId&gt;</code>; no stickiness required.</p></div>
+
+        <div class="flaw p2"><h3><span class="tag">R6</span> Local ≠ prod for signed URLs</h3><p><code>packages/cloud/local</code> uses HMAC tokens served by the API; real S3/GCS use SigV4/V4. Auth failures only surface in staging. <strong>Mitigation:</strong> at least one nightly job that exercises the AWS adapter against LocalStack.</p></div>
+
+        <div class="flaw p2"><h3><span class="tag">R7</span> LLM provider outages</h3><p>BA/Manager stages fail if OpenAI/Anthropic/Vertex hiccup. <strong>Mitigation:</strong> agents accept a <code>llm</code> facade with per-provider fallback and a deterministic template mode (today's runtime), so a run can still complete with degraded reports.</p></div>
+
+        <p class="note info">
+          <strong>Definition of done for V3:</strong> gates 1–5 green in required CI · smoke e2e
+          green on <code>docker compose up</code> · one non-local provider (AWS or GCP) passes the
+          conformance suite · <code>agent-workflow/progress.json</code> shows <code>M4</code>
+          complete (acceptance floor).
+        </p>
+      </section>
+
+      <!-- ================================================ -->
+      <!-- SAD · Low-level design per project                -->
+      <!-- ================================================ -->
+      <section id="v3-lld">
+        <h2>Low-level design · per project</h2>
+        <p class="section-sub">
+          One tab per deployable / package. Each starts with an honesty split — what actually works
+          in <code>server.js</code> today vs what V3 delivers — because the user complaint is
+          correct: the UI advertises features (LLM keys, agent settings, locators, integrations)
+          that the pipeline never calls.
+        </p>
+
+        <div class="subtabs" role="tablist" aria-label="V3 project low-level designs">
+          <button class="subtab" role="tab" aria-selected="true" data-subtab="lld-web">web <span class="subtab-tag">SPA</span></button>
+          <button class="subtab" role="tab" aria-selected="false" data-subtab="lld-api">api <span class="subtab-tag">intake</span></button>
+          <button class="subtab" role="tab" aria-selected="false" data-subtab="lld-orch">orchestrator <span class="subtab-tag">DAG</span></button>
+          <button class="subtab" role="tab" aria-selected="false" data-subtab="lld-exec">executor <span class="subtab-tag">Playwright</span></button>
+          <button class="subtab" role="tab" aria-selected="false" data-subtab="lld-cloud">packages/cloud <span class="subtab-tag">adapters</span></button>
+          <button class="subtab" role="tab" aria-selected="false" data-subtab="lld-libs">shared libs <span class="subtab-tag">domain · db · locators · builders · analyzer</span></button>
+        </div>
+
+        <!-- ============ web ============ -->
+        <div class="subpanel" data-active="true" data-subtab="lld-web" role="tabpanel">
+          <h3 class="subhead">web · React 18 + Vite → nginx</h3>
+          <p class="subpurpose">Presentation and form validation. Never holds business rules, never proxies artifact bytes, never sees a secret.</p>
+
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (client/src/)</h5>
+              <ul>
+                <li><strong>DashboardView</strong> — lists past runs from <code>/api/runs</code></li>
+                <li><strong>NewRunView</strong> — multipart submit to <code>/api/runs</code></li>
+                <li><strong>RunDetailView</strong> — polls <code>/api/runs/:id</code> for status</li>
+                <li><strong>PipelineFlow / PipelineStatus</strong> — renders <code>stageKeys</code></li>
+                <li><strong>CmsScreenshotCapture</strong> — Stream-tab bulk capture flow</li>
+                <li>Vite dev proxy → :3000 · builds to <code>public/</code></li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>UI present · backend not wired</h5>
+              <ul>
+                <li><strong>ApiKeysView</strong> — saves provider keys; <em>no agent reads them</em></li>
+                <li><strong>AgentsView</strong> — settings saved; <em>agents ignore them</em></li>
+                <li><strong>LocatorsView</strong> — requires Postgres <code>element_locators</code>; DB is off</li>
+                <li><strong>IntegrationsView</strong> — placeholder; no backend</li>
+                <li>No SSE — polling only; no real-time stage updates</li>
+                <li>No auth — spoofable <code>X-User-Email</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Module map</h3>
+          <div class="diagram" role="img" aria-label="web module map">
+<pre>web/
+├─ nginx.conf                 <span class="hi">/</span>       → index.html (SPA)
+│                             <span class="hi">/api/*</span>  → api:3000 (proxy_pass)
+│                             <span class="hi">/health</span> → 200
+├─ vite.config.js             build → dist/ · dev proxy :3000
+└─ src/
+   ├─ main.jsx                bootstraps &lt;App/&gt;
+   ├─ App.jsx                 router
+   ├─ layouts/AppShell.jsx    Topbar · Sidebar · outlet
+   ├─ data/                   <span class="hi">new in V3</span> — one hook per endpoint
+   │  ├─ useRuns.js           GET /api/runs (react-query)
+   │  ├─ useRun.js            GET /api/runs/:id
+   │  ├─ useRunStream.js      EventSource /api/runs/:id/stream
+   │  ├─ useLocators.js       GET /api/locators
+   │  └─ useUpload.js         PUT presigned URL + progress
+   ├─ components/             stateless view atoms
+   └─ views/                  one folder per route, .css colocated</pre>
+          </div>
+
+          <h3>Interface consumed</h3>
+          <ul class="compact">
+            <li><code>POST /api/runs</code> — returns <code>{ runId, uploads: [{ field, url, key }] }</code>. Web then <code>PUT</code>s each file to <code>url</code>; no bytes through api.</li>
+            <li><code>GET /api/runs</code>, <code>GET /api/runs/:id</code>, <code>GET /api/runs/:id/download</code></li>
+            <li><code>GET /api/runs/:id/stream</code> — SSE events: <code>state</code>, <code>artifact</code>, <code>done</code>, <code>error</code></li>
+            <li><code>GET /api/locators?host=</code>, <code>POST /api/element-log</code>, <code>/api/provider-keys</code>, <code>/api/agent-settings</code></li>
+          </ul>
+
+          <h3>Key sequence · start a run</h3>
+          <div class="diagram" role="img" aria-label="web sequence for new run">
+<pre> user      NewRunView       api                object store       SSE
+  │             │             │                      │              │
+  │─ submit ──▶ │             │                      │              │
+  │             │─ POST /runs ▶                      │              │
+  │             │             │─ INSERT qa_runs      │              │
+  │             │             │─ presignPut × N ─────▶              │
+  │             │  ◀── 202 { runId, uploads }        │              │
+  │             │─ PUT tc.csv ────────────────────── ▶              │
+  │             │─ PUT recording ─────────────────── ▶              │
+  │             │             │─ publish runs.requested              │
+  │             │─ GET /runs/:id/stream ────────────────────────── ▶ │
+  │  ◀────────── render stage ticks from SSE ──────────────────────  │</pre>
+          </div>
+
+          <h3>Config &amp; failure</h3>
+          <ul class="compact">
+            <li><strong>Config:</strong> <code>VITE_API_BASE</code> (empty = same origin via nginx).</li>
+            <li><strong>Uploads:</strong> retry with exponential backoff; give up after 3 attempts and show a per-file error inline.</li>
+            <li><strong>SSE:</strong> auto-reconnect with jittered backoff; degrade to 3 s polling after 2 failed reconnects.</li>
+            <li><strong>Auth:</strong> refresh token on 401; redirect to login on 403.</li>
+          </ul>
+        </div>
+
+        <!-- ============ api ============ -->
+        <div class="subpanel" data-subtab="lld-api" role="tabpanel">
+          <h3 class="subhead">api · Express intake</h3>
+          <p class="subpurpose">Terminate HTTP, validate, persist metadata, presign uploads, publish to the queue, stream state. Nothing else.</p>
+
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (server.js · lib/)</h5>
+              <ul>
+                <li><strong>46 route handlers</strong> — runs, locators, element-log, recordings, cms, health</li>
+                <li><strong>helmet, rate-limit, cors, morgan</strong> — via <code>lib/middleware.js</code></li>
+                <li><strong>Swagger UI</strong> at <code>/api-docs</code> — real OpenAPI spec</li>
+                <li><strong>Winston</strong> structured logs → <code>logs/</code></li>
+                <li><strong>Multer</strong> multipart upload</li>
+                <li>PDF via <code>pdfkit</code>, XLSX via <code>xlsx</code></li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>broken / dangerous today</h5>
+              <ul>
+                <li><strong>No presigned URLs</strong> — every file streams through Express (blocks event loop, breaks on Vercel)</li>
+                <li><strong>Postgres hard-disabled</strong> — <code>databaseConfigured()</code> returns false</li>
+                <li><strong>Header auth</strong> — <code>X-User-Email</code> and any non-empty api key accepted</li>
+                <li><strong><code>/artifacts</code> static-served</strong> — unauthenticated read of any run</li>
+                <li><strong>SSE missing</strong> — clients poll every 2 s</li>
+                <li><strong>Chromium in this process</strong> — see executor tab</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Module map</h3>
+          <div class="diagram" role="img" aria-label="api module map">
+<pre>apps/api/
+├─ Dockerfile                    node:20-alpine, ~180 MB, non-root
+└─ src/
+   ├─ server.js                  ~80 lines: config → wireDeps → app.listen
+   ├─ config.js                  zod.parse(process.env), frozen export
+   ├─ deps.js                    build cloud bundle, db pool, logger, once
+   ├─ http/
+   │  ├─ middleware.js           requestId · helmet · cors · rateLimit · logger
+   │  ├─ errorHandler.js         maps typed errors → { code, message, requestId }
+   │  ├─ auth.js                 OIDC verifier (jose) · attaches req.user
+   │  └─ validate.js             zod schema → 400 with field errors
+   ├─ routes/
+   │  ├─ runs.js                 POST · GET · GET /:id · download · rerun-failed
+   │  ├─ stream.js               GET /:id/stream (SSE, subscribes cache)
+   │  ├─ locators.js             GET · POST /element-log
+   │  ├─ recordings.js           create · put · list · delete
+   │  ├─ cms.js                  capture-cms-screenshot(-bulk)
+   │  ├─ provider-keys.js        list · put · delete   <span class="hi">now actually used by orch</span>
+   │  ├─ agent-settings.js       CRUD                  <span class="hi">now actually used by orch</span>
+   │  └─ health.js               /health · /ready
+   └─ sse/
+      └─ hub.js                  cache.subscribe(state.&lt;runId&gt;) → SSE fan-out</pre>
+          </div>
+
+          <h3>Data model touched</h3>
+          <div class="table-wrap">
+            <table class="providers">
+              <thead><tr><th>Store</th><th>Key / table</th><th>Operations</th></tr></thead>
+              <tbody>
+                <tr><th>Postgres</th><td><code>qa_runs</code></td>          <td>INSERT (queued), SELECT by id / tenant, UPDATE status via listen/notify</td></tr>
+                <tr><th>Postgres</th><td><code>qa_assets</code></td>        <td>INSERT (metadata + object key)</td></tr>
+                <tr><th>Postgres</th><td><code>element_locators</code></td> <td>SELECT by host (locator lookup)</td></tr>
+                <tr><th>Postgres</th><td><code>provider_keys</code></td>    <td>SELECT / INSERT (encrypted via <code>lib/encryption</code>)</td></tr>
+                <tr><th>Object store</th><td><code>runs/&lt;id&gt;/inputs/*</code></td><td>presignPut (return url to client)</td></tr>
+                <tr><th>Object store</th><td><code>runs/&lt;id&gt;/reports/*</code></td><td>presignGet (return url on download)</td></tr>
+                <tr><th>Queue</th>   <td><code>runs.requested</code></td>   <td>publish { runId, tenantId, traceparent }</td></tr>
+                <tr><th>Cache</th>   <td><code>state.&lt;runId&gt;</code></td>    <td>subscribe (SSE)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Key sequence · POST /api/runs</h3>
+          <div class="diagram" role="img" aria-label="api create-run sequence">
+<pre> client         handler       validate   db          objectStore   queue
+   │              │              │        │              │           │
+   │─ POST /runs ▶│              │        │              │           │
+   │              │─ auth req    │        │              │           │
+   │              │─ validate ──▶│        │              │           │
+   │              │  ◀── ok      │        │              │           │
+   │              │─ INSERT qa_runs ────▶│              │           │
+   │              │  ◀── row              │              │           │
+   │              │─ presignPut × N ────────────────────▶│           │
+   │              │  ◀── urls             │              │           │
+   │              │─ publish runs.requested ──────────────────────▶ │
+   │              │       (in txn with INSERT via outbox pattern)   │
+   │  ◀── 202 { runId, uploads }                                     │</pre>
+          </div>
+          <p class="note info">
+            <strong>Outbox pattern:</strong> INSERT into <code>qa_runs</code> and INSERT into
+            <code>outbox_events</code> in the same transaction. A background poller publishes and
+            marks published. This is how the api guarantees "if we accepted your run, the queue
+            has it" without distributed transactions.
+          </p>
+
+          <h3>Config &amp; failure</h3>
+          <ul class="compact">
+            <li><strong>Config:</strong> <code>PORT</code>, <code>DATABASE_URL</code>, <code>ZERO_CLOUD</code>, <code>OIDC_ISSUER</code>, <code>OIDC_AUDIENCE</code>, <code>KEY_ENC_SECRET</code>, <code>MAX_UPLOAD_BYTES</code>, <code>RATE_LIMIT_PER_MIN</code>.</li>
+            <li><strong>Refuse to boot:</strong> when <code>KEY_ENC_SECRET</code> is the dev default in <code>NODE_ENV=production</code>.</li>
+            <li><strong>Queue down:</strong> return 503 to client; do <em>not</em> leave <code>qa_runs</code> row without an outbox event (transactional).</li>
+            <li><strong>DB down:</strong> readiness <code>/ready</code> flips red; LB drains; liveness stays green.</li>
+          </ul>
+        </div>
+
+        <!-- ============ orchestrator ============ -->
+        <div class="subpanel" data-subtab="lld-orch" role="tabpanel">
+          <h3 class="subhead">orchestrator · stage DAG worker</h3>
+          <p class="subpurpose">Consume <code>runs.requested</code>, walk <code>stageKeys</code>, call agents (real LLM), persist artifacts, fan out to executor, aggregate results, publish reports.</p>
+
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (server.js · lib/)</h5>
+              <ul>
+                <li><strong><code>processRun</code></strong> walks <code>stageKeys</code> in order</li>
+                <li><strong>Template agents</strong> — BA, Manual QA, Automation QA, Manager, Delivery all produce artifacts deterministically</li>
+                <li><strong>Locator merge</strong> — profile → memory (DB path exists but off)</li>
+                <li><strong>Script builders</strong> — Playwright spec + Java/Selenium class text emitted correctly</li>
+                <li><strong>URL analyzer</strong> — <code>lib/urlAnalyzerPro</code> crawls and fills BRD gaps</li>
+                <li><strong>PDF Manager report</strong> — pdfkit renders a real document</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>advertised · not actually happening</h5>
+              <ul>
+                <li><strong>No LLM calls</strong> — <code>lib/apiKeyManager</code> stores keys; agents never invoke OpenAI/Anthropic/Vertex/Bedrock</li>
+                <li><strong>Agent settings ignored</strong> — <code>/api/agent-settings</code> writes to store; agents don't read</li>
+                <li><strong>In-process only</strong> — no queue; a crashed pipeline leaves runs stuck as "in_progress"</li>
+                <li><strong>No resume-from-crash</strong> — restarts start from scratch or lose the run</li>
+                <li><strong>No retry semantics</strong> — one exception per stage kills the whole run</li>
+                <li><strong>No fan-out</strong> — TCs execute serially inside <code>processRun</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Module map</h3>
+          <div class="diagram" role="img" aria-label="orchestrator module map">
+<pre>apps/orchestrator/
+├─ Dockerfile                    node:20-alpine, no browser
+└─ src/
+   ├─ worker.js                  boot · queue.subscribe('runs.requested', onMessage)
+   ├─ config.js                  zod-validated env
+   ├─ dag.js                     walk stageKeys · resume from run.state.stageProgress
+   ├─ ctx.js                     builds { db, objectStore, secrets, llm, logger, tenantId }
+   ├─ llm/
+   │  ├─ index.js                facade: llm.chat(prompt, opts)
+   │  ├─ openai.js               real client via secrets
+   │  ├─ anthropic.js            "
+   │  ├─ vertex.js               "
+   │  └─ template.js             deterministic fallback (today's behavior)
+   ├─ prompts/                   versioned per agent · <code>ba@v3.md</code>
+   └─ agents/
+      ├─ webAnalyzer.js
+      ├─ ba.js                   requirements from URL + notes + Figma + TCs
+      ├─ manualQa.js
+      ├─ automationQa.js         emits Playwright spec + Java class
+      ├─ execution.js            batches TCs → publish execution.requested; awaits completed
+      ├─ accessibility.js
+      ├─ performance.js
+      ├─ security.js
+      ├─ manager.js              pdfkit report
+      └─ delivery.js             stakeholder JSON</pre>
+          </div>
+
+          <h3>Interface</h3>
+          <ul class="compact">
+            <li><strong>Subscribes:</strong> <code>runs.requested { runId, tenantId, traceparent }</code>, <code>execution.completed { runId, batchId, results[] }</code></li>
+            <li><strong>Publishes:</strong> <code>execution.requested { runId, batchId, tcs[], selectors, mode }</code>, <code>reports.completed { runId, urls }</code></li>
+            <li><strong>Cache pub/sub:</strong> <code>state.&lt;runId&gt;</code> — every stage transition; consumed by api SSE</li>
+          </ul>
+
+          <h3>Key sequence · run walk</h3>
+          <div class="diagram" role="img" aria-label="orchestrator run walk sequence">
+<pre> queue          worker         dag            agent(stage)    llm      db       queue-out
+   │              │              │                │            │        │           │
+   │─ runs.req ──▶│              │                │            │        │           │
+   │              │─ loadRun ───▶│                │            │        │           │
+   │              │              │─ next stage ──▶│            │        │           │
+   │              │              │                │─ prompt ──▶│        │           │
+   │              │              │                │  ◀── text  │        │           │
+   │              │              │                │─ upsert artifact ─▶│           │
+   │              │              │                │─ state.publish ────────────────▶│  (cache)
+   │              │              │  ◀── done      │            │        │           │
+   │              │              │─ (loop)                                          │
+   │              │              │─ execution stage:                                │
+   │              │              │    publish execution.requested ─────────────────▶│
+   │              │              │    await execution.completed ← queue-in         │
+   │              │              │─ manager+delivery stages                        │
+   │              │              │─ state=completed ─────────────────────────────▶ (cache)</pre>
+          </div>
+
+          <h3>Idempotency, retry, resume</h3>
+          <ul class="compact">
+            <li><strong>Idempotent writes:</strong> <code>INSERT ... ON CONFLICT (run_id, stage) DO UPDATE</code> — safe under at-least-once delivery.</li>
+            <li><strong>Stage progress:</strong> <code>qa_runs.stage_progress JSONB</code> = <code>{ stageKey: { status, completedAt } }</code>. On restart, walker skips completed stages.</li>
+            <li><strong>Retry:</strong> queue redrives on unhandled throw; DLQ after N (default 3). Poison-message runs go to <code>status=failed_review</code>.</li>
+            <li><strong>Cancel:</strong> <code>PATCH /api/runs/:id/cancel</code> sets <code>qa_runs.cancel_requested</code>; walker checks between stages and aborts cleanly.</li>
+          </ul>
+
+          <h3>Config &amp; failure</h3>
+          <ul class="compact">
+            <li><strong>Config:</strong> <code>DATABASE_URL</code>, <code>ZERO_CLOUD</code>, <code>MAX_INFLIGHT_RUNS</code>, <code>LLM_TIMEOUT_MS</code>, <code>LLM_COST_CAP_USD</code>.</li>
+            <li><strong>LLM outage:</strong> switch to <code>template.js</code> (today's behavior), tag artifact <code>quality=degraded</code>, continue run.</li>
+            <li><strong>Executor slow:</strong> queue depth alerts; walker doesn't block other runs (per-instance concurrency).</li>
+          </ul>
+        </div>
+
+        <!-- ============ executor ============ -->
+        <div class="subpanel" data-subtab="lld-exec" role="tabpanel">
+          <h3 class="subhead">executor · ephemeral Playwright job</h3>
+          <p class="subpurpose">One browser context per job. Uploads screenshots + traces. Upserts learned selectors. Nothing else.</p>
+
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (server.js inline)</h5>
+              <ul>
+                <li><strong><code>playwright.chromium.launch</code></strong> with <code>--no-sandbox --disable-dev-shm-usage</code></li>
+                <li><strong>Minimal mode</strong> — URL load + body wait + screenshot (reliable)</li>
+                <li><strong>Full mode</strong> — keyword/selector navigation (brittle)</li>
+                <li><strong>Screenshots</strong> per step → <code>artifacts/&lt;runId&gt;/</code></li>
+                <li><strong>Learned selectors</strong> collected in <code>selectorMemory</code> Map</li>
+                <li>a11y / perf / security passes run in-process</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>the single biggest scale risk</h5>
+              <ul>
+                <li><strong>Runs in api process</strong> — one crashed page can OOM the whole app</li>
+                <li><strong>Unbounded concurrency</strong> — <code>N runs × M TCs</code> Chromiums simultaneously</li>
+                <li><strong>Local disk</strong> — artifacts on filesystem, not shareable across replicas</li>
+                <li><strong>Learned selectors lost on restart</strong> — Map only</li>
+                <li><strong>Serverless-hostile</strong> — Vercel functions kill long browser work</li>
+                <li><strong>No trace upload</strong> — Playwright traces stay local</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Module map</h3>
+          <div class="diagram" role="img" aria-label="executor module map">
+<pre>apps/executor/
+├─ Dockerfile                    mcr.../playwright:v1.52-jammy · pwuser · shm 1g
+└─ src/
+   ├─ worker.js                  queue.subscribe('execution.requested', runJob)
+   ├─ config.js                  MAX_CONCURRENT_JOBS · timeouts
+   ├─ semaphore.js               await-based slot manager
+   ├─ runJob.js                  new context → play steps → upload → publish completed
+   ├─ browser.js                 launch flags, per-job context factory
+   ├─ steps/
+   │  ├─ navigate.js · click.js · type.js · waitFor.js · screenshot.js
+   │  └─ trace.js                start/stop tracing per step
+   ├─ passes/
+   │  ├─ accessibility.js        @axe-core/playwright
+   │  ├─ performance.js          coverage + web vitals
+   │  └─ security.js             headers · cookies · content heuristics
+   └─ locators/
+      └─ upsert.js               batch INSERT ON CONFLICT into element_locators</pre>
+          </div>
+
+          <h3>Interface</h3>
+          <ul class="compact">
+            <li><strong>Subscribes:</strong> <code>execution.requested { runId, batchId, tcs[], selectors, mode, loginSecretRef }</code></li>
+            <li><strong>Publishes:</strong> <code>execution.completed { runId, batchId, results[], shotKeys[], traceKey }</code></li>
+            <li><strong>Reads:</strong> <code>secrets.get(loginSecretRef)</code>, <code>objectStore.get(recordingKey?)</code></li>
+            <li><strong>Writes:</strong> <code>objectStore.put(runs/&lt;id&gt;/shots/&lt;tc&gt;.png)</code>, <code>traces/</code>, <code>element_locators</code> upsert</li>
+          </ul>
+
+          <h3>Key sequence · one TC batch</h3>
+          <div class="diagram" role="img" aria-label="executor per-batch sequence">
+<pre> queue         runJob         semaphore       secrets    chromium   objectStore  db     queue-out
+   │             │               │               │           │            │       │        │
+   │─ exec.req ─▶│               │               │           │            │       │        │
+   │             │─ acquire ────▶│               │           │            │       │        │
+   │             │  ◀── slot      │              │           │            │       │        │
+   │             │─ pull login secret ─────────▶ │           │            │       │        │
+   │             │  ◀── secret                   │           │            │       │        │
+   │             │─ launchCtx ─────────────────────────────▶ │            │       │        │
+   │             │─ loop per TC:                             │            │       │        │
+   │             │    for step in tc.steps: play(step)       │            │       │        │
+   │             │    screenshot → put ─────────────────────────────────▶ │       │        │
+   │             │    learned selectors → upsert ────────────────────────────────▶│        │
+   │             │─ closeCtx                                  │            │       │        │
+   │             │─ release ────▶│                            │            │       │        │
+   │             │─ publish execution.completed ────────────────────────────────────────▶ │</pre>
+          </div>
+
+          <h3>Timeouts, retries, isolation</h3>
+          <ul class="compact">
+            <li><strong>Per-step timeout:</strong> <code>page.setDefaultTimeout(30000)</code>.</li>
+            <li><strong>Per-job budget:</strong> <code>5 min</code>. Exceeded → screenshot, mark <code>failed</code>, close context.</li>
+            <li><strong>Queue visibility:</strong> 6 min (job budget + slack). Prevents redelivery mid-run.</li>
+            <li><strong>Retry:</strong> queue redrives once on crash; DLQ on second failure.</li>
+            <li><strong>Isolation:</strong> new <code>browserContext</code> per job — no cookies/storage leak across tenants.</li>
+            <li><strong>Node sizing:</strong> 1 vCPU + 2 GB RAM + 1 GB <code>/dev/shm</code> per concurrent job.</li>
+          </ul>
+
+          <h3>Config &amp; failure</h3>
+          <ul class="compact">
+            <li><strong>Config:</strong> <code>MAX_CONCURRENT_JOBS</code>, <code>EXECUTION_MODE</code>, <code>PLAYWRIGHT_TIMEOUT_MS</code>, <code>JOB_TIMEOUT_MS</code>.</li>
+            <li><strong>OOM:</strong> job killed by cgroup → queue redrives once → DLQ; run marked partial.</li>
+            <li><strong>Selector miss:</strong> record miss, try next candidate from merge order, fail TC only after exhausting.</li>
+            <li><strong>Long tail:</strong> executor autoscales on <code>queue_depth</code>, not CPU (Chromium is CPU-idle while waiting).</li>
+          </ul>
+        </div>
+
+        <!-- ============ packages/cloud ============ -->
+        <div class="subpanel" data-subtab="lld-cloud" role="tabpanel">
+          <h3 class="subhead">packages/cloud · provider adapters</h3>
+          <p class="subpurpose">The only place that knows AWS/GCP/Azure/Vercel exist. Every other workspace imports <code>@zero/cloud</code> and calls one of four interfaces.</p>
+
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (lib/cloud/)</h5>
+              <ul>
+                <li><strong>Contract</strong> — <code>index.d.ts</code> declares ObjectStore · Queue · Secrets · Cache</li>
+                <li><strong>Provider selection</strong> — <code>lib/cloud/index.js</code> switches on <code>ZERO_CLOUD</code>, throws helpful M7 error for unimplemented providers</li>
+                <li><strong>local provider (full)</strong> — objectStore (filesystem + HMAC signed URLs), queue (in-proc pub/sub), secrets, cache</li>
+                <li><strong>Local signed URLs</strong> — served by api at <code>/api/cloud/local?…</code> with expiry + timing-safe token check</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>not implemented yet</h5>
+              <ul>
+                <li><strong>aws/</strong> — README only; SQS/S3/Secrets Manager/ElastiCache adapters missing</li>
+                <li><strong>gcp/</strong>, <strong>azure/</strong>, <strong>vercel/</strong> — folders don't exist</li>
+                <li><strong>Conformance suite</strong> — no cross-provider test that proves parity</li>
+                <li><strong>Not yet imported by domain code</strong> — <code>server.js</code> still writes to <code>artifacts/</code> directly</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Module map</h3>
+          <div class="diagram" role="img" aria-label="packages/cloud module map">
+<pre>packages/cloud/
+├─ package.json           name: "@zero/cloud" · peer: none
+├─ index.d.ts             ObjectStore · Queue · Secrets · Cache · CloudBundle
+├─ src/
+│  ├─ index.js            switch(ZERO_CLOUD) · exports bundle
+│  ├─ errors.js           NotFound · Conflict · Throttled · Unauthorized
+│  ├─ local/              (working today)
+│  │  ├─ index.js         { objectStore, queue, secrets, cache }
+│  │  ├─ storage.js       fs + HMAC token
+│  │  ├─ queue.js         in-process pub/sub
+│  │  ├─ secrets.js       .env-backed
+│  │  └─ cache.js         node-cache + EventEmitter
+│  ├─ aws/                (M7)
+│  │  ├─ storage.js       S3 (SigV4 presign)
+│  │  ├─ queue.js         SQS (visibility, DLQ, FIFO opt-in)
+│  │  ├─ secrets.js       Secrets Manager (cached 60 s)
+│  │  └─ cache.js         Redis (ElastiCache) + pub/sub
+│  ├─ gcp/ · azure/ · vercel/   parallel structure
+│  └─ conformance/        Vitest suite run against every provider
+│     ├─ objectStore.spec.js
+│     ├─ queue.spec.js
+│     ├─ secrets.spec.js
+│     └─ cache.spec.js</pre>
+          </div>
+
+          <h3>Interface (source: <code>index.d.ts</code>)</h3>
+          <pre><code>export interface ObjectStore {
+  presignPut(key: string, ttlSec?: number): Promise&lt;string&gt;;
+  presignGet(key: string, ttlSec?: number): Promise&lt;string&gt;;
+  put(key: string, body: Buffer | Readable, meta?: object): Promise&lt;void&gt;;
+  get(key: string): Promise&lt;Readable&gt;;
+  remove(key: string): Promise&lt;void&gt;;
+}
+export interface Queue&lt;T&gt; {
+  publish(topic: string, msg: T, opts?: { dedupId?: string; groupId?: string }): Promise&lt;void&gt;;
+  subscribe(topic: string, handler: (msg: T) =&gt; Promise&lt;void&gt;): Unsubscribe;
+}
+export interface Secrets { get(name: string): Promise&lt;string&gt;; put(name: string, val: string): Promise&lt;void&gt; }
+export interface Cache {
+  get&lt;T&gt;(k: string): Promise&lt;T | null&gt;;
+  set&lt;T&gt;(k: string, v: T, ttlSec?: number): Promise&lt;void&gt;;
+  publish(ch: string, m: unknown): Promise&lt;void&gt;;
+  subscribe(ch: string, cb: (m: unknown) =&gt; void): Unsubscribe;
+}</code></pre>
+
+          <h3>Error taxonomy (typed, vendor-agnostic)</h3>
+          <div class="table-wrap">
+            <table class="providers">
+              <thead><tr><th>Error</th><th>When</th><th>Domain reaction</th></tr></thead>
+              <tbody>
+                <tr><th>NotFound</th>     <td>key or topic missing</td>          <td>404 or skip</td></tr>
+                <tr><th>Conflict</th>     <td>duplicate dedupId</td>             <td>treat as success</td></tr>
+                <tr><th>Throttled</th>    <td>vendor 429 · SQS throttling</td>   <td>backoff + retry</td></tr>
+                <tr><th>Unauthorized</th> <td>expired credentials / IAM</td>      <td>alert · refuse to serve</td></tr>
+                <tr><th>Transient</th>    <td>network / 5xx</td>                  <td>backoff + retry</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Conformance test — same suite, every provider</h3>
+          <pre><code>// packages/cloud/conformance/objectStore.spec.js
+export function testObjectStore(makeStore) {
+  const s = makeStore();
+  test('put → get round-trip', async () =&gt; {
+    await s.put('k/a.txt', Buffer.from('hi'));
+    const r = await streamToBuf(await s.get('k/a.txt'));
+    expect(r.toString()).toBe('hi');
+  });
+  test('presignPut → HTTP PUT works', async () =&gt; { /* ... */ });
+  test('remove is idempotent', async () =&gt; { /* ... */ });
+  test('get missing throws NotFound', async () =&gt; { /* ... */ });
+}
+// packages/cloud/local/__tests__/store.spec.js
+testObjectStore(() =&gt; require('../src/local').objectStore);
+// packages/cloud/aws/__tests__/store.spec.js  (against LocalStack)
+testObjectStore(() =&gt; require('../src/aws').objectStore);</code></pre>
+
+          <h3>Config &amp; failure</h3>
+          <ul class="compact">
+            <li><strong>Config:</strong> <code>ZERO_CLOUD</code> + provider-specific vars (see Connect tab matrix).</li>
+            <li><strong>Unknown provider:</strong> <code>index.js</code> throws at boot — correct; fail loud.</li>
+            <li><strong>Credentials expiring:</strong> secrets adapter refreshes automatically; on 401, worker exits cleanly and orchestrator scales in a fresh pod.</li>
+          </ul>
+        </div>
+
+        <!-- ============ shared libs ============ -->
+        <div class="subpanel" data-subtab="lld-libs" role="tabpanel">
+          <h3 class="subhead">shared libraries · domain · db · locators · builders · analyzer</h3>
+          <p class="subpurpose">Pure code shared by <code>apps/*</code>. Zero HTTP, zero browsers, zero SDKs. If it imports Express or Playwright, it's in the wrong package.</p>
+
+          <h3>packages/domain</h3>
+          <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.5rem;">Contracts, enums, zod schemas. The lingua franca between apps.</p>
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today</h5>
+              <ul>
+                <li><code>stageKeys</code> in <code>server.js</code></li>
+                <li><code>appProfiles</code> — Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic</li>
+                <li>Ad-hoc shapes for run, artifact, TC</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>V3 adds</h5>
+              <ul>
+                <li>zod schemas: <code>RunInput</code>, <code>RunState</code>, <code>Artifact</code>, <code>TestCase</code>, <code>ExecutionBatch</code></li>
+                <li><code>errors.js</code> — <code>ValidationError · NotFound · Conflict · InternalError</code></li>
+                <li><code>ids.js</code> — <code>runId</code>, <code>batchId</code>, <code>tenantId</code> constructors + validators</li>
+                <li>Frozen exports · no I/O · imported everywhere</li>
+              </ul>
+            </div>
+          </div>
+          <div class="diagram" role="img" aria-label="domain layout">
+<pre>packages/domain/src/
+├─ stageKeys.js         const · Object.freeze
+├─ appProfiles.js       Gray · TVNZ+ · Aha · Hotstar · PrimeVideo · Generic
+├─ schemas/             zod: RunInput · RunState · Artifact · TC · Batch
+├─ errors.js
+└─ ids.js</pre>
+          </div>
+
+          <h3>packages/db</h3>
+          <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.5rem;">Postgres pool + versioned migrations. The one place that knows table names.</p>
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today (<code>lib/db.js</code>)</h5>
+              <ul>
+                <li>Schema constants for <code>element_locators</code>, <code>element_logs</code>, <code>projects</code>, <code>stored_scripts</code>, <code>recordings</code>, <code>provider_keys</code>, <code>agent_settings</code></li>
+                <li>pg pool factory</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>V3 fixes</h5>
+              <ul>
+                <li><strong>Init hard-disabled today</strong> — <code>databaseConfigured()</code> returns false</li>
+                <li>Adds <code>qa_runs</code>, <code>qa_assets</code>, <code>outbox_events</code> (missing schemas)</li>
+                <li>Adds <code>migrations/</code> — SQL files, versioned, forward + reversible</li>
+                <li><code>migrate up/down/status</code> CLI (used by compose <code>migrate</code> service)</li>
+                <li>Repository functions — <code>runs.insert · runs.markStage · assets.record</code></li>
+              </ul>
+            </div>
+          </div>
+          <div class="diagram" role="img" aria-label="db layout">
+<pre>packages/db/src/
+├─ pool.js                    single pg Pool factory
+├─ migrate.js                 CLI: up · down · status · create
+├─ migrations/
+│  ├─ 0001_init.sql           qa_runs · qa_assets · element_locators
+│  ├─ 0002_outbox.sql
+│  ├─ 0003_provider_keys.sql  encrypted at rest
+│  └─ 0004_agent_settings.sql
+└─ repos/
+   ├─ runs.js · assets.js · locators.js · providerKeys.js · agentSettings.js</pre>
+          </div>
+
+          <h3>packages/locators</h3>
+          <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.5rem;">Locator merge and element-key normalizer. Consumed by orchestrator (build) and executor (upsert learned).</p>
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today</h5>
+              <ul>
+                <li><code>lib/locatorRegistry.js</code> — profile → memory → DB merge</li>
+                <li><code>lib/elementLogger.js</code> — element key normalizer</li>
+                <li><code>lib/ecommerceSelectors.js</code> — selector library</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>V3 tightens</h5>
+              <ul>
+                <li>DB merge stops being a dead branch</li>
+                <li>Learned selectors persisted per <code>(tenant, host, key)</code> not process memory</li>
+                <li>Add confidence score decay on repeated misses</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>packages/builders</h3>
+          <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.5rem;">Emits Playwright spec + Java/Selenium class as text. Pure — same input, same output. Snapshot tested.</p>
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today</h5>
+              <ul>
+                <li><code>lib/scriptBuilder.js</code> — Playwright spec text</li>
+                <li><code>lib/javaSeleniumBuilder.js</code> — JUnit Java class text</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>V3 adds</h5>
+              <ul>
+                <li>Snapshot tests on canonical TC inputs (prevent silent regressions)</li>
+                <li>Emitter functions purely receive a <code>ctx</code>, no globals</li>
+                <li>Optional Kotlin / TypeScript-Playwright emitter</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>packages/analyzer</h3>
+          <p style="color: var(--mute); font-size: 0.85rem; margin: 0 0 0.5rem;">Crawlers used only by orchestrator during BA stage. Uses its own Chromium via Playwright — <em>a copy separate from executor's</em> since orchestrator can run analyzer without holding an execution slot.</p>
+          <div class="honesty">
+            <div class="col works">
+              <h5>works today</h5>
+              <ul>
+                <li><code>lib/urlAnalyzer.js</code> — lightweight heuristics · 1,069 lines</li>
+                <li><code>lib/urlAnalyzerPro.js</code> — deep Playwright crawl · 2,258 lines</li>
+              </ul>
+            </div>
+            <div class="col stub">
+              <h5>V3 tradeoffs</h5>
+              <ul>
+                <li>Analyzer needs Chromium → orchestrator becomes a heavier image, <em>or</em></li>
+                <li>Split analyzer to its own worker consuming <code>analysis.requested</code> — cleaner but +1 service</li>
+                <li>Recommendation: keep analyzer in orchestrator until traffic proves the split</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Cross-package rules</h3>
+          <ul class="compact">
+            <li><strong>No app imports:</strong> a package must not import from <code>apps/*</code> — enforced by <span class="tag" style="color: var(--signal); margin: 0;">GATE-2</span>.</li>
+            <li><strong>No vendor SDK imports:</strong> only <code>packages/cloud/{aws,gcp,azure}</code> may import <code>@aws-sdk/*</code> etc — enforced by <span class="tag" style="color: var(--signal); margin: 0;">GATE-3</span>.</li>
+            <li><strong>Zero I/O at import time:</strong> importing a package must not open connections, spawn processes, or read env — <code>config.js</code> is only inside apps.</li>
+            <li><strong>Semver:</strong> internal packages pinned by workspace protocol (<code>workspace:*</code>); breaking changes bump the major before merge.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      ZER0 · Architecture docs ·
+      <a href="/architecture.html">/architecture.html</a>
+      · updated from code
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+      var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+      function activate(id, pushState) {
+        tabs.forEach(function (t) {
+          var on = t.dataset.tab === id;
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+          t.tabIndex = on ? 0 : -1;
+        });
+        panels.forEach(function (p) {
+          p.dataset.active = p.id === 'panel-' + id ? 'true' : 'false';
+        });
+        if (pushState && history.replaceState) {
+          history.replaceState(null, '', '#' + id);
+        }
+      }
+
+      tabs.forEach(function (t, i) {
+        t.addEventListener('click', function () { activate(t.dataset.tab, true); });
+        t.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+          e.preventDefault();
+          var next = e.key === 'ArrowRight'
+            ? tabs[(i + 1) % tabs.length]
+            : tabs[(i - 1 + tabs.length) % tabs.length];
+          next.focus();
+          activate(next.dataset.tab, true);
+        });
+      });
+
+      var initial = (location.hash || '').replace('#', '');
+      var valid = tabs.map(function (t) { return t.dataset.tab; });
+      activate(valid.indexOf(initial) !== -1 ? initial : 'overview', false);
+    })();
+
+    (function () {
+      var groups = Array.prototype.slice.call(document.querySelectorAll('.subtabs'));
+      groups.forEach(function (group) {
+        var subtabs = Array.prototype.slice.call(group.querySelectorAll('.subtab'));
+        var scope = group.parentElement;
+        var subpanels = Array.prototype.slice.call(scope.querySelectorAll('.subpanel'));
+
+        function activate(name) {
+          subtabs.forEach(function (t) {
+            var on = t.dataset.subtab === name;
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+            t.tabIndex = on ? 0 : -1;
+          });
+          subpanels.forEach(function (p) {
+            p.dataset.active = p.dataset.subtab === name ? 'true' : 'false';
+          });
+        }
+
+        subtabs.forEach(function (t, i) {
+          t.addEventListener('click', function () { activate(t.dataset.subtab); });
+          t.addEventListener('keydown', function (e) {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            var next = e.key === 'ArrowRight'
+              ? subtabs[(i + 1) % subtabs.length]
+              : subtabs[(i - 1 + subtabs.length) % subtabs.length];
+            next.focus();
+            activate(next.dataset.subtab);
+          });
+        });
+
+        var already = subtabs.find(function (t) { return t.getAttribute('aria-selected') === 'true'; });
+        activate((already || subtabs[0]).dataset.subtab);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.btn {
+  @include focus-ring;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  min-width: 4.25rem;
+  padding: $s-2 $s-3;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font-size: $fs-sm;
+  font-weight: 500;
+  flex: 0 0 auto;
+  transition:
+    color $dur-fast $ease,
+    background $dur-fast $ease,
+    border-color $dur-fast $ease;
+
+  &:hover {
+    border-color: var(--line-strong);
+    background: var(--panel-2);
+  }
+}
+

@@ -1,0 +1,28 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.box {
+  @include surface;
+  @include scroll-x;
+  margin: $s-4 0 0;
+  padding: $s-4;
+  font-size: 0.72rem;
+  color: var(--mute);
+
+  @include down(md) {
+    padding: $s-3;
+    font-size: 0.65rem;
+  }
+}
+
+.pre {
+  margin: 0;
+  white-space: pre;
+  line-height: 1.45;
+  font-family: var(--font-mono);
+
+  :global(.hi)  { color: var(--signal); }
+  :global(.vi)  { color: var(--violet); }
+  :global(.lo)  { color: var(--mute); }
+  :global(.bad) { color: var(--danger); }
+}

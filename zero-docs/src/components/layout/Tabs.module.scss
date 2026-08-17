@@ -1,0 +1,63 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-1;
+  width: 100%;
+  min-width: 0;
+}
+
+.tab {
+  @include focus-ring;
+  color: var(--mute);
+  font-family: inherit;
+  font-size: $fs-sm;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  min-height: 2.75rem;
+  padding: $s-2 $s-3;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition:
+    color $dur-fast $ease,
+    background $dur-fast $ease,
+    border-color $dur-fast $ease;
+  display: inline-flex;
+  align-items: center;
+  gap: $s-2;
+
+  &:hover { color: var(--text); background: var(--panel-2); }
+}
+
+.num {
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--line-strong);
+}
+
+.labelShort { display: none; }
+
+.on {
+  color: var(--signal);
+  background: var(--tint-info);
+  border-color: color-mix(in srgb, var(--signal) 28%, var(--line));
+
+  .num { color: var(--signal); }
+}
+
+@include down(md) {
+  .num { display: none; }
+
+  .labelFull { display: none; }
+
+  .labelShort { display: inline; }
+
+  .tab {
+    min-height: 2.5rem;
+    padding: $s-2 $s-3;
+    font-size: 0.8rem;
+  }
+}

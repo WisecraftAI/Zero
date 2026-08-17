@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "northStar": "public/architectureV2.html#blueprint",
+  "current": null,
+  "acceptanceFloor": "M4",
+  "milestones": {
+    "M1": {
+      "id": "M1",
+      "name": "Durable store",
+      "status": "done",
+      "spec": "milestones/M1-durable-store.md",
+      "completedAt": "2026-08-16T20:40:00.000Z"
+    },
+    "M2": {
+      "id": "M2",
+      "name": "Object store + signed URLs",
+      "status": "done",
+      "spec": "milestones/M2-object-store.md",
+      "completedAt": "2026-08-16T20:50:00.000Z"
+    },
+    "M3": {
+      "id": "M3",
+      "name": "Queue + orchestrator",
+      "status": "done",
+      "spec": "milestones/M3-queue-orchestrator.md",
+      "completedAt": "2026-08-16T20:55:00.000Z"
+    },
+    "M4": {
+      "id": "M4",
+      "name": "Execution farm",
+      "status": "done",
+      "spec": "milestones/M4-execution-farm.md",
+      "completedAt": "2026-08-16T21:00:00.000Z"
+    },
+    "M5": {
+      "id": "M5",
+      "name": "Auth + ACL",
+      "status": "done",
+      "spec": "milestones/M5-auth-acl.md",
+      "completedAt": "2026-08-16T21:10:00.000Z"
+    },
+    "M6": {
+      "id": "M6",
+      "name": "LLM wiring",
+      "status": "done",
+      "spec": "milestones/M6-llm-wiring.md",
+      "completedAt": "2026-08-16T21:20:00.000Z"
+    },
+    "M7": {
+      "id": "M7",
+      "name": "Multi-cloud adapters",
+      "status": "done",
+      "spec": "milestones/M7-multi-cloud.md",
+      "completedAt": "2026-08-17T05:15:00.000Z"
+    }
+  },
+  "history": [
+    {
+      "at": "2026-08-17T00:00:00.000Z",
+      "event": "workflow_initialized",
+      "note": "Agent workflow project created; earliest unfinished = M1 (Postgres hard-disabled)."
+    },
+    {
+      "at": "2026-08-16T20:40:00.000Z",
+      "event": "milestone_done",
+      "note": "M1 durable store + S1 smoke: databaseConfigured() follows DATABASE_URL/PGHOST; qa_runs/qa_assets persist; Jest health + pipeline + Postgres reload tests."
+    },
+    {
+      "at": "2026-08-16T20:50:00.000Z",
+      "event": "milestone_done",
+      "note": "M2 object store: local HMAC-signed /api/cloud/local, presign uploads + commit, /artifacts static removed, screenshots and run.json stored as objects."
+    },
+    {
+      "at": "2026-08-16T20:55:00.000Z",
+      "event": "milestone_done",
+      "note": "M3 queue + orchestrator: POST publishes runs.requested; lib/orchestrator + workers/orchestrator.js consume with concurrency cap; SSE /api/runs/:id/stream; Playwright still inline until M4."
+    },
+    {
+      "at": "2026-08-16T21:00:00.000Z",
+      "event": "milestone_done",
+      "note": "M4 execution farm: processRun publishes execution.requested and waits for execution.completed; lib/execution/worker.js + workers/execution.js; retries + concurrency caps. Acceptance floor M1–M4 MET. Gaps: M5 auth, M6 LLM, M7 shared cloud queue."
+    },
+    {
+      "at": "2026-08-16T21:10:00.000Z",
+      "event": "milestone_done",
+      "note": "M5 auth + ACL: verified API keys / JWT, tenant-scoped runs, recording CORS allowlist, production KEY_ENC_SECRET required. X-User-Email is not identity. Gaps: M6 LLM, M7 multi-cloud, no UI login screen."
+    },
+    {
+      "at": "2026-08-16T21:20:00.000Z",
+      "event": "milestone_done",
+      "note": "M6 LLM wiring: lib/llm callProvider for OpenAI/Claude/Gemini; BA/Manual/Automation/Manager enrich with template fallback; RPM + cost caps + prompt versions. Gap: M7 multi-cloud adapters."
+    },
+    {
+      "at": "2026-08-17T05:15:00.000Z",
+      "event": "milestone_done",
+      "note": "M7 multi-cloud: lib/cloud/aws (S3/SQS/Secrets Manager/Redis) + lib/cloud/gcp (GCS/Pub/Sub/Secret Manager/Redis); infra/aws + infra/gcp Terraform; CI workflow status + Jest smoke. Default remains ZERO_CLOUD=local. Azure/Vercel not implemented. SDKs lazy-required, not added as runtime deps."
+    }
+  ]
+}

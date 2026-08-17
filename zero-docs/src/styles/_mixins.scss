@@ -1,0 +1,61 @@
+@use 'sass:map';
+@use './tokens' as *;
+
+$breakpoints: (
+  sm: $bp-sm,
+  md: $bp-md,
+  lg: $bp-lg,
+  xl: $bp-xl,
+  xxl: $bp-xxl,
+);
+
+/// Mobile-first breakpoint. Usage: `@include up(md) { ... }`
+@mixin up($key) {
+  $bp: map.get($breakpoints, $key);
+  @if not $bp {
+    @error "Unknown breakpoint `#{$key}`.";
+  }
+  @media (min-width: #{$bp}) { @content; }
+}
+
+/// Ceiling media query. Prefer `up()`; use `down()` only when unavoidable.
+@mixin down($key) {
+  $bp: map.get($breakpoints, $key);
+  @if not $bp {
+    @error "Unknown breakpoint `#{$key}`.";
+  }
+  @media (max-width: #{$bp - 1px}) { @content; }
+}
+
+/// Consistent focus ring across every interactive.
+@mixin focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/// Horizontal-scroll container with hidden scrollbars (used for tab bars, code).
+@mixin scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/// Utility: card-like surface.
+@mixin surface {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/// Utility: section headline.
+@mixin brand-heading($size: 1rem) {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: $size;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}

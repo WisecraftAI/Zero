@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Milestone status
+        run: npm run workflow:status
+      - name: Verify M7
+        run: npm run workflow:verify -- --milestone M7
+      - name: Hermetic Jest (includes /health smoke)
+        run: npx jest --coverage=false --runInBand

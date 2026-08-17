@@ -1,0 +1,62 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.wrap {
+  @include surface;
+  @include scroll-x;
+  margin-top: $s-4;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $fs-sm;
+
+  th,
+  td {
+    padding: $s-2 $s-3;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  thead th {
+    color: var(--signal);
+    font-weight: 500;
+    font-family: var(--font-brand);
+    letter-spacing: 0.04em;
+    font-size: $fs-xs;
+    text-transform: uppercase;
+    background: var(--panel-2);
+    position: sticky;
+    top: 0;
+  }
+
+  tbody th {
+    color: var(--text);
+    font-weight: 500;
+    background: var(--panel-2);
+  }
+
+  td {
+    color: var(--mute);
+
+    :global(code) { color: var(--signal); font-size: 0.85em; }
+  }
+
+  tr:last-child {
+    th,
+    td { border-bottom: none; }
+  }
+}
+
+.caption {
+  padding: $s-2 $s-3;
+  text-align: left;
+  color: var(--mute);
+  font-size: $fs-xs;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}

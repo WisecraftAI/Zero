@@ -1,0 +1,37 @@
+node_modules
+**/node_modules
+**/dist
+**/.vite
+
+artifacts
+logs
+ml-training/models
+ml-training/data
+
+.git
+.github
+.cursor
+.agents
+.claude
+.codex
+
+*.md
+!README.md
+
+.env
+.env.*
+!.env.example
+
+coverage
+*.log
+.DS_Store
+
+# Keep app image lean — client stage copies client/ explicitly.
+# agent-workflow stays in context so the workflow image can COPY probes + live tree.
+zero-docs
+docs
+*.csv
+vercel.json
+railway.json
+railpack.json
+skills-lock.json

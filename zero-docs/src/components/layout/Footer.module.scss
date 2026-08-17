@@ -1,0 +1,7 @@
+@use '@/styles/tokens' as *;
+
+.footer {
+  padding-top: $s-7;
+  color: var(--mute);
+  font-size: $fs-xs;
+}

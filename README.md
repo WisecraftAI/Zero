@@ -2,6 +2,10 @@
 
 Architect-level QA orchestration workflow in one UI.
 
+**Repos:** 1 Git repository ([Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)) · **2 npm packages** in-tree (`ai-qa-orchestrator` + `zer0-client`) · **MIT** ([LICENSE](./LICENSE))
+
+**Dev docs (humans + AI):** [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) · [docs/OPEN_SOURCE.md](./docs/OPEN_SOURCE.md) · [docs/README.md](./docs/README.md)
+
 Pipeline:
 
 1. BA Agent builds channel-specific requirements from OTT URL + Figma (optional) + uploaded test cases (optional) + notes.
@@ -15,10 +19,17 @@ Pipeline:
 ```bash
 npm install
 npx playwright install chromium
+npm run build
 npm start
 ```
 
+Run each line on its own. If you paste with trailing `# comments`, zsh (default `INTERACTIVE_COMMENTS` off) will forward the `#` as an argument to `vite build` and the build fails with `Could not resolve entry module "#/index.html"`. Fix once with `setopt interactive_comments`.
+
 When the server starts, it will log: **Open the UI at: http://localhost:3000** (or the next free port if 3000 is in use). Open that URL in your browser to use the pipeline.
+
+**Docker (full stack):** `docker compose up --build` — monolith app on `:3000`, docs site on `:5174`, agent-workflow status on `:5175`, plus Postgres, Redis, and MinIO (console `:9001`). Infra only: `docker compose up -d postgres redis minio`. If host `:5432` is taken: `POSTGRES_PORT=15432 docker compose up -d postgres` then `DATABASE_URL=postgres://zero:zero@localhost:15432/zero`.
+
+**Tests:** `npm test` — health smoke, one pipeline start, and (when Postgres is reachable) run persist/reload.
 
 If the UI does not load: ensure you ran `npm run build` from the project root so `public/index.html` and `public/assets/` are up to date.
 

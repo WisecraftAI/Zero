@@ -1,0 +1,41 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.grid {
+  display: grid;
+  gap: $s-3;
+  margin: 0 0 $s-6;
+  grid-template-columns: 1fr;
+
+  @include up(md) { grid-template-columns: 1fr 1fr; }
+}
+
+.col {
+  @include surface;
+  padding: $s-3 $s-4;
+
+  ul {
+    list-style: disc;
+    padding-left: 1.1rem;
+    color: var(--mute);
+    font-size: $fs-sm;
+
+    li { margin-bottom: 0.35rem; }
+    li strong { color: var(--text); font-weight: 500; }
+    li :global(code) { color: var(--signal); font-size: 0.9em; }
+  }
+}
+
+.works { border-left: 3px solid var(--signal); }
+.stub  { border-left: 3px solid var(--danger); }
+
+.h5 {
+  margin: 0 0 $s-2;
+  font-family: var(--font-brand);
+  font-size: $fs-xs;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.works .h5 { color: var(--signal); }
+.stub  .h5 { color: var(--danger); }
