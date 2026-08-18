@@ -86,6 +86,20 @@ const WEBSITE_TYPES = {
     urlPatterns: [],
     testPriorities: ['Navigation', 'Content Display', 'Forms', 'Responsiveness'],
     criticalFlows: ['Navigation', 'Information Access', 'Contact']
+  },
+  SAAS: {
+    name: 'SaaS Platform',
+    indicators: ['pricing', 'free trial', 'sign up', 'dashboard', 'features', 'demo', 'platform', 'api'],
+    urlPatterns: ['saas', 'app.', 'cloud.', 'platform'],
+    testPriorities: ['Pricing', 'Sign Up', 'Login', 'Feature Discovery', 'Documentation'],
+    criticalFlows: ['Trial Sign Up', 'Feature Exploration', 'Pricing Comparison']
+  },
+  MARKETPLACE: {
+    name: 'Marketplace Platform',
+    indicators: ['seller', 'buyer', 'listing', 'marketplace', 'vendor', 'shop', 'storefront'],
+    urlPatterns: ['marketplace', 'etsy', 'ebay', 'airbnb'],
+    testPriorities: ['Search Listings', 'Product Detail', 'Seller Profile', 'Checkout', 'Account'],
+    criticalFlows: ['Search to Listing', 'Purchase Flow', 'Account Management']
   }
 };
 

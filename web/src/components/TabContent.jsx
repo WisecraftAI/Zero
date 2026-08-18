@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiUrl } from '../apiBase';
+import { apiUrl, artifactUrl } from '../apiBase';
 import './TabContent.css';
 
 function escapeHtml(str) {
@@ -288,14 +288,14 @@ export default function TabContent({ run, activeTab, placeholder }) {
                 <td>{(t.title || '').slice(0, 60)}{(t.title || '').length > 60 ? '…' : ''}</td>
                 <td className={`status-${t.status}`}>{t.status}</td>
                 <td>{t.error ? String(t.error).slice(0, 80) + (String(t.error).length > 80 ? '…' : '') : '—'}</td>
-                <td>{t.screenshot ? <a href={t.screenshot} target="_blank" rel="noreferrer">Screenshot</a> : '—'}</td>
+                <td>{t.screenshot ? <a href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer">Screenshot</a> : '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="shot-grid">
           {tests.filter((t) => t.screenshot).map((t) => (
-            <a key={t.id} href={t.screenshot} target="_blank" rel="noreferrer">{t.id}</a>
+            <a key={t.id} href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer">{t.id}</a>
           ))}
         </div>
         <details className="mt"><summary className="details-summary">Raw JSON</summary><pre className="mt">{JSON.stringify(data, null, 2)}</pre></details>

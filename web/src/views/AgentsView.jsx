@@ -152,8 +152,8 @@ export default function AgentsView({ onNavigate }) {
           </div>
           <h1 className="view-title agv-title">Agents Control Room</h1>
           <p className="view-subtitle">
-            Configure AI models and prompts for BA, Manual QA, Automation, and Manager. Each stage uses LLM
-            enrichment when a provider key is linked — otherwise templates still complete the pipeline.
+            Configure AI models and prompts for BA, Manual QA, Automation, and Manager. Domain inference
+            runs automatically after Web Analyzer when site type confidence is low (no separate agent row).
           </p>
         </div>
         <div className="agv-header-actions">

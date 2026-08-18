@@ -11,15 +11,14 @@ export function ChecklistPage() {
           Scored against the live tree, not the original HTML wish list. Green means the
           capability exists. Workspaces and the split images (<code>api</code> ·{' '}
           <code>orchestrator</code> · <code>executor</code>) are <StatusBadge status="done" />. The
-          remaining gates are <strong>ops maturity</strong> — a standalone web nginx image,{' '}
-          <code>e2e/smoke.sh</code>, observability, a runbook, an OIDC login UI, and a migrate CLI.
+          remaining gates are <strong>ops maturity</strong> — <code>e2e/smoke.sh</code>, observability, a runbook, an OIDC login UI, and a migrate CLI.
         </p>
 
         <FlawItem severity="gate" tag="SHIP-1" title="Compose starts on a fresh clone">
           <code>docker compose up --build</code> boots split <code>api</code> /{' '}
           <code>orchestrator</code> / <code>executor</code> images + Postgres / Redis / MinIO. Docs
-          :5174 · workflow :5175. The service split is <StatusBadge status="done" />; a standalone
-          web nginx image (UI is served by the API image today) is <StatusBadge status="partial" />.
+          :5174 · workflow :5175. Split web/API/orchestrator/executor images are{' '}
+          <StatusBadge status="done" />.
         </FlawItem>
         <FlawItem severity="gate" tag="SHIP-2" title="Smoke tests in CI">
           Jest health + pipeline start + Postgres persist/reload exist.{' '}
@@ -93,9 +92,9 @@ export function ChecklistPage() {
       </section>
 
       <Note tone="info">
-        Milestones M1–M4 cover the capability half of SHIP-1 through SHIP-4. The packaging half
-        (split images, no browser in API) is S0–S6 on the Architecture tab — all done. Remaining
-        gates here are ops maturity (observability, runbook, migrate CLI), not packaging.
+        Milestones M1–M4 cover the capability half of SHIP-1 through SHIP-4. Packaging S0–S7 and
+        product Q1–Q4 are done on the Architecture tab. Remaining gates here are ops maturity
+        (observability, runbook, migrate CLI), not packaging or product features.
       </Note>
     </>
   );

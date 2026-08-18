@@ -45,5 +45,6 @@ function requestExecution(queue, job, opts = {}) {
 module.exports = {
   EXECUTION_REQUESTED,
   EXECUTION_COMPLETED,
-  requestExecution
+  requestExecution,
+  ...require("./executionModes"),
 };

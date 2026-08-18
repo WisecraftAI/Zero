@@ -7,6 +7,19 @@ const { detectWebsiteType } = require('../classify/websiteType');
 const { detectUserFlows } = require('../flows/proFlows');
 const { generateBRD } = require('../generate/proBrd');
 const { generateTestCases } = require('../generate/proTestCases');
+const { crawlLinkedPages, mergeElements } = require('../crawl/multiPage');
+const {
+  generateMajorFunctionalCases,
+  mergeMajorWithGenerated,
+} = require('../generate/majorFunctionalCases');
+
+function resolveMaxPages(options) {
+  const fromOpt = Number(options.maxPages);
+  if (Number.isFinite(fromOpt) && fromOpt > 0) return fromOpt;
+  const fromEnv = Number(process.env.ZERO_ANALYZER_MAX_PAGES);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  return 8;
+}
 
 /**
  * Main URL Analyzer Pro entry — Playwright deep crawl.
@@ -28,7 +41,9 @@ async function analyzeUrlPro(page, url, options = {}) {
     testCases: [],
     observations: [],
     warnings: [],
-    pagesAnalyzed: 1,
+    crawledPages: [],
+    pagesCrawled: 0,
+    pagesAnalyzed: 0,
     analysisTime: 0,
     antiBot: false,
     dynamicContent: false
@@ -64,6 +79,29 @@ async function analyzeUrlPro(page, url, options = {}) {
       });
     }
 
+    const crawlResult = await crawlLinkedPages(page, url, {
+      maxPages: resolveMaxPages(options),
+      maxDepth: options.maxDepth ?? 2,
+    });
+    result.crawledPages = crawlResult.pages;
+    result.pagesCrawled = crawlResult.pages.length;
+    result.pagesAnalyzed = crawlResult.pages.length;
+
+    if (crawlResult.errors.length) {
+      result.warnings.push(...crawlResult.errors.slice(0, 5).map((e) => `Crawl: ${e}`));
+    }
+    if (crawlResult.pages.length > 1) {
+      result.observations.push({
+        type: 'info',
+        category: 'Crawl',
+        message: `Multi-page crawl discovered ${crawlResult.pages.length} pages`,
+        pages: crawlResult.pages.map((p) => ({ url: p.url, title: p.title, path: p.path })),
+      });
+    }
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(1500);
+
     result.pageStructure = await analyzePageStructure(page);
 
     const allElements = [];
@@ -94,6 +132,36 @@ async function analyzeUrlPro(page, url, options = {}) {
       });
     }
 
+    const landingUrl = result.crawledPages[0]?.url || url;
+    const extraPages = result.crawledPages.filter((p) => p.url !== landingUrl);
+
+    for (const pageInfo of extraPages) {
+      try {
+        await page.goto(pageInfo.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await page.waitForTimeout(800);
+
+        for (const [category, config] of Object.entries(ELEMENT_CATEGORIES)) {
+          const categoryElements = await analyzeElements(page, category, config.selectors);
+          result.elements = mergeElements(result.elements, categoryElements, pageInfo.url);
+        }
+
+        const pageForms = await analyzeFormsDeep(page);
+        const seenFormIds = new Set(result.forms.map((f) => f.id || f.purpose));
+        for (const form of pageForms) {
+          const key = form.id || form.purpose;
+          if (seenFormIds.has(key)) continue;
+          seenFormIds.add(key);
+          result.forms.push({ ...form, sourcePage: pageInfo.url });
+        }
+
+        pageInfo.formsSeen = pageForms.length;
+      } catch (err) {
+        result.warnings.push(`Extra page crawl failed (${pageInfo.url}): ${err.message}`);
+      }
+    }
+
+    await page.goto(landingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+
     result.dynamicContent = await detectDynamicContent(page);
     if (result.dynamicContent) {
       result.observations.push({
@@ -116,7 +184,10 @@ async function analyzeUrlPro(page, url, options = {}) {
     }
 
     result.brd = generateBRD(result);
-    result.testCases = generateTestCases(result);
+    const generatedCases = generateTestCases(result);
+    const majorFunctionalCases = generateMajorFunctionalCases(result);
+    result.majorFunctionalCases = majorFunctionalCases;
+    result.testCases = mergeMajorWithGenerated(majorFunctionalCases, generatedCases);
     result.analysisTime = Date.now() - startTime;
 
     result.observations.unshift({
@@ -129,6 +200,9 @@ async function analyzeUrlPro(page, url, options = {}) {
         formsFound: result.forms.length,
         userFlowsDetected: result.userFlows.length,
         testCasesGenerated: result.testCases.length,
+        majorFunctionalCases: result.majorFunctionalCases.length,
+        pagesAnalyzed: result.pagesAnalyzed,
+        pagesCrawled: result.pagesCrawled,
         brdRequirements: result.brd?.functionalRequirements?.length || 0
       }
     });

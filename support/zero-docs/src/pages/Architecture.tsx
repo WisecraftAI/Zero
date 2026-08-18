@@ -2,7 +2,7 @@ import { JumpNav } from '@/components/layout/JumpNav';
 import { Note } from '@/components/ui/Note';
 import { ProvidersTable } from '@/components/ui/ProvidersTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { MILESTONES, PACKAGING } from '@/data/migration';
+import { MILESTONES, PACKAGING, PRODUCT } from '@/data/migration';
 import { BlueprintPage } from './Blueprint';
 import { V3Page } from './v3';
 
@@ -20,18 +20,19 @@ function Score() {
   const rows = [
     ...MILESTONES.map((m) => ['capability', m.id, m.name, m.status, m.note] as const),
     ...PACKAGING.map((s) => ['packaging', s.id, s.name, s.status, s.note] as const),
+    ...PRODUCT.map((q) => ['product', q.id, q.name, q.status, q.note] as const),
   ];
 
   return (
     <section className="section" id="arch-score">
-      <h2>Milestone score · capability M1–M7 · packaging S0–S6</h2>
+      <h2>Milestone score · capability M1–M7 · packaging S0–S7 · product Q1–Q4</h2>
       <p className="sub">
-        Scored against <code>support/agent-workflow/progress.json</code> and the live tree. Both
+        Scored against <code>support/agent-workflow/progress.json</code> and the live tree. All three
         tracks are complete; this table is the audit trail, not a plan. Specs live in{' '}
         <code>support/agent-workflow/milestones/</code>.
       </p>
       <ProvidersTable
-        caption="Run npm run workflow:status to re-probe both tracks against the current branch."
+        caption="Run npm run workflow:status to re-probe all tracks against the current branch."
         headers={['Track', 'ID', 'Name', 'Status', 'What it means today']}
         rows={rows.map(([track, id, name, status, note]) => [
           track,
@@ -57,8 +58,8 @@ export function ArchitecturePage() {
         <h2>Architecture · AI orchestration system</h2>
         <p className="sub">
           How the agent pipeline is deployed: stateless API intake, long-lived orchestrator workers
-          that call LLMs and walk the DAG, and ephemeral Playwright executors. Capability M1–M7 and
-          packaging S0–S6 are <StatusBadge status="done" />.
+          that call LLMs and walk the DAG, and ephemeral Playwright executors. Capability M1–M7,
+          packaging S0–S7, and product Q1–Q4 are <StatusBadge status="done" />.
         </p>
         <Note tone="info">
           For per-workspace LLD, libraries, LOC, design patterns, and generated module trees, use{' '}

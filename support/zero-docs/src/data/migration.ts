@@ -17,7 +17,7 @@ export const MILESTONES = [
   { id: 'M7', name: 'Multi-cloud adapters',   status: 'done' as const,     note: '@zero/cloud local|aws|gcp|azure|vercel. Default ZERO_CLOUD=local; vendor SDKs lazy-required.' },
 ] as const;
 
-/** Packaging steps S0–S6 — the V3 repo split. All done. */
+/** Packaging steps S0–S7 — the V3 repo split. All done. */
 export const PACKAGING = [
   { id: 'S0', name: 'Containerize the monolith', status: 'done' as const,     note: 'One Dockerfile + compose (Postgres / Redis / MinIO).' },
   { id: 'S1', name: 'Smoke tests',               status: 'done' as const,     note: 'Jest health + pipeline + Postgres persist/reload.' },
@@ -26,4 +26,13 @@ export const PACKAGING = [
   { id: 'S4', name: 'Extract executor image',    status: 'done' as const,     note: 'Workspace-scoped executor image owns Playwright. API/orchestrator do not depend on @zero/executor.' },
   { id: 'S5', name: 'Extract orchestrator image',status: 'done' as const,     note: 'Standalone orchestrator image; HTTP API contains no DAG or worker boot code.' },
   { id: 'S6', name: 'packages/cloud + infra',    status: 'done' as const,     note: '@zero/cloud azure + vercel adapters + GATE-9 conformance. Default remains local.' },
+  { id: 'S7', name: 'Web image split + /api prefix drop', status: 'done' as const, note: 'SPA in zero-web nginx :3000; API on :3001 without /api prefix.' },
+] as const;
+
+/** Product milestones Q1–Q4 — autonomous any-URL QA. All done. */
+export const PRODUCT = [
+  { id: 'Q1', name: 'Deep crawl (multi-page)',           status: 'done' as const, note: 'crawlLinkedPages in @zero/analyzer; crawledPages on webAnalysis.' },
+  { id: 'Q2', name: 'Domain-driven major functional cases', status: 'done' as const, note: 'majorFunctionalCases.js; URL-only auto test generation.' },
+  { id: 'Q3', name: 'Execute discovered flows',        status: 'done' as const, note: 'discovered_flows execution mode; multi-step Playwright on critical flows.' },
+  { id: 'Q4', name: 'AI domain inference gate',        status: 'done' as const, note: 'domainInference LLM when websiteTypeConfidence < 0.5 or GENERIC.' },
 ] as const;

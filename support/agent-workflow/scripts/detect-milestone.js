@@ -3,8 +3,8 @@
 
 /**
  * Probe the repo for Target-architecture milestone completion.
- * Capability track M1–M7, then packaging track S0–S6.
- * When M* is green, earliest unfinished is the first failing S*.
+ * Capability track M1–M7, packaging track S0–S7, product track Q1–Q4.
+ * When M* is green, earliest unfinished is the first failing S*, then Q*.
  *
  * Usage: node support/agent-workflow/scripts/detect-milestone.js [--json]
  */
@@ -15,6 +15,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
 const ORDER = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
 const PACKAGING_ORDER = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
+const PRODUCT_ORDER = ['Q1', 'Q2', 'Q3', 'Q4'];
 
 function read(rel) {
   try {
@@ -421,6 +422,65 @@ const checks = {
       },
     };
   },
+
+  Q1() {
+    const multiPage = read('packages/analyzer/lib/crawl/multiPage.js');
+    const hasModule = multiPage.length > 0 && /crawlLinkedPages/.test(multiPage);
+    const strategies = readAny(
+      'packages/analyzer/lib/strategies/pro.js',
+      'packages/analyzer/lib/strategies/light.js'
+    );
+    const wired = /crawlLinkedPages|multiPage/.test(strategies);
+    const testFile = read('test/analyzer-multipage.test.js');
+    const hasTest = testFile.length > 0 && /crawledPages|pagesCrawled/.test(testFile);
+    return {
+      pass: hasModule && wired && hasTest,
+      details: { multiPageModule: hasModule, strategyWired: wired, multipageTest: hasTest },
+    };
+  },
+
+  Q2() {
+    const generator = read('packages/analyzer/lib/generate/majorFunctionalCases.js');
+    const hasGenerator = generator.length > 0 && /majorFunctionalCases|generateMajorFunctionalCases/.test(generator);
+    const pipeline = readAny('services/orchestrator/pipeline.js', 'packages/analyzer/urlAnalyzer.js');
+    const wired =
+      /majorFunctionalCases|generateMajorFunctionalCases/.test(pipeline) ||
+      /criticalFlows.*testCases|testPriorities/.test(generator);
+    const testFile = read('test/domain-test-generation.test.js');
+    const hasTest = testFile.length > 0;
+    return {
+      pass: hasGenerator && wired && hasTest,
+      details: { majorFunctionalCasesModule: hasGenerator, pipelineWired: wired, domainTest: hasTest },
+    };
+  },
+
+  Q3() {
+    const jobs = read('services/executor/jobs.js');
+    const execution = readAny('packages/domain/lib/execution.js', 'packages/domain/execution.js');
+    const hasFlowRunner =
+      /runDiscoveredFlows|discovered_flows|DISCOVERED_FLOWS/.test(jobs + execution);
+    const testFile = read('test/flow-execution.test.js');
+    const hasTest = testFile.length > 0 && /flow|discovered/i.test(testFile);
+    return {
+      pass: hasFlowRunner && hasTest,
+      details: { flowRunnerWired: hasFlowRunner, flowExecutionTest: hasTest },
+    };
+  },
+
+  Q4() {
+    const llm = read('services/orchestrator/llm/index.js');
+    const processRun = read('services/orchestrator/processRun.js');
+    const hasPrompt = /domainInference/.test(llm) && /PROMPT_VERSIONS/.test(llm);
+    const gated =
+      /websiteTypeConfidence|typeConfidence/.test(processRun) &&
+      /domainInference|inferDomain/.test(processRun);
+    const testFile = read('test/domain-inference.test.js');
+    const hasTest = testFile.length > 0;
+    return {
+      pass: hasPrompt && gated && hasTest,
+      details: { domainInferencePrompt: hasPrompt, confidenceGate: gated, domainInferenceTest: hasTest },
+    };
+  },
 };
 
 function loadProgress() {
@@ -436,6 +496,7 @@ function main() {
   const results = {};
   let earliestM = null;
   let earliestS = null;
+  let earliestQ = null;
 
   for (const id of ORDER) {
     const r = checks[id]();
@@ -447,11 +508,23 @@ function main() {
     results[id] = r;
     if (!r.pass && !earliestS) earliestS = id;
   }
+  for (const id of PRODUCT_ORDER) {
+    const r = checks[id]();
+    results[id] = r;
+    if (!r.pass && !earliestQ) earliestQ = id;
+  }
 
   const capabilityComplete = earliestM === null;
   const packagingComplete = earliestS === null;
-  const earliest = earliestM || earliestS;
-  const track = earliestM ? 'capability' : earliestS ? 'packaging' : 'complete';
+  const productComplete = earliestQ === null;
+  const earliest = earliestM || earliestS || earliestQ;
+  const track = earliestM
+    ? 'capability'
+    : earliestS
+      ? 'packaging'
+      : earliestQ
+        ? 'product'
+        : 'complete';
 
   const progress = loadProgress();
   const out = {
@@ -460,6 +533,7 @@ function main() {
     allComplete: earliest === null,
     capabilityComplete,
     packagingComplete,
+    productComplete,
     acceptanceFloorMet:
       results.M1.pass && results.M2.pass && results.M3.pass && results.M4.pass,
     results,
@@ -482,6 +556,12 @@ function main() {
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
     }
     console.log('');
+    console.log('Product track · Q1–Q4 (autonomous any-URL QA)');
+    for (const id of PRODUCT_ORDER) {
+      const r = results[id];
+      console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
+    }
+    console.log('');
     if (earliestM) {
       console.log(`Next milestone: ${earliestM} (capability)`);
       console.log(`Spec: support/agent-workflow/milestones/${earliestM}-*.md`);
@@ -489,8 +569,12 @@ function main() {
       console.log(`Next packaging step: ${earliestS}`);
       console.log(`Spec: support/agent-workflow/milestones/${earliestS}-*.md`);
       console.log('Prompt: support/agent-workflow/prompts/packaging.md');
+    } else if (earliestQ) {
+      console.log(`Next product step: ${earliestQ} (autonomous any-URL QA)`);
+      console.log(`Spec: support/agent-workflow/milestones/${earliestQ}-*.md`);
+      console.log('Prompt: support/agent-workflow/prompts/autonomous-qa.md');
     } else {
-      console.log('Capability and packaging probes all passed.');
+      console.log('Capability, packaging, and product probes all passed.');
     }
     console.log('Invoke: /zero-target-arch');
     console.log(

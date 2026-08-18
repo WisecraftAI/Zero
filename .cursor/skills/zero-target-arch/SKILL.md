@@ -1,18 +1,17 @@
 ---
 name: zero-target-arch
 description: >-
-  Autonomously advance ZER0 packaging S3–S6 (split routes, executor image,
-  orchestrator image, remaining cloud providers) after M1–M7 probes are green.
-  Use when the user says target architecture, make target real, /zero-target-arch,
-  packaging track, S3, split routes, four images, or agent workflow.
-  Prefer this over zero-architecture when the goal is to implement (not just document).
+  Advance ZER0 agent workflow: packaging S0–S7, then product Q1–Q4 (autonomous
+  any-URL QA). Use for target architecture, /zero-target-arch, agent workflow,
+  autonomous QA, any-URL testing, or milestone Q1–Q4.
 ---
 
-# ZER0 Target Architecture — Packaging workflow
+# ZER0 Agent Workflow — Packaging + Product
 
 ## When this skill owns the task
 
-User wants the **live runtime** to match the Target architecture: four images, not one process.
+- **Packaging:** four images, split routes, `/api` prefix drop (S0–S7)
+- **Product:** URL-only QA — crawl → domain cases → execute flows → AI gate (Q1–Q4)
 
 For explain/publish HTML only → use `zero-architecture`.
 For diagrams → use `zero-diagrams`.
@@ -20,10 +19,11 @@ For diagrams → use `zero-diagrams`.
 ## First actions (mandatory)
 
 1. Read `support/agent-workflow/WORKFLOW.md`
-2. Read `support/agent-workflow/prompts/packaging.md`
-3. Run `npm run workflow:status`
-4. Open the matching `support/agent-workflow/milestones/S{N}-*.md` (capability M* only if a probe regressed)
-5. Follow: **plan → implement → verify → update progress.json → continue if asked**
+2. Run `npm run workflow:status`
+3. Open the earliest unfinished spec:
+   - `milestones/S{N}-*.md` + `prompts/packaging.md` (packaging)
+   - `milestones/Q{N}-*.md` + `prompts/autonomous-qa.md` (product)
+4. Follow: **plan → implement → verify → update progress.json → continue if asked**
 
 Do **not** invent a different cloud shape. Do **not** re-implement M1–M7.
 
@@ -41,9 +41,11 @@ Primitives via `@zero/cloud` (`ZERO_CLOUD=local|aws|gcp|azure|vercel`).
 
 Capability (frozen): `M1` → … → `M7`
 
-Packaging: `S0` → … → `S6` — complete.
+Packaging: `S0` → … → `S7` — done.
 
-If every hardened probe is green, do not invent another packaging milestone. Move to an explicitly requested product or operational-hardening task.
+**Product:** `Q1` → `Q2` → `Q3` → `Q4` — autonomous any-URL QA — **done**. Prompt: `prompts/autonomous-qa.md`.
+
+If every hardened probe is green, do not invent another milestone without an approved requirement.
 
 ## Agent roles
 
@@ -57,7 +59,7 @@ If every hardened probe is green, do not invent another packaging milestone. Mov
 
 ```bash
 npm run workflow:status
-npm run workflow:verify -- --milestone S6
+npm run workflow:verify -- --milestone Q1
 ```
 
 ## Progress

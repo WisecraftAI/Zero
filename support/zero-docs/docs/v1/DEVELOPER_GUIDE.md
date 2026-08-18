@@ -22,15 +22,23 @@ There is **no multi-repo split**. Sibling folders under `~/Product/code/` (aha, 
 
 ## 0. What you are building (elevator)
 
-**ZER0 is an AI QA orchestration platform.** A user gives an OTT URL plus at least one of: Figma link, uploaded test cases, or BA notes. A **chain of specialized AI agents** runs in order:
+**ZER0 is an AI QA orchestration platform.** Two primary input modes:
+
+| Mode | Input | What runs |
+|------|-------|-----------|
+| **Autonomous (URL-only)** | Public URL, no TC file, short/empty notes | Multi-page crawl → optional domain inference → major functional cases → `discovered_flows` execution |
+| **Guided** | URL + Figma / uploaded TCs / BA notes | Same agent chain; Web Analyzer optional; CSV runs use `minimal` execution |
+
+Agent chain:
 
 | Agent | Role | LLM when key exists |
 |-------|------|---------------------|
-| **Web Analyzer** | Playwright crawl; page structure + suggested flows | — (deterministic crawl) |
-| **BA** | Channel-aware requirements consolidation | OpenAI · Claude · Gemini |
-| **Manual QA** | App-specific manual test cases | OpenAI · Claude · Gemini |
+| **Web Analyzer** | Multi-page Playwright crawl (`crawlLinkedPages`); page structure + flows + `crawledPages` | — (deterministic crawl) |
+| **Domain inference** | One structured LLM call when rule-based type confidence is low | OpenAI · Claude · Gemini |
+| **BA** | Requirements consolidation (URL + optional inputs + analyzer insights) | OpenAI · Claude · Gemini |
+| **Manual QA** | App-specific manual test cases (`majorFunctionalCases` or CSV/templates) | OpenAI · Claude · Gemini |
 | **Automation QA** | Locator merge + Playwright / Java script text | OpenAI · Claude · Gemini |
-| **Execution** | Real Playwright runs + screenshots | — (browser worker) |
+| **Execution** | Playwright — `discovered_flows` (URL-only auto) or `minimal`/`full` | — (browser worker) |
 | **Manager / Delivery** | Executive review + stakeholder report | OpenAI · Claude · Gemini |
 
 Templates run first so the pipeline **always completes**; `@zero/orchestrator/llm` enriches each LLM-capable stage when a decrypted provider key exists. Outputs:
@@ -41,7 +49,7 @@ Templates run first so the pipeline **always completes**; `@zero/orchestrator/ll
 4. Execution evidence (screenshots under `dist/artifacts/`)  
 5. Manager + Delivery reports (PDF/JSON download)
 
-**Product truth your team must internalize:** default execution is **minimal** (load URL + wait for body). That makes the pipeline reliable. Real E2E lives in **exported Java/Playwright** run outside Zero, or in `EXECUTION_MODE=full` (brittle). Do not sell minimal mode as proof of full E2E.
+**Product truth your team must internalize:** CSV/default execution is **minimal** (load URL + wait for body). URL-only auto runs use **`discovered_flows`** (multi-step checks on top critical flows). Neither replaces full production E2E in your own CI — export Java/Playwright for that.
 
 ---
 
@@ -125,15 +133,16 @@ Run install/build/start as **separate lines**. Pasting `# comments` on the same 
 
 | Stage | What it actually does today |
 |-------|-----------------------------|
-| `webAnalyzer` | Only if no TC file and notes are short/empty — Playwright crawl via `@zero/analyzer` |
+| `webAnalyzer` | Only if no TC file and notes are short/empty — multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES`) |
+| `domainInference` | After Web Analyzer, before BA — one LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC` |
 | `ba` | Template consolidation (`consolidateRequirements`); optional LLM enrich |
-| `manualQa` | Cases from CSV / UI rows / analyzer / channel templates |
+| `manualQa` | Cases from CSV / UI rows / `majorFunctionalCases` / channel templates |
 | `automationQa` | Merge locators → Playwright + Java text (`@zero/builders`) |
-| `execution` | Playwright in `@zero/executor`; default **minimal** |
+| `execution` | Playwright in `@zero/executor`; **`discovered_flows`** for URL-only auto, **`minimal`** for CSV |
 | optional a11y/perf/security | Extra Playwright / heuristic passes |
 | `manager` / `delivery` | Deterministic reports from prior artifacts; optional LLM narrative |
 
-Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ecommerce helpers in `@zero/locators/ecommerceSelectors`).
+Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ SAAS, MARKETPLACE, ECOMMERCE rule types in `@zero/analyzer`).
 
 ---
 
@@ -200,12 +209,15 @@ Normalize keys via `packages/locators/elementLogger.js`. Element log API: `POST 
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `minimal` (default) | Always unless overridden | Load URL, wait for body, screenshot — pipeline completes |
+| `discovered_flows` | URL-only auto (no CSV, web analysis present) | Top 3–5 critical flows — multi-step Playwright with pass/fail + screenshots |
+| `minimal` (default for CSV) | Uploaded TC or explicit default | Load URL, wait for body, screenshot — pipeline completes |
 | `EXECUTION_MODE=full` | Selector tuning | Keyword/selector navigation — brittle |
 | CSV upload | Auto | `uploaded_tc_only` derived from file |
 | `RUN_HEADED=true` / UI checkbox | Human validation | Visible Chromium |
 
-**Team rule:** Manager “Go/No-Go” from minimal mode is **orchestration confidence**, not full product E2E proof.
+Env: `ZERO_ANALYZER_MAX_PAGES` (default 8) caps multi-page crawl depth.
+
+**Team rule:** Manager “Go/No-Go” from in-app execution is **orchestration confidence**, not full product E2E proof.
 
 ### E. Persistence / productionization
 
@@ -213,8 +225,8 @@ Read `support/zero-docs/docs/v2/ARCHITECTURE.md` § Production gaps. Current the
 
 1. Multi-instance durability for Maps still in process memory  
 2. Auth UI / hosted OIDC polish  
-3. Packaging S5–S6 and cloud adapters  
-4. Honest UI copy about minimal vs full execution  
+3. Ops maturity — observability, runbook, migrate CLI, `e2e/smoke.sh`  
+4. Honest UI copy about `minimal` vs `discovered_flows` vs full E2E in external CI  
 
 ### F. LLM keys UI
 
@@ -235,7 +247,7 @@ S7 dropped the `/api` prefix. All paths below are on the API service (`http://lo
 | Keys / agents | `/provider-keys`, `/agent-settings`, `/keys*` | Drive LLM enrich when keys exist |
 | Ops | `/health`, `/health/detailed`, `/api-docs` | Swagger UI at `/api-docs` (name, not a prefix) |
 
-**Input rules:** OTT URL required; plus ≥1 of Figma / TC file (txt/md/csv/json/xlsx/xls) / BA notes.
+**Input rules:** Target URL required. **Guided:** ≥1 of Figma / TC file (txt/md/csv/json/xlsx/xls) / BA notes. **Autonomous:** URL only (no TC, short notes) triggers Web Analyzer + Q1–Q4 pipeline.
 
 Passwords from UI → `runSecrets` only (not written into artifacts). Never log them.
 
@@ -265,11 +277,11 @@ curl -s localhost:3001/health
 
 ## 8. Suggested workstreams (what to pick up next)
 
-Ordered like a lead would assign after onboarding:
+Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**. Ordered like a lead would assign next:
 
-1. **Packaging S5–S7** — orchestrator image (S5), cloud providers (S6), and the web/API split (S7 — see `support/agent-workflow/milestones/S7-web-image.md`).  
+1. **Ops maturity** — observability (`runId` / `traceId` on every log line), runbook + SLOs, `e2e/smoke.sh` against four Compose services.  
 2. **Multi-instance durability** — recordings / selector memory off process Maps.  
-3. **Product honesty** — UI labels for minimal vs full; Manager wording.  
+3. **Product honesty** — Run Detail UI for `crawledPages`, flow step results, `inferredDomain`.  
 4. **Auth UI / OIDC** — login screen when `ZERO_AUTH=on`.  
 5. **Tests + CI** — expand hermetic API + Playwright smoke.  
 6. **IDE vision** — `/projects`, recordings → SQL, stored Java scripts (see architecture target).
@@ -293,13 +305,20 @@ Ordered like a lead would assign after onboarding:
 
 ## 10. Sample local exercise (first 30 minutes)
 
+**Path A — autonomous URL-only:**
+
 1. Start the stack (`build` + `npm run start:all`).  
 2. Open UI → New Run.  
-3. Use a public URL + `amazon_test_cases.csv` (or another sample CSV in repo root).  
-4. Leave execution on default (minimal).  
-5. Watch stages complete; open run detail + download JSON.  
-6. Open Automation artifacts / Java text — understand export is the path to real E2E.  
-7. Skim `services/api/server.js` and `services/orchestrator/processRun.js`.  
-8. Skim `packages/builders/lib/playwright/` and `packages/builders/lib/selenium/` (root `scriptBuilder.js` / `javaSeleniumBuilder.js` are re-exports).
+3. Paste a public URL (e.g. a SaaS landing page) — no TC file, no notes.  
+4. Watch Web Analyzer → BA → Manual → Execution (`discovered_flows`) complete.  
+5. Open run detail — inspect crawl artifact, test cases, flow results, Manager report.
 
-When you can explain **minimal vs full** and **where agents really live**, you are onboarded.
+**Path B — guided CSV:**
+
+1. Use a public URL + `amazon_test_cases.csv` (or another sample CSV).  
+2. Leave execution on default (`minimal`).  
+3. Download JSON; skim generated Java from Automation tab.
+
+Then skim `services/orchestrator/processRun.js`, `packages/analyzer/lib/crawl/multiPage.js`, and `packages/builders/lib/playwright/discoveredFlows.js`.
+
+When you can explain **`discovered_flows` vs `minimal`** and **where agents really live**, you are onboarded.

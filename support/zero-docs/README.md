@@ -14,7 +14,7 @@ Markdown lead briefings (moved from the old root `docs/` folder):
 | [`docs/v2/`](./docs/v2/) | V2 | Target vision + production gaps — `ARCHITECTURE.md` |
 | [`docs/README.md`](./docs/README.md) | — | Index |
 
-V3 packaging (workspaces, Docker, S0–S6) lives in the React Architecture tab (`src/pages/v3/`), not as markdown.
+V3 packaging (workspaces, Docker, S0–S7) and product Q1–Q4 live in the React Architecture tab (`src/pages/v3/`, `migration.ts`), not as markdown.
 
 ## Run
 
@@ -53,7 +53,7 @@ npm run preview      # serve the built bundle from dist/
 | `src/components/layout/`     | Hero, Tabs, SubTabs, JumpNav, Footer — the shell.                                             |
 | `src/components/ui/`         | Card, Note, Diagram, Mermaid, FlawItem, PipelineStage, Honesty, ProvidersTable, CodeBlock — primitives. |
 | `src/pages/`                 | One page per top-level tab. `v3/` splits into sections + LLD sub-tabs.                        |
-| `src/data/`                  | Repo catalog + M1–M7 / S0–S6 done·not-done scores.                                            |
+| `src/data/`                  | Repo catalog + M1–M7 / S0–S7 / Q1–Q4 done scores.                                            |
 | `src/hooks/`                 | `useHashTab`, `useMediaQuery`.                                                                |
 | `test/`                      | Vitest + Testing Library + jsdom.                                                             |
 

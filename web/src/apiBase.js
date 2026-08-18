@@ -21,3 +21,11 @@ export function apiUrl(path) {
   if (!suffix) return API_BASE;
   return suffix.startsWith("/") ? `${API_BASE}${suffix}` : `${API_BASE}/${suffix}`;
 }
+
+/** Resolve a run artifact ref (e.g. `/runs/:id/files/foo.png`) to an absolute API URL. */
+export function artifactUrl(ref) {
+  if (!ref || typeof ref !== "string") return ref;
+  if (/^https?:\/\//i.test(ref)) return ref;
+  const path = ref.replace(/^\/api(?=\/runs\/)/, "");
+  return apiUrl(path.startsWith("/") ? path : `/${path}`);
+}

@@ -40,7 +40,7 @@ function main() {
   const id = requested || data.earliestUnfinished;
 
   if (!id) {
-    console.log('Nothing to verify — capability and packaging probes all green.');
+    console.log('Nothing to verify — capability, packaging, and product probes all green.');
     process.exit(0);
   }
 
@@ -54,7 +54,11 @@ function main() {
   console.log(JSON.stringify(r.details, null, 2));
 
   if (requested && data.earliestUnfinished && requested !== data.earliestUnfinished) {
-    const order = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
+    const order = [
+      'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7',
+      'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7',
+      'Q1', 'Q2', 'Q3', 'Q4',
+    ];
     if (order.indexOf(requested) > order.indexOf(data.earliestUnfinished)) {
       console.warn(
         `Warning: earliest unfinished is ${data.earliestUnfinished}; verifying ${requested} out of order.`

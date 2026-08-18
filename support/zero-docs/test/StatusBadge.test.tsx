@@ -53,13 +53,14 @@ describe('catalogs', () => {
     expect(screen.getByText('/zero-api')).toBeInTheDocument();
   });
 
-  it('scores M1–M4 and S0–S6 done', () => {
+  it('scores M1–M4, S0–S7, and Q1–Q4 done', () => {
     expect(MILESTONES.filter((m) => m.id === 'M1' || m.id === 'M4').every((m) => m.status === 'done')).toBe(true);
     expect(PACKAGING.find((s) => s.id === 'S2')?.status).toBe('done');
     expect(PACKAGING.find((s) => s.id === 'S3')?.status).toBe('done');
     expect(PACKAGING.find((s) => s.id === 'S4')?.status).toBe('done');
     expect(PACKAGING.find((s) => s.id === 'S5')?.status).toBe('done');
     expect(PACKAGING.find((s) => s.id === 'S6')?.status).toBe('done');
+    expect(PACKAGING.find((s) => s.id === 'S7')?.status).toBe('done');
     expect(PACKAGING.find((s) => s.id === 'S0')?.status).toBe('done');
   });
 });

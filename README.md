@@ -8,11 +8,13 @@ Architect-level QA orchestration workflow in one UI.
 
 Pipeline:
 
-1. BA Agent builds channel-specific requirements from OTT URL + Figma (optional) + uploaded test cases (optional) + notes.
-2. Manual QA Agent creates app-oriented manual test cases (not generic templates).
-3. Automation QA Agent builds adaptive locator candidates using profile + learned selectors.
-4. Execution Service runs Playwright checks with retries and screenshot evidence.
-5. Manager Agent produces an executive review with root cause analysis and action plan.
+1. **Web Analyzer** (optional) — multi-page Playwright crawl when no TC file and notes are short; emits `crawledPages`, domain type, and user flows.
+2. **Domain inference** (automatic) — one LLM call when rule-based type confidence is low (`< 0.5`) or `GENERIC`; skipped when no key or `ZERO_LLM=off`.
+3. **BA Agent** builds requirements from URL + optional Figma / uploaded TCs / notes / analyzer insights.
+4. **Manual QA Agent** creates app-oriented test cases — from CSV, URL analysis (`majorFunctionalCases`), or channel templates.
+5. **Automation QA Agent** builds locator candidates (profile → learned → Postgres) and Playwright + Java script text.
+6. **Execution Service** runs Playwright — `discovered_flows` for URL-only auto runs (top critical flows), `minimal` for CSV, or `full` when tuned.
+7. **Manager / Delivery** — executive review and stakeholder report.
 
 ## Run locally
 
@@ -40,16 +42,20 @@ If the UI does not load: ensure you ran `npm run build` from the project root so
 
 ## Execution mode (don’t get stuck)
 
-**Default: minimal execution.** For CSV-uploaded test cases, each test only loads the OTT URL and waits for the page body. No selector or keyword logic. So the pipeline **always completes**, you get one result per TC (passed + screenshot), and the Manager report and Java scripts are still generated. This gives you a working run end-to-end without fighting navigation/selectors.
+| Mode | When | Behavior |
+|------|------|----------|
+| **`discovered_flows`** | URL-only auto run (no CSV, web analysis present) | Top 3–5 critical flows from crawl — multi-step Playwright with pass/fail + screenshots |
+| **`minimal`** (default for CSV) | Uploaded TC file or explicit default | Load URL, wait for body, screenshot — pipeline always completes |
+| **`uploaded_tc_only`** | CSV upload | Checks derived from uploaded cases |
+| **`EXECUTION_MODE=full`** | Selector tuning only | Keyword/selector navigation — brittle on real sites |
 
-- To try **keyword-based navigation** (Playwright looking for Login, Play, etc.), set **`EXECUTION_MODE=full`** before starting. It is brittle on real sites and may fail; use only if you’re tuning selectors.
+**Recommended paths:**
 
-**Recommended path so you’re not stuck:**
+1. **URL-only (autonomous QA):** paste any public URL with no TC file — Web Analyzer crawls (up to `ZERO_ANALYZER_MAX_PAGES`, default 8), generates major functional cases, executes discovered flows, and produces a Manager report.
+2. **CSV workflow:** upload TCs → requirements → manual TC list → **Java (Selenium) script generation** → Manager report. Default `minimal` execution keeps the pipeline reliable.
+3. **Real E2E in your CI:** export generated Java/Playwright from the Automation tab, tune locators in your own Maven/Gradle or Playwright project.
 
-1. **Use ZERO for:** CSV → requirements → manual TC list → **Java (Selenium) script generation** → Manager/Delivery report. Run with default (minimal) execution so you see a full run and reports.
-2. **For real E2E against your app:** take the **generated Java** from the Automation tab (or from DB/API), copy it into your own Java/Maven project, fix locators for your site, and run tests from your IDE or CI. Or use a separate Playwright/Cypress project you control. ZERO gives you the structure and scripts; you run them where you have full control.
-
-That way you get value (requirements, traceability, Java scripts, reports) without depending on in-app navigation matching every TC.
+Manager “Go/No-Go” from in-app execution is **orchestration confidence**, not full product E2E proof on every path.
 
 ## CMS signal screenshot (Stream tab, all stations)
 
@@ -87,11 +93,9 @@ Built-in channel profiles currently include `Gray OTT`, `TVNZ+`, `Aha OTT`, `Hot
 
 ## Input Rules
 
-- `OTT URL` is required.
-- Provide at least one of:
-  - `Figma Link`, or
-  - uploaded test-case file (`.txt`, `.md`, `.csv`, `.json`), or
-  - BA notes.
+- **Target URL** is required (OTT, SaaS, marketplace, corporate site, etc.).
+- **Guided mode:** provide at least one of Figma link, uploaded test-case file (`.txt`, `.md`, `.csv`, `.json`, `.xlsx`, `.xls`), or BA notes.
+- **Autonomous mode (URL-only):** URL alone is enough — Web Analyzer runs when no TC file and notes are short/empty; major functional cases and `discovered_flows` execution follow automatically.
 - `.xlsx` and `.xls` upload parsing is supported for detailed manual test-case sheets.
 - Channel profile can be forced from UI (`Aha OTT`, `Hotstar-like`, `PrimeVideo-like`, `Generic`) to avoid wrong auto-detection.
 - Optional runtime login credentials can be passed from UI (`loginUsername`, `loginPassword`) for gated flows.

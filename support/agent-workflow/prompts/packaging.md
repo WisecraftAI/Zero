@@ -1,11 +1,11 @@
-# Packaging track — S3–S6
+# Packaging track — S0–S7 · **complete**
 
-You are implementing the **V3 packaging track** so ZER0 ships as four images, not one monolith process. Capability milestones M1–M7 already probe green. Do **not** re-implement M1–M4.
+You are verifying the **V3 packaging track** so ZER0 ships as four images, not one monolith process. Capability milestones M1–M7 and product Q1–Q4 already probe green. Do **not** re-implement them.
 
 ## Ground truth
 
 1. `AGENTS.md` — layout, pipeline, conventions
-2. `support/zero-docs` Architecture tab — folders, workspaces, LLD, S0–S6
+2. `support/zero-docs` Architecture tab — folders, workspaces, LLD, S0–S7
 3. `support/agent-workflow/WORKFLOW.md`
 4. `support/agent-workflow/milestones/S{N}-*.md` for the detected step
 5. `support/agent-workflow/prompts/repos/<name>.md` for the workspace you touch
@@ -21,9 +21,9 @@ Roster: `support/agent-workflow/prompts/repos/README.md`.
 
 ## Order (never skip)
 
-`S3` → `S4` → `S5` → `S6`
+`S3` → `S4` → `S5` → `S6` → `S7`
 
-S0–S6 are done. The workflow now verifies these boundaries; do not create a
+S0–S7 are done. The workflow now verifies these boundaries; do not create a
 new packaging step unless the target architecture is explicitly extended.
 
 | Step | Name | Skill |
@@ -32,6 +32,7 @@ new packaging step unless the target architecture is explicitly extended.
 | S4 | Extract executor image | `/zero-executor` — **done** |
 | S5 | Extract orchestrator image | `/zero-orchestrator` — **done** |
 | S6 | Azure / Vercel + GATE-9 | `/zero-cloud` — **done** |
+| S7 | Web image split + /api prefix drop | `/zero-web` — **done** |
 
 ## North-star shape
 
@@ -39,7 +40,8 @@ new packaging step unless the target architecture is explicitly extended.
 - Orchestrator worker — folder `services/orchestrator/` · npm `@zero/orchestrator` · skill `/zero-orchestrator`. Own image after S5.
 - Playwright executor — folder `services/executor/` · npm `@zero/executor` · skill `/zero-executor`. Own image after S4.
 - Cloud adapters — folder `packages/cloud/` · npm `@zero/cloud` · skill `/zero-cloud`.
-- Compose names mirror the runtime tiers: service/image `api`/`zero-api`, `orchestrator`/`zero-orchestrator`, and `executor`/`zero-executor`.
+- Web UI — folder `web/` · npm `@zero/web` · skill `/zero-web`. Own nginx image after S7 (`:3000`; API on `:3001`, no `/api` prefix).
+- Compose names mirror the runtime tiers: service/image `web`/`zero-web`, `api`/`zero-api`, `orchestrator`/`zero-orchestrator`, and `executor`/`zero-executor`.
 
 ## How to work
 

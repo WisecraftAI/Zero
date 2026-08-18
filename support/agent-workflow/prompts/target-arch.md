@@ -49,10 +49,10 @@ P2: disconnected LLM UI, unfinished IDE/projects vision, monolith split as neede
 ## How to work
 1. Run `npm run workflow:status` — start at the earliest unfinished milestone, or stop when all probes pass.
 2. If the user named a workspace, read `support/agent-workflow/prompts/repos/<name>.md` and use that skill (`/zero-api`, `/zero-web`, …). Always spell folder, npm package, and Cursor skill.
-3. M1–M7 capability and S0–S6 packaging probes are green. Do not re-implement them or invent a new milestone.
+3. M1–M7 capability, S0–S7 packaging, and Q1–Q4 product probes are green. Do not re-implement them or invent a new milestone.
 4. Small, reviewable PRs; update `support/zero-docs` status when something flips done / not-done.
 5. Prefer adapters + interfaces first, then one concrete provider (`local` or AWS) so local/dev still runs.
-6. When done, run `npm run workflow:verify -- --milestone S6` (or the named regressed step). Ask before destructive migrations or public API breaks.
+6. When done, run `npm run workflow:verify -- --milestone Q4` (or the named regressed step). Ask before destructive migrations or public API breaks.
 
 ## Acceptance for “Target architecture is real”
 - API is stateless; Chromium only in execution workers.
@@ -60,7 +60,7 @@ P2: disconnected LLM UI, unfinished IDE/projects vision, monolith split as neede
 - Uploads/downloads are signed; artifacts are not world-readable.
 - Auth scopes tenants; no spoofable identity headers.
 - Agents/orchestrator communicate via queues; cloud SDKs only under `@zero/cloud`.
-- Capability M1–M7 and packaging S0–S6 probes pass.
-- Compose runtime names match the target tiers: `api`/`zero-api`, `orchestrator`/`zero-orchestrator`, and `executor`/`zero-executor`.
+- Capability M1–M7, packaging S0–S7, and product Q1–Q4 probes pass.
+- Compose runtime names match the target tiers: `web`/`zero-web`, `api`/`zero-api`, `orchestrator`/`zero-orchestrator`, and `executor`/`zero-executor`.
 
 Verify or repair a regressed target boundary. If all probes pass, report completion and stop. Read `prompts/packaging.md`; ask before destructive migrations or changing public API contracts.

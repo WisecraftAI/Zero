@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-18T00:48:32.992Z",
+  "generatedAt": "2026-08-18T03:47:23.369Z",
   "totals": {
     "modules": 10,
-    "fileCount": 185,
-    "loc": 25550
+    "fileCount": 197,
+    "loc": 27377
   },
   "modules": [
     {
@@ -110,14 +110,14 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 7,
-      "loc": 2003,
+      "fileCount": 8,
+      "loc": 2141,
       "filesByExt": {
-        ".js": 7
+        ".js": 8
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "services/orchestrator/\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ pipeline.js\n├─ processRun.js\n├─ worker.js\n├─ llm/\n│  ├─ index.js"
+      "tree": "services/orchestrator/\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ inferDomain.js\n├─ pipeline.js\n├─ processRun.js\n├─ worker.js\n├─ llm/\n│  ├─ index.js"
     },
     {
       "id": "executor",
@@ -144,7 +144,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 5,
-      "loc": 2728,
+      "loc": 2786,
       "filesByExt": {
         ".js": 5
       },
@@ -174,16 +174,16 @@ export const GENERATED_LLD: GeneratedLld = {
         "@vitejs/plugin-react",
         "vite"
       ],
-      "fileCount": 42,
-      "loc": 9570,
+      "fileCount": 49,
+      "loc": 10377,
       "filesByExt": {
-        ".css": 19,
-        ".jsx": 19,
-        ".js": 4
+        ".css": 21,
+        ".jsx": 21,
+        ".js": 7
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n├─ src/\n│  ├─ App.css\n│  ├─ App.jsx\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.css\n│  ├─ layouts/\n│  ├─ main.jsx"
+      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n├─ src/\n│  ├─ App.css\n│  ├─ App.jsx\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.css\n│  ├─ layouts/\n│  ├─ lib/"
     },
     {
       "id": "cloud",
@@ -224,14 +224,14 @@ export const GENERATED_LLD: GeneratedLld = {
       "runtimeDeps": [],
       "workspaceDeps": [],
       "devDeps": [],
-      "fileCount": 9,
-      "loc": 397,
+      "fileCount": 10,
+      "loc": 441,
       "filesByExt": {
-        ".js": 9
+        ".js": 10
       },
       "hasDockerfile": false,
       "hasTests": false,
-      "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js"
+      "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js"
     },
     {
       "id": "db",
@@ -293,10 +293,10 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 18,
-      "loc": 675,
+      "fileCount": 19,
+      "loc": 889,
       "filesByExt": {
-        ".js": 18
+        ".js": 19
       },
       "hasDockerfile": false,
       "hasTests": false,
@@ -316,10 +316,10 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 26,
-      "loc": 3449,
+      "fileCount": 28,
+      "loc": 4015,
       "filesByExt": {
-        ".js": 26
+        ".js": 28
       },
       "hasDockerfile": false,
       "hasTests": false,
@@ -356,12 +356,12 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-18T00:48:32.992Z",
-  "northStar": "zero-docs Architecture + Tech Stack · packaging complete (S0–S7)",
-  "currentTrack": "packaging",
-  "current": "S7",
+  "generatedAt": "2026-08-18T03:47:23.369Z",
+  "northStar": "Autonomous any-URL QA (Q1–Q4) · packaging S0–S7 · capability M1–M7",
+  "currentTrack": "product",
+  "current": null,
   "acceptanceFloor": "M4",
-  "allComplete": false,
+  "allComplete": true,
   "tasks": [
     {
       "id": "M1",
@@ -594,7 +594,7 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "name": "Web image split + /api prefix drop",
       "track": "packaging",
       "order": 7,
-      "status": "not-done",
+      "status": "done",
       "spec": "support/agent-workflow/milestones/S7-web-image.md",
       "summary": "Give `@zero/web` its own workspace-scoped image and its own origin. Drop the `/api` path prefix from every HTTP route so the API service owns route paths natively — no longer a folder-inside-a-monolith artifact.",
       "dependsOn": [
@@ -656,5 +656,5 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
     "builders": [],
     "analyzer": []
   },
-  "latestNote": "docs_parts_home: Target architecture complete (M1–M7 + S0–S6). Docs focus moved: Overview is product-only; Architecture + Tech Stack own system parts (tiers, workspaces, LLD, libraries, generated modules). Make it Real reframed to boundary checks + per-workspace skills."
+  "latestNote": "milestone_done: Q2–Q4 product track complete: majorFunctionalCases generation, discovered_flows Playwright execution, domainInference LLM gate on low confidence. Product track Q1–Q4 all green."
 };

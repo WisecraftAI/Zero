@@ -1,6 +1,6 @@
 # Docs index — ZER0 · AI QA Orchestration
 
-**ZER0 is an AI-first QA orchestration platform.** A chain of specialized agents — Web Analyzer, BA, Manual QA, Automation QA, Manager — calls OpenAI, Claude, or Gemini when you configure provider keys, runs Playwright execution, and delivers requirements, test cases, scripts, and executive reports in one pass.
+**ZER0 is an AI-first QA orchestration platform.** Paste any public URL (autonomous mode) or add Figma/notes/CSV (guided mode). A chain of specialized agents — Web Analyzer (multi-page crawl), optional domain inference, BA, Manual QA, Automation QA, Manager — calls OpenAI, Claude, or Gemini when you configure provider keys, runs Playwright execution (`discovered_flows` or `minimal`), and delivers requirements, test cases, scripts, and executive reports in one pass.
 
 Markdown lead briefings live next to the interactive docs site under `support/zero-docs/`.
 
@@ -25,7 +25,7 @@ Markdown lead briefings live next to the interactive docs site under `support/ze
 
 - **V1** — shipped runtime: pipeline, persistence, auth, LLM, HTTP surface.
 - **V2** — IDE-style target + prioritized gaps (pairs with `web/public/architectureV2.html` and the Architecture tab on this site).
-- **V3** — packaging / workspaces / Docker / S0–S6 (React sections under `src/pages/v3/`, not markdown).
+- **V3** — packaging / workspaces / Docker / S0–S7 + product Q1–Q4 (React sections under `src/pages/v3/` and `migration.ts`, not markdown).
 
 Live HTML after `npm run build` + `npm start`: `/architecture.html` (V1), `/architectureV2.html` (V2).  
 Source: `web/public/` — do not hand-edit the generated `dist/web/` copies.

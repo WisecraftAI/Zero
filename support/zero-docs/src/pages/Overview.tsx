@@ -9,8 +9,8 @@ export function OverviewPage() {
       <section className="section" id="purpose">
         <h2>What ZER0 is</h2>
         <p className="sub">
-          An <strong>AI QA orchestration platform</strong> — a team of specialized agents that
-          turns one OTT URL into a full QA artifact set.
+          An <strong>AI QA orchestration platform</strong> — paste any public URL and get a full QA
+          artifact set, with or without uploaded test cases.
         </p>
         <Note tone="info">
           <strong>This tab is the product story</strong> — what ZER0 does, which AI agents run, and
@@ -19,11 +19,11 @@ export function OverviewPage() {
           wiring). <a href="#deployment">Deployment</a> is the step-by-step rollout.
         </Note>
         <p className="prose">
-          Give ZER0 an <strong>OTT URL</strong> and any of a <strong>test-case file</strong>,{' '}
-          <strong>Figma link</strong>, or <strong>plain notes</strong>. A coordinated pipeline of AI
-          agents produces consolidated requirements, app-specific manual test cases, Playwright +
-          Java/Selenium scripts, execution evidence with screenshots, and Manager / Delivery reports
-          as PDF or JSON — in a single run.
+          Give ZER0 a <strong>target URL</strong> — OTT, SaaS, marketplace, corporate site, or any
+          public page. Optionally add a <strong>test-case file</strong>, <strong>Figma link</strong>,
+          or <strong>plain notes</strong>. With <strong>URL only</strong> (no file, short notes),
+          the Web Analyzer crawls multiple pages, infers domain type, generates major functional test
+          cases, and executes top critical flows in Playwright — no channel picker required.
         </p>
         <p className="prose">
           The point is not another test recorder or a static template generator. ZER0 is an{' '}
@@ -42,8 +42,13 @@ export function OverviewPage() {
         </p>
         <Pipeline>
           <PipelineStage id="🕷" title="Web Analyzer agent (optional)">
-            Playwright crawl of the OTT site when you have no test-case file and short notes.
-            Surfaces page structure, forms, and suggested flows for downstream agents.
+            Multi-page Playwright crawl when you have no test-case file and short notes. Surfaces{' '}
+            <code>crawledPages</code>, page structure, forms, domain type, and suggested flows for
+            downstream agents. Rules only — no LLM.
+          </PipelineStage>
+          <PipelineStage id="DI" title="Domain inference (automatic)">
+            One LLM call after crawl when rule-based domain confidence is low. Infers site purpose
+            and critical test areas. Skipped when no key or <code>ZERO_LLM=off</code>.
           </PipelineStage>
           <PipelineStage id="BA" title="BA agent">
             Consolidates URL + Figma + uploaded cases + notes + analyzer insights into channel-aware
@@ -58,8 +63,9 @@ export function OverviewPage() {
             Java/Selenium script text. LLM suggests selector strategies when keys exist.
           </PipelineStage>
           <PipelineStage id="▶" title="Execution service">
-            Playwright worker runs the generated checks, captures screenshots, and logs elements for
-            future locator learning. Not an LLM stage — real browser evidence.
+            Playwright worker runs checks — <code>discovered_flows</code> (multi-step critical flows
+            for URL-only auto) or <code>minimal</code> (load + screenshot for CSV). Captures
+            evidence and logs elements for future locator learning. Not an LLM stage.
           </PipelineStage>
           <PipelineStage id="M" title="Manager agent">
             Executive review with root-cause analysis and an action plan. LLM narrative when a key
@@ -130,9 +136,10 @@ export function OverviewPage() {
             <code>npm start</code> then <code>http://localhost:3000</code>. Dashboard shows past runs.
           </PipelineStage>
           <PipelineStage id="02" title="Create a new run">
-            Enter the OTT URL, pick a channel profile, and provide any of: TC file (
+            Enter a <strong>target URL</strong>. For guided mode, add any of: TC file (
             <code>.csv</code>, <code>.xlsx</code>, <code>.txt</code>, <code>.md</code>,{' '}
-            <code>.json</code>), a Figma link, or BA notes.
+            <code>.json</code>), a Figma link, or BA notes. For autonomous mode, URL alone is
+            enough.
           </PipelineStage>
           <PipelineStage id="03" title="Choose options">
             Enable accessibility, performance, or security passes. Add login credentials
@@ -162,7 +169,7 @@ export function OverviewPage() {
         </p>
         <ol className="compact">
           <li>
-            <strong>Intake:</strong> UI POSTs to <code>/api/runs</code>. JSON +{' '}
+            <strong>Intake:</strong> UI POSTs to <code>/runs</code>. JSON +{' '}
             <code>uploads[]</code> returns presigned PUTs (M2). Legacy multipart still accepted.
           </li>
           <li>
@@ -190,7 +197,7 @@ export function OverviewPage() {
           </li>
           <li>
             <strong>Reports:</strong> pdfkit Manager PDF + Delivery JSON. SSE exists at{' '}
-            <code>/api/runs/:id/stream</code>; the React client still polls.
+            <code>/runs/:id/stream</code>; the React client still polls.
           </li>
         </ol>
       </section>
@@ -198,9 +205,9 @@ export function OverviewPage() {
       <section className="section" id="overview-tiers">
         <h2>The three tiers · shipped</h2>
         <p className="sub">
-          Packaging S0–S6 is <StatusBadge status="done" />. Docker and system diagrams live on{' '}
-          <a href="#architecture">Architecture</a>; LLD, libraries, and generated module facts on{' '}
-          <a href="#tech-stack">Tech Stack</a>.
+          Packaging S0–S7 and product Q1–Q4 are <StatusBadge status="done" />. Docker and system
+          diagrams live on <a href="#architecture">Architecture</a>; LLD, libraries, and generated
+          module facts on <a href="#tech-stack">Tech Stack</a>.
         </p>
         <CardGrid columns={3}>
           <Card title="1 · Presentation">
@@ -239,8 +246,17 @@ export function OverviewPage() {
           <Card title="Channel-aware agents">
             <p>Profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Agents tune selectors and journeys per app family.</p>
           </Card>
+          <Card title="Any-URL autonomous QA">
+            <p>
+              URL-only runs: multi-page crawl → domain cases → discovered flow execution. Not
+              limited to OTT channel profiles.
+            </p>
+          </Card>
           <Card title="Crawl + reason">
-            <p>Web Analyzer agent crawls the live site; BA and Manual agents reason over what they find — not just your CSV.</p>
+            <p>
+              Web Analyzer crawls up to <code>ZERO_ANALYZER_MAX_PAGES</code> internal pages; BA and
+              Manual agents reason over what they find — not just your CSV.
+            </p>
           </Card>
           <Card title="Evidence, not just text">
             <p>Execution runs real Playwright checks with screenshots. Manager agent reviews actual run outcomes.</p>
@@ -260,7 +276,7 @@ export function OverviewPage() {
         </p>
         <ol className="compact">
           <li><strong>Overview</strong> — this tab: product purpose, audience, and how people use it.</li>
-          <li><strong>Architecture</strong> — system parts: tiers, sequence, providers, workspaces, Docker, M1–M7 / S0–S6 scores.</li>
+          <li><strong>Architecture</strong> — system parts: tiers, sequence, providers, workspaces, Docker, M1–M7 / S0–S7 / Q1–Q4 scores.</li>
           <li><strong>Tech Stack</strong> — deployable workspaces (Web, API, orchestrator, executor) with
             per-workspace LLD. Postgres ER on <a href="#tech-schema">Schema · ER</a>.</li>
           <li><strong>Packages</strong> — shared <code>@zero/*</code> libraries (domain, db, locators,

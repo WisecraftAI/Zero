@@ -1,6 +1,6 @@
 # AGENTS.md — ZER0 (ai-qa-orchestrator)
 
-Architect-level QA orchestration UI: optional Web Analyzer → BA → Manual QA → Automation QA → Playwright execution → optional a11y/perf/security → Manager/Delivery reports. Generates reusable Playwright + Java/Selenium scripts from OTT URLs, Figma/notes, and uploaded test cases. BA / Manual / Automation / Manager call Claude, OpenAI, or Gemini when a decrypted provider key exists (`@zero/orchestrator/llm`); otherwise they stay on templates.
+Architect-level QA orchestration UI: optional Web Analyzer (multi-page crawl) → optional domain inference (LLM when low confidence) → BA → Manual QA → Automation QA → Playwright execution → optional a11y/perf/security → Manager/Delivery reports. Supports **any public URL** (autonomous mode) or guided runs with Figma/notes/CSV. Generates reusable Playwright + Java/Selenium scripts. BA / Manual / Automation / Manager call Claude, OpenAI, or Gemini when a decrypted provider key exists (`@zero/orchestrator/llm`); otherwise they stay on templates.
 
 ## Quick start
 
@@ -63,7 +63,7 @@ docker compose up --build workflow
 | `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
 | `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
 | `support/zero-docs/` | Docs site (`:5174`) + markdown under `docs/v1` (runtime) and `docs/v2` (target). See `support/zero-docs/README.md`. |
-| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7. Docker: `workflow` service on `:5175` |
+| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done). Docker: `workflow` service on `:5175` |
 | `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
 | `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
@@ -73,24 +73,26 @@ docker compose up --build workflow
 
 Order in `stageKeys`: optional `webAnalyzer` → `ba` → `manualQa` → `automationQa` → `execution` → optional `accessibility`/`performance`/`security` → `manager` → `delivery`.
 
-1. **Web Analyzer** — when no TC file and notes are short; Playwright crawl (`@zero/analyzer`, folder `packages/analyzer/`)
-2. **BA** — template consolidation of OTT URL + optional Figma / uploaded TCs / notes / analyzer insights
-3. **Manual QA** — cases from CSV, UI rows, URL analysis, or channel templates
-4. **Automation QA** — locator candidates: profile + in-memory learned (+ Postgres when DB enabled)
-5. **Execution** — Playwright with retries + screenshots under `dist/artifacts/`
-6. **Optional** — accessibility / performance / security Playwright passes
-7. **Manager / Delivery** — executive review + stakeholder delivery report
+1. **Web Analyzer** — when no TC file and notes are short; multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES` default 8)
+2. **Domain inference** — after Web Analyzer, before BA: one LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC` (`@zero/orchestrator/inferDomain.js`); skipped without key or when `ZERO_LLM=off`
+3. **BA** — template consolidation of URL + optional Figma / uploaded TCs / notes / analyzer insights
+4. **Manual QA** — cases from CSV, UI rows, URL analysis (`majorFunctionalCases`), or channel templates
+5. **Automation QA** — locator candidates: profile + in-memory learned (+ Postgres when DB enabled)
+6. **Execution** — Playwright with retries + screenshots under `dist/artifacts/`
+7. **Optional** — accessibility / performance / security Playwright passes
+8. **Manager / Delivery** — executive review + stakeholder delivery report
 
-Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic.
+Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Rule-based types also include SAAS, MARKETPLACE, ECOMMERCE, etc. (`@zero/analyzer` `WEBSITE_TYPES`).
 
 ## Execution modes (important)
 
+- **`discovered_flows`**: URL-only auto runs (no CSV, web analysis present) — top 3–5 critical flows from crawl as multi-step Playwright checks (`url_analysis_auto` in `@zero/domain`).
 - **Default (`minimal`)**: CSV TCs mostly load URL + wait for body — pipeline completes reliably; reports + Java scripts still generated.
+- **`uploaded_tc_only`**: CSV upload forces execution derived from uploaded cases.
 - **`EXECUTION_MODE=full`**: keyword/selector navigation — brittle on real sites; use only when tuning selectors.
 - **`RUN_HEADED=true`** or UI “Show browser”: visible Chromium for validation.
-- CSV upload forces `uploaded_tc_only` execution derived from uploaded cases.
 
-Prefer ZERO for: CSV → requirements → TCs → Java scripts → Manager report. Run real E2E in an external Java/Playwright project using exported scripts.
+Prefer ZERO for: **URL-only** → crawl → major cases → flow execution → Manager report; or **CSV** → requirements → TCs → Java scripts → Manager report. Run real E2E in an external Java/Playwright project using exported scripts.
 
 ## Persistence
 
@@ -138,8 +140,9 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 ## Input rules (product)
 
-- OTT URL required.
-- At least one of: Figma link, uploaded TC file (`.txt`/`.md`/`.csv`/`.json`; also `.xlsx`/`.xls`), or BA notes.
+- **Target URL** required (any public site — OTT, SaaS, marketplace, corporate, etc.).
+- **Guided mode:** at least one of Figma link, uploaded TC file (`.txt`/`.md`/`.csv`/`.json`; also `.xlsx`/`.xls`), or BA notes.
+- **Autonomous mode:** URL only — Web Analyzer runs when no TC file and notes are short/empty; Q1–Q4 pipeline (crawl → cases → flows → optional domain inference) applies automatically.
 - Optional: forced channel profile, runtime login credentials, headed browser.
 
 ## ML training (optional)
@@ -169,7 +172,7 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | Skill | Use for |
 |-------|---------|
 | `init` | Install stack-matched pro skills into `.cursor/skills` + `.agents/skills` |
-| `zero-target-arch` | **Implement** packaging S3–S6 (M1–M7 probes already green) via `support/agent-workflow/` |
+| `zero-target-arch` | **Verify** packaging S0–S7 and product Q1–Q4 (all done) via `support/agent-workflow/` |
 | `zero-web` / `zero-api` / `zero-orchestrator` / `zero-executor` | Code one deployable (Web UI · HTTP API · Orchestrator worker · Playwright executor) |
 | `zero-cloud` / `zero-domain` / `zero-db` / `zero-locators` / `zero-builders` / `zero-analyzer` | Code one shared package |
 | `zero-architecture` | Zero-specific architecture explain / HTML publish |
@@ -186,7 +189,7 @@ Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Produ
 
 Autonomous path from runtime-today → Target architecture (`dist/web/architectureV2.html` after build, source in `web/public/`):
 
-- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S3–S6; `progress.json`)
-- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone S6`
+- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: null`)
+- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q4` (or any M/S/Q id)
 - Docker instance: `http://localhost:5175/status` (compose service `workflow`, repo mounted at `/repo`)
 - Cloud contracts: `@zero/cloud` (`ZERO_CLOUD=local` by default)

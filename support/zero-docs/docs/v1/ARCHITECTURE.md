@@ -47,15 +47,16 @@ Order: `webAnalyzer?` → `ba` → `manualQa` → `automationQa` → `execution`
 
 | Stage | When | What it actually does |
 |-------|------|------------------------|
-| **webAnalyzer** | No TC file and short/empty notes | Playwright crawl via `@zero/analyzer` (`urlAnalyzerPro`, fallback `urlAnalyzer`); BRD-ish insights, suggested TCs |
+| **webAnalyzer** | No TC file and short/empty notes | Multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES`); `crawledPages`, domain type, user flows |
+| **domainInference** | After Web Analyzer, before BA | One LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC`; merges into `_webAnalysisInsights` |
 | **ba** | Always | Template consolidation (`consolidateRequirements`), then optional LLM enrich via `@zero/orchestrator/llm` |
-| **manualQa** | Always | Cases from uploaded CSV / UI manual rows / URL analysis / profile templates; optional LLM extra cases |
+| **manualQa** | Always | Cases from CSV / UI rows / `majorFunctionalCases` / profile templates; optional LLM extra cases |
 | **automationQa** | Always | Merge locators → Playwright + Java/Selenium text; optional LLM locator hints |
-| **execution** | Always | Playwright in `@zero/executor`; default **minimal** (`EXECUTION_MODE≠full`) = load URL + body wait + screenshot |
+| **execution** | Always | Playwright in `@zero/executor`; **`discovered_flows`** for URL-only auto, **`minimal`** for CSV (`EXECUTION_MODE≠full`) |
 | **accessibility** / **performance** / **security** | UI flags | Extra Playwright passes; security is header/cookie/content heuristics |
 | **manager** / **delivery** | Always | Deterministic report builders; Manager may add an LLM narrative when a key exists |
 
-Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic (+ ecommerce helpers in `@zero/locators/ecommerceSelectors`).
+Channel profiles: Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Rule-based types also include SAAS, MARKETPLACE, ECOMMERCE (`@zero/analyzer` `WEBSITE_TYPES`).
 
 ### Persistence (today)
 
@@ -97,7 +98,7 @@ erDiagram
 
 **Queue + orchestrator (M3 shipped):** `POST /runs` publishes `runs.requested` via `@zero/cloud` queue and returns 202. `@zero/orchestrator` (`services/orchestrator/`) consumes the topic with `ZERO_ORCH_CONCURRENCY` (default 2). Local queue is in-process when using `npm run start:all` or Compose with shared Redis. Stage snapshots go to `cache` (`state.<runId>`); clients can `GET /runs/:id/stream` (SSE) or keep polling. Standalone: `npm run orchestrator`.
 
-**Execution farm (M4 shipped):** Orchestrator publishes `execution.requested` (one message = one run’s TC batch) and waits for `execution.completed`. `@zero/executor` (`services/executor/`) runs Playwright with `ZERO_EXEC_CONCURRENCY` / `ZERO_EXEC_ATTEMPTS`. The API never subscribes to execution. `npm start` is API-only; use `npm run start:all` (or Compose) for a local all-in-one stack. Screenshots go to the object store. `EXECUTION_MODE=minimal` remains URL-load, not E2E proof.
+**Execution farm (M4 shipped):** Orchestrator publishes `execution.requested` (one message = one run’s TC batch) and waits for `execution.completed`. `@zero/executor` (`services/executor/`) runs Playwright with `ZERO_EXEC_CONCURRENCY` / `ZERO_EXEC_ATTEMPTS`. The API never subscribes to execution. `npm start` is API-only; use `npm run start:all` (or Compose) for a local all-in-one stack. Screenshots go to the object store. Execution modes: **`discovered_flows`** (URL-only auto — multi-step critical flows), **`minimal`** (CSV default — URL load + body wait), **`full`** (keyword navigation, brittle). Neither minimal nor discovered_flows is full production E2E proof.
 
 ### Auth & tenancy (M5 shipped)
 
@@ -108,7 +109,7 @@ erDiagram
 
 ### LLM surface (M6 shipped)
 
-UI stores Claude / OpenAI / Gemini keys (`/provider-keys`) and per-agent model/prompt (`/agent-settings`). `processRun` decrypts the key and calls the provider through `@zero/orchestrator/llm` (`callProvider` → OpenAI `chat.completions`, Anthropic messages, Gemini `generativelanguage`). Template output is always the base; enrichment is best-effort. Guardrails: `ZERO_LLM_RPM` (default 20), `ZERO_LLM_MAX_USD_PER_RUN` (default $0.50), prompt versions `ba.v1` / `manager.v1` / `manualQa.v1` / `automationQa.v1`. `ZERO_LLM=off` forces templates. Env keys (`OPENAI_API_KEY` etc.) are used only when `ZERO_LLM_ENV_KEYS=1`. Artifacts stamp `metadata.llm` (`used`, `provider`, `promptVersion`, `fallbackReason`). Keys are never logged in full.
+UI stores Claude / OpenAI / Gemini keys (`/provider-keys`) and per-agent model/prompt (`/agent-settings`). `processRun` decrypts the key and calls the provider through `@zero/orchestrator/llm` (`callProvider` → OpenAI `chat.completions`, Anthropic messages, Gemini `generativelanguage`). Template output is always the base; enrichment is best-effort. **Automatic domain inference** runs once after Web Analyzer when rule-based confidence is low (`domainInference` prompt). Guardrails: `ZERO_LLM_RPM` (default 20), `ZERO_LLM_MAX_USD_PER_RUN` (default $0.50), prompt versions `ba.v1` / `manager.v1` / `manualQa.v1` / `automationQa.v1` / `domainInference.v1`. `ZERO_LLM=off` forces templates. Env keys (`OPENAI_API_KEY` etc.) are used only when `ZERO_LLM_ENV_KEYS=1`. Artifacts stamp `metadata.llm` (`used`, `provider`, `promptVersion`, `fallbackReason`). Keys are never logged in full.
 
 ### Key HTTP surface
 

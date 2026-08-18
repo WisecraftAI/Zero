@@ -5,7 +5,8 @@ This is the state machine every coding agent must follow when advancing ZER0 tow
 Two tracks, in order:
 
 1. **Capability** M1–M7 — probes are green. Do not re-implement.
-2. **Packaging** S0–S6 — complete. Hardened probes enforce package and image boundaries.
+2. **Packaging** S0–S7 — done.
+3. **Product** Q1–Q4 — autonomous any-URL QA — done.
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌────────────┐
@@ -24,13 +25,14 @@ Two tracks, in order:
 
 Read in order:
 
-1. `support/zero-docs` — Target architecture, workspaces, S0–S6
+1. `support/zero-docs` — Target architecture, workspaces, M1–M7 / S0–S7 / Q1–Q4
 2. `AGENTS.md` — conventions
 3. `support/agent-workflow/progress.json`
 4. If the user named a workspace → `prompts/repos/<name>.md` + `agents/repo-coder.md`
-5. Else the spec for the detected id: `milestones/M{N}-*.md` or `milestones/S{N}-*.md`
+5. Else the spec for the detected id: `milestones/M{N}-*.md`, `milestones/S{N}-*.md`, or `milestones/Q{N}-*.md`
 6. Capability north-star: `prompts/target-arch.md`
 7. Packaging north-star: `prompts/packaging.md`
+8. Product north-star: `prompts/autonomous-qa.md`
 
 ## Step 1 — DETECT
 
@@ -38,7 +40,7 @@ Read in order:
 npm run workflow:status
 ```
 
-Use the printed id (`M1`…`M7` or `S0`…`S6`). If capability is complete, implement the earliest unfinished **S** step. When all probes pass and `current` is `null`, stop: the target workflow is complete. Do not invent another milestone without an explicitly approved target-architecture requirement.
+Use the printed id (`M1`…`M7`, `S0`…`S7`, or `Q1`…`Q4`). Order: earliest failing **M** → **S** → **Q**. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement.
 
 ## Step 2 — PLAN
 
@@ -73,10 +75,10 @@ Act as **verifier** (`agents/verifier.md`). Fix failures in-loop. Do not mark pr
 
 Update `support/agent-workflow/progress.json` only after verify exits 0:
 
-- Set that id `status` to `done` (under `milestones` or `packaging`)
+- Set that id `status` to `done` (under `milestones`, `packaging`, or `product`)
 - Set `completedAt` ISO timestamp
-- Set `current` to the next unfinished packaging step (or `null` if S3–S6 done)
-- Set `track` to `packaging` until S6 is done
+- Set `current` to the next unfinished step on the active track
+- Set `track` to `capability` | `packaging` | `product`
 - Append a short note under `history`
 - Flip the matching row in `support/zero-docs/src/data/migration.ts` when status changes
 
@@ -84,7 +86,7 @@ Update `support/agent-workflow/progress.json` only after verify exits 0:
 
 - If user asked for a single step → stop and summarize what flipped.
 - If user asked to run autonomously / “make target real” → loop from DETECT.
-- If all M1–M7 and S0–S6 probes pass → stop and report that the target workflow is complete.
+- If all M1–M7, S0–S7, and Q1–Q4 probes pass → stop and report complete.
 - Stop and ask when blocked (secrets, infra credentials, irreversible data loss).
 
 ## Hard stops (never bypass)

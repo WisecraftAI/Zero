@@ -36,6 +36,12 @@ const PROMPT_VERSIONS = {
     system:
       "You suggest locator and automation hints for the crawled site. Reply with JSON only: " +
       '{"hints":["..."]}. No markdown.'
+  },
+  domainInference: {
+    version: "domainInference.v1",
+    system:
+      "You infer website domain purpose from crawl JSON only. Reply with JSON only: " +
+      '{"domainLabel":"...","confidence":0.0,"testPriorities":["..."],"criticalFlows":["..."],"summary":"..."}. No markdown.'
   }
 };
 
@@ -410,6 +416,29 @@ function applyEnrichment(agent, target, parsed) {
   if (agent === "automationQa") {
     const hints = Array.isArray(parsed.hints) ? parsed.hints.map(String).slice(0, 8) : [];
     if (hints.length) target.llmHints = hints;
+  }
+
+  if (agent === "domainInference") {
+    if (parsed.domainLabel) target.inferredDomain = String(parsed.domainLabel).slice(0, 120);
+    if (parsed.summary) target.inferredSummary = String(parsed.summary).slice(0, 2000);
+    if (Number.isFinite(Number(parsed.confidence))) {
+      target.inferredConfidence = Math.max(0, Math.min(1, Number(parsed.confidence)));
+    }
+    if (Array.isArray(parsed.testPriorities)) {
+      target.inferredTestPriorities = parsed.testPriorities.map(String).slice(0, 8);
+    }
+    if (Array.isArray(parsed.criticalFlows)) {
+      target.inferredCriticalFlows = parsed.criticalFlows.map(String).slice(0, 6);
+    }
+    if (target.inferredDomain) {
+      target.websiteType = target.inferredDomain;
+      if (target.inferredConfidence != null) {
+        target.websiteTypeConfidence = Math.max(
+          Number(target.websiteTypeConfidence || 0),
+          target.inferredConfidence
+        );
+      }
+    }
   }
 }
 

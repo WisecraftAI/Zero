@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PipelineFlow from '../components/PipelineFlow';
 import RunProgressPanel from '../components/RunProgressPanel';
-import { apiUrl } from '../apiBase';
+import { apiUrl, artifactUrl } from '../apiBase';
 import './RunDetailView.css';
 
 /* ─── Tab definitions ─────────────────────────────────────── */
@@ -296,7 +296,7 @@ function ExecutionTab({ run }) {
               <td className="exec-error">{t.error ? String(t.error).slice(0, 90) + (String(t.error).length > 90 ? '…' : '') : '—'}</td>
               <td>
                 {t.screenshot
-                  ? <a href={t.screenshot} target="_blank" rel="noreferrer" className="screenshot-link">Screenshot ↗</a>
+                  ? <a href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer" className="screenshot-link">Screenshot ↗</a>
                   : '—'}
               </td>
             </tr>
@@ -724,8 +724,8 @@ function ActualFlowContent({ run }) {
               </div>
               <div className="af-sb-node-title" title={n.title}>{n.title}</div>
               {n.screenshot && (
-                <a href={n.screenshot} target="_blank" rel="noreferrer" className="af-sb-thumb">
-                  <img src={n.screenshot} alt="Step Screenshot" loading="lazy" />
+                <a href={artifactUrl(n.screenshot)} target="_blank" rel="noreferrer" className="af-sb-thumb">
+                  <img src={artifactUrl(n.screenshot)} alt="Step Screenshot" loading="lazy" />
                 </a>
               )}
             </div>

@@ -8,6 +8,15 @@ const { detectUserFlows } = require('../flows/lightFlows');
 const { generateBRD } = require('../generate/lightBrd');
 const { generateTestCasesFromAnalysis } = require('../generate/lightTestCases');
 const { detectFeatures, generateAutomationSelectors } = require('../generate/lightFeatures');
+const { crawlLinkedPages } = require('../crawl/multiPage');
+
+function resolveMaxPages(options) {
+  const fromOpt = Number(options.maxPages);
+  if (Number.isFinite(fromOpt) && fromOpt > 0) return fromOpt;
+  const fromEnv = Number(process.env.ZERO_ANALYZER_MAX_PAGES);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  return 8;
+}
 
 /**
  * Light URL Analyzer — heuristic crawl that seeds BA when notes are short.
@@ -32,7 +41,9 @@ async function analyzeUrl(page, url, options = {}) {
     generatedTestCases: [],
     observations: [],
     warnings: [],
-    domainConfig: {}
+    domainConfig: {},
+    crawledPages: [],
+    pagesCrawled: 0
   };
 
   try {
@@ -66,6 +77,29 @@ async function analyzeUrl(page, url, options = {}) {
       type: domainConfig.name,
       pagesDiscovered: 1
     };
+
+    const crawlResult = await crawlLinkedPages(page, url, {
+      maxPages: resolveMaxPages(options),
+      maxDepth: options.maxDepth ?? 2,
+    });
+    result.crawledPages = crawlResult.pages;
+    result.pagesCrawled = crawlResult.pages.length;
+    result.siteOverview.pagesDiscovered = crawlResult.pages.length;
+
+    if (crawlResult.pages.length > 1) {
+      result.observations.push({
+        type: 'info',
+        category: 'Crawl',
+        message: `Multi-page crawl discovered ${crawlResult.pages.length} pages`,
+        pages: crawlResult.pages.map((p) => ({ url: p.url, title: p.title, path: p.path }))
+      });
+    }
+    if (crawlResult.errors.length) {
+      result.warnings.push(...crawlResult.errors.slice(0, 3).map((e) => `Crawl: ${e}`));
+    }
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.waitForTimeout(1500);
 
     result.pageStructure = await analyzePageStructure(page);
 
@@ -108,29 +142,6 @@ async function analyzeUrl(page, url, options = {}) {
       });
     }
 
-    const navLinks = result.discoveredElements.NAVIGATION || [];
-    const hostname = new URL(url).hostname;
-    const internalLinks = navLinks
-      .filter((l) => l.href && l.href.includes(hostname) && !l.href.includes('#'))
-      .slice(0, 5);
-
-    for (const link of internalLinks) {
-      try {
-        await page.goto(link.href, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await page.waitForTimeout(1500);
-        const subTitle = await page.title();
-        result.siteOverview.pagesDiscovered++;
-        result.observations.push({
-          type: 'info',
-          category: 'Navigation',
-          message: `Discovered page: ${link.text} -> ${subTitle}`,
-          url: link.href
-        });
-      } catch (_) { /* skip failed pages */ }
-    }
-
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
     result.brd = generateBRD(result);
     result.generatedTestCases = generateTestCasesFromAnalysis(result);
     result.metadata.duration = Date.now() - startTime;
@@ -144,7 +155,8 @@ async function analyzeUrl(page, url, options = {}) {
         formsFound: result.discoveredForms.length,
         userFlowsDetected: result.userFlows.length,
         testCasesGenerated: result.generatedTestCases.length,
-        pagesAnalyzed: result.siteOverview.pagesDiscovered
+        pagesAnalyzed: result.siteOverview.pagesDiscovered,
+        pagesCrawled: result.pagesCrawled
       }
     });
   } catch (error) {
