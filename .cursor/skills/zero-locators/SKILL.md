@@ -7,6 +7,6 @@ description: >-
 
 # @zero/locators
 
-1. Read `agent-workflow/prompts/repos/locators.md`
+1. Read `support/agent-workflow/prompts/repos/locators.md`
 2. Merge order is profile → memory → DB — do not change it
 3. Normalize keys only via `packages/locators/elementLogger.js`

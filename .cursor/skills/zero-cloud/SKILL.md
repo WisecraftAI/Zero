@@ -7,7 +7,7 @@ description: >-
 
 # @zero/cloud
 
-1. Read `agent-workflow/prompts/repos/cloud.md`
+1. Read `support/agent-workflow/prompts/repos/cloud.md`
 2. Keep `index.d.ts` contracts stable
 3. Vendor SDKs only under `packages/cloud/**`
 4. Do not invent Azure/Vercel adapters unless asked — they are not-done

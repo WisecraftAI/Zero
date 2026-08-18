@@ -6,15 +6,15 @@
  *
  * Production and Compose run API, orchestrator, and executor as separate
  * processes. This launcher keeps the no-Redis developer path available while
- * making the co-location visible instead of hiding it in apps/api/server.js.
+ * making the co-location visible instead of hiding it in services/api/server.js.
  */
 
-const { boot: bootOrchestrator } = require("../apps/orchestrator/worker");
-const { boot: bootExecutor } = require("../apps/executor/main");
+const { boot: bootOrchestrator } = require("../services/orchestrator/worker");
+const { boot: bootExecutor } = require("../services/executor/main");
 
 Promise.all([bootOrchestrator(), bootExecutor()])
   .then(() => {
-    require("../apps/api/server");
+    require("../services/api/server");
   })
   .catch((err) => {
     console.error("Local stack failed to start:", err);

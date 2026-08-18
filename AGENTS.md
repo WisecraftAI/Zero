@@ -10,32 +10,40 @@ cp .env.example .env
 
 npm install
 npx playwright install chromium
-# build the Vite client → public/
+# build the Vite client → dist/web/
 npm run build
-# start Express (default PORT=3000)
+# API only (default PORT=3001 since S7)
 npm start
+# local all-in-one: API + orchestrator + executor
+npm run start:all
 ```
 
 > Run each line separately. If you paste with inline `# ...` comments, zsh may treat `#` as a literal arg (INTERACTIVE_COMMENTS is off by default) and break `vite build`. Enable once with `setopt interactive_comments` if you want inline comments to be safe.
 
-- UI: `http://localhost:3000` (or next free port logged at startup)
-- Dev UI: `npm run client` (Vite `:5173`, proxies `/api` to `:3000`)
-- Health: `GET /health`
+- UI: `http://localhost:3000` (nginx serving the SPA)
+- API: `http://localhost:3001` (Express, no `/api` prefix — `/runs`, `/cloud/local`, `/health`, `/health/detailed`, …)
+- Dev UI: `npm run client` (Vite `:5173`, fetches use absolute URLs via `VITE_API_BASE_URL`)
+- Health: `GET http://localhost:3001/health` · `GET http://localhost:3000/health` (nginx liveness)
+- Regenerable outputs: `dist/{web,artifacts,coverage,logs}`
+- `npm start` = API only (`services/api/server.js`)
+- `npm run start:all` = local all-in-one stack (`scripts/local-stack.js`)
 
-### Docker (V3 S6 — split API, orchestrator, and executor)
+### Docker (V3 S7 — split web, API, orchestrator, and executor)
 
-Compose runs three independent, workspace-scoped images. Playwright is installed only in the executor image. `npm start` is API-only; `npm run start:all` is the explicit no-Redis local compatibility launcher.
+Compose runs four independent, workspace-scoped images. The SPA lives in its own nginx image on `:3000`; the API listens on `:3001`. Playwright is installed only in the executor image. Locally, use `npm run start:all` when you need API + workers without Compose. Full operator guide: `support/zero-docs/docs/v1/DOCKER.md`.
 
 ```bash
 docker compose up --build
-# UI/API     http://localhost:3000/health
+# Web UI     http://localhost:3000
+# API        http://localhost:3001/health
 # Docs       http://localhost:5174
 # Workflow   http://localhost:5175/status   (probes the bind-mounted repo)
-# MinIO      http://localhost:9001  (zerominio / zerominio123)
-
 # Hybrid — infra in Docker, app on host:
-docker compose up -d postgres redis minio
+docker compose up -d postgres redis
 # then set DATABASE_URL=postgres://zero:zero@localhost:5432/zero and npm run start:all
+
+# Optional — S3 adapter drill against MinIO (not used when ZERO_CLOUD=local):
+docker compose --profile s3 up -d minio minio-init
 
 # Docs (Vite, bind-mounted — no rebuild on edit) or workflow only:
 docker compose up docs
@@ -46,19 +54,20 @@ docker compose up --build workflow
 
 | Path | Role |
 |------|------|
-| `apps/api/` | HTTP intake (`server.js` composition root + `src/routes/`). `npm start` |
-| `apps/orchestrator/` | DAG worker (`runs.requested`) + `llm/` |
-| `apps/executor/` | Playwright job worker (`execution.requested`) |
+| `services/api/` | HTTP intake (`server.js` composition root + `src/routes/`). `npm start` |
+| `services/orchestrator/` | DAG worker (`runs.requested`) + `llm/` |
+| `services/executor/` | Playwright job worker (`execution.requested`) |
 | `packages/cloud` | Queue · object store · secrets · cache (`ZERO_CLOUD`) |
 | `packages/{db,domain,locators,builders,analyzer}` | Shared libs imported as `@zero/*` |
 | `web/` | React 18 + Vite SPA (`src/views`, `src/components`, `src/layouts`) |
-| `public/` | Built static UI (do not hand-edit; rebuild from `web/`). Arch page: also `web/public/architecture.html` |
-| `artifacts/` | Runtime `run.json` / screenshots / CMS captures (gitignored) |
-| `docs/` | Lead briefing (`DEVELOPER_GUIDE.md`), architecture, OSS inventory (`OPEN_SOURCE.md`) |
-| `zero-docs/` | Standalone architecture docs site (React 19 + Vite 6 + TS strict + SCSS Modules + Vitest). Host: `:5174`. Docker: `docs` service (`zero-docs/Dockerfile` → nginx). See `zero-docs/README.md`. |
-| `agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S6. Docker: `workflow` service on `:5175` |
-| `ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
+| `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
+| `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
+| `support/zero-docs/` | Docs site (`:5174`) + markdown under `docs/v1` (runtime) and `docs/v2` (target). See `support/zero-docs/README.md`. |
+| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7. Docker: `workflow` service on `:5175` |
+| `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
+| `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
+| `scripts/local-stack.js` | `npm run start:all` — co-locate API + orchestrator + executor |
 
 ## Pipeline stages
 
@@ -68,7 +77,7 @@ Order in `stageKeys`: optional `webAnalyzer` → `ba` → `manualQa` → `automa
 2. **BA** — template consolidation of OTT URL + optional Figma / uploaded TCs / notes / analyzer insights
 3. **Manual QA** — cases from CSV, UI rows, URL analysis, or channel templates
 4. **Automation QA** — locator candidates: profile + in-memory learned (+ Postgres when DB enabled)
-5. **Execution** — Playwright with retries + screenshots under `artifacts/`
+5. **Execution** — Playwright with retries + screenshots under `dist/artifacts/`
 6. **Optional** — accessibility / performance / security Playwright passes
 7. **Manager / Delivery** — executive review + stakeholder delivery report
 
@@ -85,43 +94,46 @@ Prefer ZERO for: CSV → requirements → TCs → Java scripts → Manager repor
 
 ## Persistence
 
-**Today:** runs live in an in-memory `Map`, are written to `artifacts/<runId>/run.json`, and — when `DATABASE_URL` or `PGHOST` is set — are upserted to Postgres (`qa_runs` / `qa_assets` plus locator/project/provider tables via `@zero/db` `initAllTables`). If Postgres is unset or unreachable, the process falls back to memory + file.
+**Today:** runs live in an in-memory `Map`, are written to `dist/artifacts/<runId>/run.json`, and — when `DATABASE_URL` or `PGHOST` is set — are upserted to Postgres (`qa_runs` / `qa_assets` plus locator/project/provider tables via `@zero/db` `initAllTables`). If Postgres is unset or unreachable, the process falls back to memory + file.
 
-**Object store (M2):** `ZERO_CLOUD=local` stores blobs under `artifacts/cloud-store` with HMAC-signed `/api/cloud/local` URLs. `POST /api/runs` can return presigned `uploads[]`; `POST /api/runs/:id/commit` starts the run. `/artifacts` is not statically served.
+**Object store (M2):** `ZERO_CLOUD=local` stores blobs under `dist/artifacts/cloud-store` with HMAC-signed `/cloud/local` URLs (S7 dropped the `/api` prefix). `POST /runs` can return presigned `uploads[]`; `POST /runs/:id/commit` starts the run. `/artifacts` is not statically served.
 
-**Queue (M3):** `POST /api/runs` publishes `runs.requested`; standalone `@zero/orchestrator` consumes it (`ZERO_ORCH_CONCURRENCY`, default 2). Local all-in-one: `npm run start:all`. SSE: `GET /api/runs/:id/stream`.
+**Queue (M3):** `POST /runs` publishes `runs.requested`; `@zero/orchestrator` consumes it (`ZERO_ORCH_CONCURRENCY`, default 2). Standalone: `npm run orchestrator`. SSE: `GET /runs/:id/stream`.
 
-**Execution farm (M4):** Orchestrator publishes `execution.requested` and waits for `execution.completed`. Worker: `@zero/executor` / `npm run execution`. Caps: `ZERO_EXEC_CONCURRENCY`, `ZERO_EXEC_ATTEMPTS`. The API never subscribes to execution.
+**Execution farm (M4):** Orchestrator publishes `execution.requested` and waits for `execution.completed`. Worker: `@zero/executor` / `npm run execution`. Caps: `ZERO_EXEC_CONCURRENCY`, `ZERO_EXEC_ATTEMPTS`. The API never subscribes to execution. `npm start` is API-only; `npm run start:all` co-locates workers for local dev.
 
 **Auth + ACL (M5):** Verified `x-api-key` (`ZERO_API_KEYS` / `ZERO_DEV_API_KEY`) or Bearer JWT. `X-User-Email` is not identity. Runs are tenant-scoped. `ZERO_AUTH=on` (forced in production). Recording CORS is an explicit origin allowlist. Production boot fails without `KEY_ENC_SECRET`.
 
 **LLM (M6):** `@zero/orchestrator/llm` calls OpenAI / Claude / Gemini from BA, Manual, Automation, and Manager when a decrypted key exists. Templates always remain the base. Caps: `ZERO_LLM_RPM`, `ZERO_LLM_MAX_USD_PER_RUN`. `ZERO_LLM=off` forces templates.
 
-**Multi-cloud (M7/S6):** `ZERO_CLOUD=local|aws|gcp|azure|vercel`. Vendor SDKs live only under `@zero/cloud`; GATE-9 checks object store, queue, secrets, and cache contracts. IaC is in `infra/aws` and `infra/gcp`. CI: `.github/workflows/ci.yml`.
+**Multi-cloud (M7):** `ZERO_CLOUD=local|aws|gcp`. AWS = S3/SQS/Secrets Manager/Redis; GCP = GCS/Pub/Sub/Secret Manager/Redis. Vendor SDKs only under `@zero/cloud` (`packages/cloud/`). IaC in `infra/aws` and `infra/gcp`. CI: `.github/workflows/ci.yml`.
 
-Passwords from UI are runtime-only in the cache; they are not persisted in artifacts or DB.
+Passwords from UI are runtime-only (`runSecrets`); not persisted in artifacts or DB.
 
 ## Key APIs
 
-- `POST /api/runs` — multipart start (`tcFile`, `recordingFile`) or JSON with `uploads: ["tcFile"]` → presigned PUTs
-- `POST /api/runs/:id/commit` — after presigned uploads, start the pipeline
-- `GET /api/runs`, `GET /api/runs/:id`, `GET /api/runs/:id/stream` (SSE), `POST /api/runs/:id/rerun-failed`
-- `GET /api/runs/:id/assets`, `GET /api/runs/:id/files/:name`, `GET /api/runs/:id/download` (`?format=json&url=1` for a signed URL)
-- `GET|PUT /api/cloud/local` — fulfill local signed URLs
-- `POST /api/element-log`, `GET /api/locators?host=...`
-- Provider / agent settings: `/api/provider-keys`, `/api/agent-settings` (drive BA/Manual/Automation/Manager via `@zero/orchestrator/llm`; template fallback if no key)
-- Recording: `/api/recordings/*`, `/record`, `/recorder.js`
-- CMS Stream captures: `/api/capture-cms-screenshot`, `/api/capture-cms-signal-bulk` → `artifacts/cms-captures/`
-- Health / docs: `/health`, `/api/health/detailed`, `/api-docs`
+S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns route paths natively.
+
+- `POST /runs` — multipart start (`tcFile`, `recordingFile`) or JSON with `uploads: ["tcFile"]` → presigned PUTs
+- `POST /runs/:id/commit` — after presigned uploads, start the pipeline
+- `GET /runs`, `GET /runs/:id`, `GET /runs/:id/stream` (SSE), `POST /runs/:id/rerun-failed`
+- `GET /runs/:id/assets`, `GET /runs/:id/files/:name`, `GET /runs/:id/download` (`?format=json&url=1` for a signed URL)
+- `GET|PUT /cloud/local` — fulfill local signed URLs
+- `POST /element-log`, `GET /locators?host=...`
+- Provider / agent settings: `/provider-keys`, `/agent-settings` (drive BA/Manual/Automation/Manager via `@zero/orchestrator/llm`; template fallback if no key)
+- Recording: `/recordings/*`, `/record`, `/recorder.js`
+- CMS Stream captures: `/capture-cms-screenshot`, `/capture-cms-signal-bulk` → `dist/artifacts/cms-captures/`
+- Health / docs: `/health`, `/health/detailed`, `/api-docs` (Swagger UI — name, not a prefix)
 
 ## Conventions for agents
 
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
-- **UI changes**: edit `web/src/**`, then `npm run build` so `public/` updates. Do not treat `public/assets` as source.
-- **Server changes**: HTTP routes live in `apps/api/src/routes/`; the API only publishes queue messages and serves state. DAG walk is `@zero/orchestrator` `processRun`; Chromium runs only in `@zero/executor`. Shared protocols live in `@zero/domain`; shared persistence lives in `@zero/db`.
+- **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
+- **Server changes**: HTTP routes live in `services/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`services/executor/`). Compose splits that into its own image; locally use `npm run start:all` (or separate `npm run orchestrator` / `npm run execution`) when you need workers. Shared code is `@zero/*` packages.
+- **Output roots**: regenerable files under `dist/` via `@zero/domain` `outputRoots` (`web`, `artifacts`, `coverage`, `logs`). Override with `ZERO_DIST_ROOT`.
 - **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.
 - **Secrets**: never commit `.env`; use `.env.example`. Do not log or persist login passwords.
-- **Scope**: keep changes focused; avoid drive-by refactors of the monolithic `server.js` unless asked.
+- **Scope**: keep changes focused; avoid drive-by refactors across services unless asked. Services never import sibling `services/*`.
 - **Docs**: prefer updating `README.md` / this file only when behavior or run instructions change.
 
 ## Input rules (product)
@@ -132,32 +144,32 @@ Passwords from UI are runtime-only in the cache; they are not persisted in artif
 
 ## ML training (optional)
 
-`ml-training/` trains separate approve/reject models per agent (`ba`, `manual_qa`, `automation_qa`, `manager`). Not required to run the web app. See `ml-training/README.md`.
+`support/ml-training/` trains separate approve/reject models per agent (`ba`, `manual_qa`, `automation_qa`, `manager`). Not required to run the web app. See `support/ml-training/README.md`.
 
 ## Agent skills (this repo)
 
 Project skills live under `.cursor/skills/` (and mirrored in `.agents/skills/`).
 
-Each workspace has **three names** (not three repos): **Folder** (`apps/api/`) · **npm package** (`@zero/api`) · **Cursor skill** (`/zero-api`). Roster: `agent-workflow/prompts/repos/README.md`.
+Each workspace has **three names** (not three repos): **Folder** (`services/api/`) · **npm package** (`@zero/api`) · **Cursor skill** (`/zero-api`). Roster: `support/agent-workflow/prompts/repos/README.md`.
 
 | Cursor skill | Workspace | Folder | npm package |
 |--------------|-----------|--------|-------------|
 | `/zero-web` | Web UI | `web/` | `@zero/web` |
-| `/zero-api` | HTTP API | `apps/api/` | `@zero/api` |
-| `/zero-orchestrator` | Orchestrator worker | `apps/orchestrator/` | `@zero/orchestrator` |
-| `/zero-executor` | Playwright executor | `apps/executor/` | `@zero/executor` |
+| `/zero-api` | HTTP API | `services/api/` | `@zero/api` |
+| `/zero-orchestrator` | Orchestrator worker | `services/orchestrator/` | `@zero/orchestrator` |
+| `/zero-executor` | Playwright executor | `services/executor/` | `@zero/executor` |
 | `/zero-cloud` | Cloud adapters | `packages/cloud/` | `@zero/cloud` |
 | `/zero-domain` | Domain contracts | `packages/domain/` | `@zero/domain` |
 | `/zero-db` | Postgres helpers | `packages/db/` | `@zero/db` |
 | `/zero-locators` | Locator registry | `packages/locators/` | `@zero/locators` |
 | `/zero-builders` | Script builders | `packages/builders/` | `@zero/builders` |
 | `/zero-analyzer` | URL analyzer | `packages/analyzer/` | `@zero/analyzer` |
-| `/zero-target-arch` | Packaging track S3–S6 (not one workspace) | `agent-workflow/` | — |
+| `/zero-target-arch` | Packaging track S3–S6 (not one workspace) | `support/agent-workflow/` | — |
 
 | Skill | Use for |
 |-------|---------|
 | `init` | Install stack-matched pro skills into `.cursor/skills` + `.agents/skills` |
-| `zero-target-arch` | **Implement** packaging S3–S6 (M1–M7 probes already green) via `agent-workflow/` |
+| `zero-target-arch` | **Implement** packaging S3–S6 (M1–M7 probes already green) via `support/agent-workflow/` |
 | `zero-web` / `zero-api` / `zero-orchestrator` / `zero-executor` | Code one deployable (Web UI · HTTP API · Orchestrator worker · Playwright executor) |
 | `zero-cloud` / `zero-domain` / `zero-db` / `zero-locators` / `zero-builders` / `zero-analyzer` | Code one shared package |
 | `zero-architecture` | Zero-specific architecture explain / HTML publish |
@@ -168,13 +180,13 @@ Each workspace has **three names** (not three repos): **Folder** (`apps/api/`) �
 | `javascript` / `react` / `python-pro` | Stack pro skills (via `/init`) |
 | `xlsx` / `pdf` / `build-check` / `simplify` / `dark-mode` / `design-foundations` | Tooling/UI pro skills (via `/init`) |
 
-Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Production Blueprint, a `/zero-*` repo skill to change one workspace, `/zero-architecture` or `/zero-diagrams` for architecture/diagrams, or ask in chat. Prompts live in `agent-workflow/prompts/repos/`.
+Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Production Blueprint, a `/zero-*` repo skill to change one workspace, `/zero-architecture` or `/zero-diagrams` for architecture/diagrams, or ask in chat. Prompts live in `support/agent-workflow/prompts/repos/`.
 
 ### Target architecture agent workflow
 
-Autonomous path from runtime-today → Target architecture (`public/architectureV2.html`):
+Autonomous path from runtime-today → Target architecture (`dist/web/architectureV2.html` after build, source in `web/public/`):
 
-- Project: `agent-workflow/` (capability M1–M7 done; packaging S3–S6; `progress.json`)
+- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S3–S6; `progress.json`)
 - Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone S6`
 - Docker instance: `http://localhost:5175/status` (compose service `workflow`, repo mounted at `/repo`)
 - Cloud contracts: `@zero/cloud` (`ZERO_CLOUD=local` by default)

@@ -3,7 +3,5 @@ npm-debug.log*
 *.log
 *.tsbuildinfo
 .DS_Store
-artifacts/
 .env
-coverage/
 dist/

@@ -1,0 +1,135 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.module {
+  border: 1px solid var(--line);
+  border-radius: $radius;
+  padding: $s-5;
+  margin: $s-5 0 0;
+  background: var(--panel);
+}
+
+.moduleHead {
+  margin-bottom: $s-4;
+}
+
+.moduleTitle {
+  @include brand-heading($fs-lg);
+  display: flex;
+  align-items: center;
+  gap: $s-3;
+  margin: 0 0 $s-2;
+}
+
+.identity {
+  color: var(--mute);
+  font-size: $fs-sm;
+  margin: 0 0 $s-2;
+
+  code { color: var(--signal); font-size: 0.9em; }
+}
+
+.desc {
+  color: var(--mute);
+  font-size: $fs-body;
+  margin: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $s-3;
+  margin: 0 0 $s-4;
+  padding: $s-3 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+
+  dt {
+    color: var(--mute);
+    font-size: $fs-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text);
+    font-size: $fs-body;
+    font-weight: 500;
+    code { color: var(--signal); font-weight: 400; }
+  }
+}
+
+.muted { color: var(--mute); font-weight: 400; font-size: 0.9em; }
+
+.cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: $s-4;
+  margin-bottom: $s-4;
+}
+
+.h5 {
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mute);
+  margin: 0 0 $s-2;
+}
+
+.tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2;
+
+  li {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: $radius;
+    padding: 2px $s-2;
+    font-size: $fs-sm;
+    color: var(--text);
+  }
+}
+
+.deplist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2;
+  margin: 0;
+
+  code {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: $radius;
+    padding: 1px $s-2;
+    font-size: $fs-xs;
+    color: var(--text);
+  }
+}
+
+.zdep {
+  color: var(--signal) !important;
+  border-color: var(--signal) !important;
+}
+
+.gap {
+  margin: $s-4 0 0;
+  padding: $s-3;
+  background: var(--tint-info);
+  border-radius: $radius;
+  font-size: $fs-body;
+  color: var(--text);
+
+  strong { color: var(--signal); }
+}
+
+.missing {
+  color: var(--danger);
+  font-size: $fs-body;
+}

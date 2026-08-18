@@ -7,6 +7,6 @@ description: >-
 
 # @zero/analyzer
 
-1. Read `agent-workflow/prompts/repos/analyzer.md`
+1. Read `support/agent-workflow/prompts/repos/analyzer.md`
 2. Only run when the pipeline selects `webAnalyzer`
 3. Do not persist crawled login secrets

@@ -7,6 +7,6 @@ description: >-
 
 # @zero/builders
 
-1. Read `agent-workflow/prompts/repos/builders.md`
+1. Read `support/agent-workflow/prompts/repos/builders.md`
 2. Pure text emitters — do not launch a browser
 3. Same input, same output

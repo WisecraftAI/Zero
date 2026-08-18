@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiUrl } from '../apiBase';
 import './CmsScreenshotCapture.css';
 
 export default function CmsScreenshotCapture() {
@@ -25,7 +26,7 @@ export default function CmsScreenshotCapture() {
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/capture-cms-screenshot', {
+      const res = await fetch(apiUrl('/capture-cms-screenshot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -60,7 +61,7 @@ export default function CmsScreenshotCapture() {
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/capture-cms-signal-bulk', {
+      const res = await fetch(apiUrl('/capture-cms-signal-bulk'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,7 +113,7 @@ export default function CmsScreenshotCapture() {
             rows={6}
             value={bulkUrls}
             onChange={(e) => setBulkUrls(e.target.value)}
-            placeholder={'https://console.api.graycms.quickplay.com/apps/gm/STATION1/.../liveops/playout/...\nhttps://console.api.graycms.quickplay.com/apps/gm/STATION2/.../liveops/playout/...'}
+            placeholder={'https://console.api.graycms.quickplay.com/services/gm/STATION1/.../liveops/playout/...\nhttps://console.api.graycms.quickplay.com/services/gm/STATION2/.../liveops/playout/...'}
           />
         </label>
         <button type="button" className="btn btn-primary" disabled={loading} onClick={captureBulk}>
@@ -126,7 +127,7 @@ export default function CmsScreenshotCapture() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://console.api.graycms.quickplay.com/apps/gm/wnem/.../liveops/playout/..."
+            placeholder="https://console.api.graycms.quickplay.com/services/gm/wnem/.../liveops/playout/..."
           />
         </label>
         <div className="cms-capture-row">

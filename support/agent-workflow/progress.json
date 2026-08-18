@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "northStar": "zero-docs Architecture + Tech Stack · packaging complete (S0–S7)",
+  "track": "packaging",
+  "current": "S7",
+  "acceptanceFloor": "M4",
+  "milestones": {
+    "M1": {
+      "id": "M1",
+      "name": "Durable store",
+      "status": "done",
+      "spec": "milestones/M1-durable-store.md",
+      "completedAt": "2026-08-16T20:40:00.000Z"
+    },
+    "M2": {
+      "id": "M2",
+      "name": "Object store + signed URLs",
+      "status": "done",
+      "spec": "milestones/M2-object-store.md",
+      "completedAt": "2026-08-16T20:50:00.000Z"
+    },
+    "M3": {
+      "id": "M3",
+      "name": "Queue + orchestrator",
+      "status": "done",
+      "spec": "milestones/M3-queue-orchestrator.md",
+      "completedAt": "2026-08-16T20:55:00.000Z"
+    },
+    "M4": {
+      "id": "M4",
+      "name": "Execution farm",
+      "status": "done",
+      "spec": "milestones/M4-execution-farm.md",
+      "completedAt": "2026-08-16T21:00:00.000Z"
+    },
+    "M5": {
+      "id": "M5",
+      "name": "Auth + ACL",
+      "status": "done",
+      "spec": "milestones/M5-auth-acl.md",
+      "completedAt": "2026-08-16T21:10:00.000Z"
+    },
+    "M6": {
+      "id": "M6",
+      "name": "LLM wiring",
+      "status": "done",
+      "spec": "milestones/M6-llm-wiring.md",
+      "completedAt": "2026-08-16T21:20:00.000Z"
+    },
+    "M7": {
+      "id": "M7",
+      "name": "Multi-cloud adapters",
+      "status": "done",
+      "spec": "milestones/M7-multi-cloud.md",
+      "completedAt": "2026-08-17T05:15:00.000Z"
+    }
+  },
+  "packaging": {
+    "S0": { "id": "S0", "name": "Containerize the monolith", "status": "done", "spec": "milestones/S0-containerize.md", "completedAt": "2026-08-16T12:00:00.000Z" },
+    "S1": { "id": "S1", "name": "Smoke tests", "status": "done", "spec": "milestones/S1-smoke.md", "completedAt": "2026-08-16T20:40:00.000Z" },
+    "S2": { "id": "S2", "name": "Turn on workspaces", "status": "done", "spec": "milestones/S2-workspaces.md", "completedAt": "2026-08-17T07:30:00.000Z" },
+    "S3": { "id": "S3", "name": "Split routes from stages", "status": "done", "spec": "milestones/S3-split-routes.md", "completedAt": "2026-08-17T09:40:00.000Z" },
+    "S4": { "id": "S4", "name": "Extract executor image", "status": "done", "spec": "milestones/S4-executor-image.md", "completedAt": "2026-08-17T10:15:00.000Z" },
+    "S5": { "id": "S5", "name": "Extract orchestrator image", "status": "done", "spec": "milestones/S5-orchestrator-image.md", "completedAt": "2026-08-17T10:12:02.000Z" },
+    "S6": { "id": "S6", "name": "Cloud adapters remaining providers", "status": "done", "spec": "milestones/S6-cloud-providers.md", "completedAt": "2026-08-17T10:12:02.000Z" },
+    "S7": { "id": "S7", "name": "Web image split + /api prefix drop", "status": "in_progress", "spec": "milestones/S7-web-image.md" }
+  },
+  "history": [
+    {
+      "at": "2026-08-17T00:00:00.000Z",
+      "event": "workflow_initialized",
+      "note": "Agent workflow project created; earliest unfinished = M1 (Postgres hard-disabled)."
+    },
+    {
+      "at": "2026-08-16T20:40:00.000Z",
+      "event": "milestone_done",
+      "note": "M1 durable store + S1 smoke: databaseConfigured() follows DATABASE_URL/PGHOST; qa_runs/qa_assets persist; Jest health + pipeline + Postgres reload tests."
+    },
+    {
+      "at": "2026-08-16T20:50:00.000Z",
+      "event": "milestone_done",
+      "note": "M2 object store: local HMAC-signed /api/cloud/local, presign uploads + commit, /artifacts static removed, screenshots and run.json stored as objects."
+    },
+    {
+      "at": "2026-08-16T20:55:00.000Z",
+      "event": "milestone_done",
+      "note": "M3 queue + orchestrator: POST publishes runs.requested; lib/orchestrator + workers/orchestrator.js consume with concurrency cap; SSE /api/runs/:id/stream; Playwright still inline until M4."
+    },
+    {
+      "at": "2026-08-16T21:00:00.000Z",
+      "event": "milestone_done",
+      "note": "M4 execution farm: processRun publishes execution.requested and waits for execution.completed; lib/execution/worker.js + workers/execution.js; retries + concurrency caps. Acceptance floor M1–M4 MET. Gaps: M5 auth, M6 LLM, M7 shared cloud queue."
+    },
+    {
+      "at": "2026-08-16T21:10:00.000Z",
+      "event": "milestone_done",
+      "note": "M5 auth + ACL: verified API keys / JWT, tenant-scoped runs, recording CORS allowlist, production KEY_ENC_SECRET required. X-User-Email is not identity. Gaps: M6 LLM, M7 multi-cloud, no UI login screen."
+    },
+    {
+      "at": "2026-08-16T21:20:00.000Z",
+      "event": "milestone_done",
+      "note": "M6 LLM wiring: lib/llm callProvider for OpenAI/Claude/Gemini; BA/Manual/Automation/Manager enrich with template fallback; RPM + cost caps + prompt versions. Gap: M7 multi-cloud adapters."
+    },
+    {
+      "at": "2026-08-17T05:15:00.000Z",
+      "event": "milestone_done",
+      "note": "M7 multi-cloud: lib/cloud/aws (S3/SQS/Secrets Manager/Redis) + lib/cloud/gcp (GCS/Pub/Sub/Secret Manager/Redis); infra/aws + infra/gcp Terraform; CI workflow status + Jest smoke. Default remains ZERO_CLOUD=local. Azure/Vercel not implemented. SDKs lazy-required, not added as runtime deps."
+    },
+    {
+      "at": "2026-08-17T08:30:00.000Z",
+      "event": "packaging_track_started",
+      "note": "M1–M7 probes green. New packaging workflow S0–S6: S0–S2 done; current = S3 split routes from stages."
+    },
+    {
+      "at": "2026-08-17T09:40:00.000Z",
+      "event": "milestone_done",
+      "note": "S3 split routes from stages: Express handlers in services/api/src/routes/; processRun walks stageKeys in services/orchestrator/processRun.js. Still one process; Chromium remains until S4."
+    },
+    {
+      "at": "2026-08-17T10:15:00.000Z",
+      "event": "milestone_done",
+      "note": "S4 executor image: services/executor/Dockerfile (Playwright) + compose executor service/image zero-executor. Compose HTTP service/image is api/zero-api. @zero/api has no Playwright or worker boot path; jobs consume execution.requested from standalone main.js."
+    },
+    {
+      "at": "2026-08-17T10:12:02.000Z",
+      "event": "milestone_done",
+      "note": "S5 orchestrator image: services/orchestrator/Dockerfile + compose orchestrator service/image zero-orchestrator. worker.js boots without services/api/server.js; the API is HTTP-only."
+    },
+    {
+      "at": "2026-08-17T10:12:02.000Z",
+      "event": "milestone_done",
+      "note": "S6 cloud adapters: packages/cloud/azure + vercel (lazy SDKs) + conformance GATE-9. ZERO_CLOUD=local|aws|gcp|azure|vercel. Packaging S0–S6 complete."
+    },
+    {
+      "at": "2026-08-17T10:35:00.000Z",
+      "event": "target_boundary_hardening",
+      "note": "Removed API worker boot paths and app-to-app dependencies; moved execution protocol to @zero/domain and shared run store to @zero/db; made all runtime images workspace-scoped; removed root boot shims; hardened S4–S6 probes. npm start is API-only and npm run start:all is the explicit local compatibility launcher."
+    },
+    {
+      "at": "2026-08-17T11:35:00.000Z",
+      "event": "workflow_naming_hardening",
+      "note": "Aligned Compose runtime names with target tiers: api/zero-api, orchestrator/zero-orchestrator, and executor/zero-executor. S4/S5 probes now enforce service and image names; stale next-step instructions were removed."
+    },
+    {
+      "at": "2026-08-17T12:05:00.000Z",
+      "event": "docs_restructure",
+      "note": "zero-docs reframed: Overview = current state of this branch; added Tech Stack tab (Backend/Frontend/LLM/Data & Cloud/Modules) and a step-by-step Deployment tab. New agent-free generator scripts/generate-lld.mjs (npm run docs) reads every workspace from disk into src/data/generated.ts so the Modules view reflects the live tree without an agent. Fixed stale copy (Checklist 'four images open') and refreshed target-arch.md current-runtime wording + moved architectureV2.html path."
+    },
+    {
+      "at": "2026-08-18T00:05:00.000Z",
+      "event": "docs_parts_home",
+      "note": "Target architecture complete (M1–M7 + S0–S6). Docs focus moved: Overview is product-only; Architecture + Tech Stack own system parts (tiers, workspaces, LLD, libraries, generated modules). Make it Real reframed to boundary checks + per-workspace skills."
+    }
+  ]
+}

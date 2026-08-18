@@ -74,7 +74,7 @@ describe("M3 queue-triggered HTTP", () => {
     };
     delete env.VERCEL;
     delete env.ORCHESTRATOR_ONLY;
-    child = spawn(process.execPath, ["apps/api/server.js"], {
+    child = spawn(process.execPath, ["services/api/server.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]
@@ -89,11 +89,11 @@ describe("M3 queue-triggered HTTP", () => {
     if (!child.killed) child.kill("SIGKILL");
   });
 
-  it("POST /api/runs returns before the pipeline finishes", async () => {
+  it("POST /runs returns before the pipeline finishes", async () => {
     const t0 = Date.now();
     const created = await request({
       method: "POST",
-      urlPath: "/api/runs",
+      urlPath: "/runs",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ottUrl: "https://example.com",
@@ -108,7 +108,7 @@ describe("M3 queue-triggered HTTP", () => {
     expect(created.body.runId).toBeTruthy();
     expect(elapsed).toBeLessThan(2000);
 
-    const snap = await request({ method: "GET", urlPath: `/api/runs/${created.body.runId}` });
+    const snap = await request({ method: "GET", urlPath: `/runs/${created.body.runId}` });
     expect(snap.status).toBe(200);
     expect(["queued", "running", "completed", "failed"]).toContain(snap.body.status);
   });
@@ -116,7 +116,7 @@ describe("M3 queue-triggered HTTP", () => {
   it("SSE stream sends a state event", async () => {
     const created = await request({
       method: "POST",
-      urlPath: "/api/runs",
+      urlPath: "/runs",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ottUrl: "https://example.com",
@@ -128,7 +128,7 @@ describe("M3 queue-triggered HTTP", () => {
     const runId = created.body.runId;
 
     const first = await new Promise((resolve, reject) => {
-      const req = http.get(`${BASE}/api/runs/${runId}/stream`, (res) => {
+      const req = http.get(`${BASE}/runs/${runId}/stream`, (res) => {
         expect(res.statusCode).toBe(200);
         expect(String(res.headers["content-type"] || "")).toMatch(/text\/event-stream/);
         let buf = "";

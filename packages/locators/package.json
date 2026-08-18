@@ -2,8 +2,14 @@
   "name": "@zero/locators",
   "version": "0.0.0",
   "private": true,
-  "main": "locatorRegistry.js",
+  "main": "index.js",
   "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
+  "exports": {
+    ".": "./index.js",
+    "./locatorRegistry": "./locatorRegistry.js",
+    "./elementLogger": "./elementLogger.js",
+    "./ecommerceSelectors": "./ecommerceSelectors.js"
+  },
   "dependencies": {
     "@zero/db": "*"
   }

@@ -1,0 +1,250 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+// Role → accent colour. One custom property drives border, tag, tint, dot.
+%role-palette {
+  &[data-role='client']   { --role: var(--violet); }
+  &[data-role='edge']     { --role: var(--warn); }
+  &[data-role='api']      { --role: var(--signal); }
+  &[data-role='async']    { --role: var(--warn); }
+  &[data-role='worker']   { --role: var(--violet); }
+  &[data-role='store']    { --role: var(--signal); }
+  &[data-role='external'] { --role: var(--mute); }
+  &[data-role='shared']   { --role: var(--signal); }
+}
+
+.fig {
+  margin: $s-4 0;
+  padding: $s-5;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent calc(1.5rem - 1px),
+      color-mix(in srgb, var(--line) 45%, transparent) calc(1.5rem - 1px),
+      color-mix(in srgb, var(--line) 45%, transparent) 1.5rem
+    );
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 1.5);
+}
+
+.cap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: $s-4;
+  padding-bottom: $s-3;
+  border-bottom: 1px dashed var(--line);
+}
+
+.capTitle {
+  @include brand-heading($fs-md);
+}
+
+.capSub {
+  color: var(--mute);
+  font-size: $fs-sm;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.tier {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: $s-4;
+  align-items: stretch;
+
+  @include down(md) {
+    grid-template-columns: 1fr;
+    gap: $s-2;
+  }
+}
+
+.rail {
+  display: flex;
+  align-items: center;
+  gap: $s-2;
+  padding-top: $s-2;
+
+  @include down(md) {
+    padding-top: 0;
+  }
+}
+
+.tierNum {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--tint-info);
+  color: var(--signal);
+  border: 1px solid color-mix(in srgb, var(--signal) 30%, var(--line));
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  font-weight: 600;
+}
+
+.tierLabel {
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mute);
+  line-height: 1.2;
+}
+
+.nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-3;
+}
+
+.node {
+  @extend %role-palette;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 9.5rem;
+  flex: 1 1 9.5rem;
+  max-width: 15rem;
+  padding: $s-3 $s-3 $s-3 calc(#{$s-3} + 3px);
+  background:
+    linear-gradient(var(--panel-2), var(--panel-2)) padding-box;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--role, var(--line-strong));
+  border-radius: var(--radius);
+  transition: box-shadow $dur-fast, transform $dur-fast, border-color $dur-fast;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--role, transparent) 6%, transparent);
+    pointer-events: none;
+  }
+}
+
+.focus {
+  border-color: color-mix(in srgb, var(--role, var(--signal)) 55%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--role, var(--signal)) 30%, transparent);
+  transform: translateY(-1px);
+}
+
+.nodeRole {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--role, var(--mute));
+  font-weight: 600;
+}
+
+.nodeLabel {
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.nodeSub {
+  font-size: $fs-xs;
+  color: var(--mute);
+  line-height: 1.3;
+}
+
+// Connector between two tiers: dashed line + labelled wire chip + arrowhead.
+.connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: $s-2 0;
+  margin-left: calc(4.25rem - 1px); // centre on the tier rail bullet
+  align-self: flex-start;
+
+  @include down(md) {
+    margin-left: 0.6rem;
+  }
+}
+
+.line {
+  width: 2px;
+  height: $s-3;
+  background: repeating-linear-gradient(
+    var(--line-strong) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.wire {
+  display: inline-flex;
+  align-items: center;
+  gap: $s-2;
+  padding: 2px $s-3;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: $fs-xs;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.wireKind {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--signal);
+  padding-right: $s-2;
+  border-right: 1px solid var(--line);
+
+  .wire[data-wire='queue'] &,
+  .wire[data-wire='event'] & { color: var(--warn); }
+  .wire[data-wire='sse'] & { color: var(--violet); }
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--line-strong);
+}
+
+.legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2 $s-4;
+  margin: $s-4 0 0;
+  padding: $s-3 0 0;
+  border-top: 1px dashed var(--line);
+
+  li {
+    @extend %role-palette;
+    display: inline-flex;
+    align-items: center;
+    gap: $s-2;
+    font-family: var(--font-mono);
+    font-size: $fs-xs;
+    color: var(--mute);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--role, var(--line-strong));
+}

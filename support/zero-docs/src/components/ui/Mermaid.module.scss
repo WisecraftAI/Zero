@@ -1,0 +1,35 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.box {
+  @include surface;
+  @include scroll-x;
+  margin: $s-4 0;
+  padding: $s-5;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent calc(1.5rem - 1px),
+      color-mix(in srgb, var(--line) 45%, transparent) calc(1.5rem - 1px),
+      color-mix(in srgb, var(--line) 45%, transparent) 1.5rem
+    );
+  border-radius: calc(var(--radius) * 1.5);
+}
+
+.svg {
+  min-height: 4rem;
+
+  :global(svg) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+.err {
+  margin: 0 0 $s-3;
+  color: var(--danger);
+  font-size: $fs-sm;
+}

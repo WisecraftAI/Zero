@@ -133,7 +133,7 @@ Call out the key relationships, flow direction, and any assumptions.
 |---|---|---|
 | real object / field definitions | [sf-metadata](../sf-metadata/SKILL.md) | grounded ERD generation |
 | rendered diagram / image output | [sf-diagram-nanobananapro](../sf-diagram-nanobananapro/SKILL.md) | visual polish beyond Mermaid |
-| connected-app auth setup context | [sf-connected-apps](../sf-connected-apps/SKILL.md) | accurate OAuth flows |
+| connected-app auth setup context | [sf-connected-apps](../sf-connected-services/SKILL.md) | accurate OAuth flows |
 | Agentforce logic visualization | [sf-ai-agentscript](../sf-ai-agentscript/SKILL.md) | source-of-truth behavior details |
 | Flow behavior diagrams | [sf-flow](../sf-flow/SKILL.md) | actual Flow logic grounding |
 

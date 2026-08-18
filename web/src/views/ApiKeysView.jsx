@@ -1,27 +1,52 @@
 import { useEffect, useState } from 'react';
+import { apiUrl } from '../apiBase';
 import './ApiKeysView.css';
 
 const PROVIDERS = [
   {
-    id: 'claude',
-    name: 'Anthropic Claude',
-    desc: 'API key for Claude models (Opus, Sonnet, Haiku)',
-    placeholder: 'sk-ant-…',
-    docs: 'https://console.anthropic.com/settings/keys',
+    id: 'gemini',
+    name: 'Google Gemini',
+    desc: 'Best free-tier option — get a key at Google AI Studio (no card for basic quota)',
+    placeholder: 'AIza…',
+    docs: 'https://aistudio.google.com/app/apikey',
+    freeTier: true,
   },
   {
     id: 'openai',
     name: 'OpenAI ChatGPT',
-    desc: 'API key for GPT-4o, GPT-4-turbo, o-series models',
+    desc: 'Paid API — small trial credits may apply for new accounts',
     placeholder: 'sk-…',
     docs: 'https://platform.openai.com/api-keys',
+    freeTier: false,
+  },
+  {
+    id: 'claude',
+    name: 'Anthropic Claude',
+    desc: 'Paid API — limited trial credits for new Anthropic accounts',
+    placeholder: 'sk-ant-…',
+    docs: 'https://console.anthropic.com/settings/keys',
+    freeTier: false,
+  },
+];
+
+const LLM_MODES = [
+  {
+    id: 'templates',
+    title: 'No API key (default)',
+    cost: '$0',
+    detail: 'BA, Manual QA, Automation, and Manager use built-in templates. Full pipeline completes without any LLM spend.',
   },
   {
     id: 'gemini',
-    name: 'Google Gemini',
-    desc: 'API key for Gemini Pro / Flash models',
-    placeholder: 'AIza…',
-    docs: 'https://aistudio.google.com/app/apikey',
+    title: 'Google Gemini free tier',
+    cost: 'Free quota',
+    detail: 'Save a Gemini key below, then open Agents and pick Gemini + gemini-2.0-flash for each agent you want enriched.',
+  },
+  {
+    id: 'env',
+    title: 'Docker / .env keys',
+    cost: 'Your plan',
+    detail: 'Set ZERO_LLM_ENV_KEYS=1 and GEMINI_API_KEY=… in .env, then restart the stack. See .env.example in the repo.',
   },
 ];
 
@@ -43,7 +68,7 @@ export default function ApiKeysView() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/provider-keys');
+      const res = await fetch(apiUrl('/provider-keys'));
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load.');
       setItems(data.items || []);
@@ -60,7 +85,7 @@ export default function ApiKeysView() {
     setSaving(s => ({ ...s, [provider]: true }));
     setError('');
     try {
-      const res = await fetch(`/api/provider-keys/${provider}`, {
+      const res = await fetch(apiUrl(`/provider-keys/${provider}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key }),
@@ -79,7 +104,7 @@ export default function ApiKeysView() {
     if (!window.confirm(`Remove the saved key for ${provider}?`)) return;
     setSaving(s => ({ ...s, [provider]: true }));
     try {
-      const res = await fetch(`/api/provider-keys/${provider}`, { method: 'DELETE' });
+      const res = await fetch(apiUrl(`/provider-keys/${provider}`), { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to remove.');
       await load();
@@ -131,6 +156,29 @@ export default function ApiKeysView() {
         </div>
       </div>
 
+      <div className="apk-guide">
+        <h2 className="apk-guide-title">LLM options &amp; cost</h2>
+        <p className="apk-guide-intro">
+          ZERO always runs without keys using templates. Add a key only if you want AI-enriched requirements, test cases, and manager narrative.
+          After saving a key here, assign provider + model per agent under <strong>Agents</strong> in the sidebar.
+        </p>
+        <div className="apk-guide-grid">
+          {LLM_MODES.map((m) => (
+            <div key={m.id} className="apk-guide-card">
+              <div className="apk-guide-card-head">
+                <span className="apk-guide-card-title">{m.title}</span>
+                <span className="apk-guide-cost">{m.cost}</span>
+              </div>
+              <p className="apk-guide-card-detail">{m.detail}</p>
+            </div>
+          ))}
+        </div>
+        <p className="apk-guide-note">
+          Local models (Ollama, LM Studio) are not wired yet — only OpenAI, Claude, and Gemini cloud APIs.
+          Cap per run: <code>ZERO_LLM_MAX_USD_PER_RUN</code> (default $0.50). Force templates only: <code>ZERO_LLM=off</code>.
+        </p>
+      </div>
+
       {error && <div className="apk-error">{error}</div>}
 
       {/* Provider list */}
@@ -150,7 +198,10 @@ export default function ApiKeysView() {
           return (
             <div key={p.id} className="apk-row">
               <div className="apk-col apk-col--name">
-                <div className="apk-provider-name">{p.name}</div>
+                <div className="apk-provider-name">
+                  {p.name}
+                  {p.freeTier && <span className="apk-free-badge">free tier</span>}
+                </div>
                 <div className="apk-provider-desc">{p.desc}</div>
               </div>
 

@@ -3,10 +3,12 @@ node_modules
 **/dist
 **/.vite
 
+dist
 artifacts
 logs
-ml-training/models
-ml-training/data
+coverage
+support/ml-training/models
+support/ml-training/data
 
 .git
 .github
@@ -22,14 +24,12 @@ ml-training/data
 .env.*
 !.env.example
 
-coverage
 *.log
 .DS_Store
 
 # Keep app image lean — web stage copies web/ explicitly.
-# agent-workflow stays in context so the workflow image can COPY probes + live tree.
-zero-docs
-docs
+# support/agent-workflow stays in context so the workflow image can COPY probes + live tree.
+support/zero-docs
 *.csv
 vercel.json
 railway.json

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PipelineFlow from '../components/PipelineFlow';
+import RunProgressPanel from '../components/RunProgressPanel';
+import { apiUrl } from '../apiBase';
 import './RunDetailView.css';
 
 /* ─── Tab definitions ─────────────────────────────────────── */
@@ -38,8 +40,22 @@ function fmtDate(ts) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
-export default function RunDetailView({ run, runId, onRerunFailed, onBack }) {
+export default function RunDetailView({ run, runId, onRerunFailed, onBack, streamTransport }) {
   const [activeTab, setActiveTab] = useState('requirements');
+  const [tick, setTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (run?.status !== 'running') return undefined;
+    const t = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [run?.status]);
+
+  // While execution runs, surface the execution tab so results appear as they land.
+  useEffect(() => {
+    if (run?.stages?.execution?.status === 'running') {
+      setActiveTab('execution');
+    }
+  }, [run?.stages?.execution?.status]);
 
   const visibleTabs = getVisibleTabs(run);
   const currentTabId = visibleTabs.find(t => t.id === activeTab) ? activeTab : 'requirements';
@@ -81,7 +97,7 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack }) {
             Re-run Failed
           </button>
           <button className="btn btn-secondary btn-sm" disabled={!canDownload}
-            onClick={() => window.open(`/api/runs/${runId}/download`, '_blank')}>
+            onClick={() => window.open(apiUrl(`/runs/${runId}/download`), '_blank')}>
             <DownloadIcon /> PDF
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onBack}>
@@ -92,8 +108,9 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack }) {
 
       {/* Pipeline flow */}
       <div className="rdt-pipeline-panel">
-        <div className="rdt-section-label">Pipeline</div>
-        <PipelineFlow run={run} />
+        <RunProgressPanel run={run} streamTransport={streamTransport} />
+        <div className="rdt-section-label">Pipeline stages</div>
+        <PipelineFlow run={run} tick={tick} />
       </div>
 
       {/* Main body — tabs + optional side panel */}

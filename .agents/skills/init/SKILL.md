@@ -17,9 +17,9 @@ project so agents can discover them locally.
 
 | Area | Path / tech | Pro skill |
 |------|-------------|-----------|
-| Server | `server.js`, `lib/` — Node CommonJS + Express | `javascript` |
-| Client | `client/` — React 18 + Vite (JSX) | `react` |
-| ML (optional) | `ml-training/` — Python | `python-pro` |
+| Server | `services/*` (`@zero/api` · `@zero/orchestrator` · `@zero/executor`) + `packages/*` — Node CommonJS + Express | `javascript` |
+| Client | `web/` (`@zero/web`) — React 18 + Vite (JSX) | `react` |
+| ML (optional) | `support/ml-training/` — Python | `python-pro` |
 | TC uploads | `.xlsx` / `.xls` / CSV | `xlsx` |
 | Reports / PDFs | `pdfkit`, PDF artifacts | `pdf` |
 | Verify | lint / build / test | `build-check` |

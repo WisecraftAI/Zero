@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
-const auth = require("../apps/api/auth");
-const { apiKeyAuth } = require("../apps/api/middleware/auth");
+const auth = require("../services/api/auth");
+const { apiKeyAuth } = require("../services/api/middleware/auth");
 
 describe("M5 auth + ACL", () => {
   const env = {

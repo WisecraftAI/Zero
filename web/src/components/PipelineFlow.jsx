@@ -1,3 +1,8 @@
+import {
+  formatDuration,
+  normalizeStageStatus,
+  stageDurationMs
+} from '../lib/runProgress';
 import './PipelineFlow.css';
 
 const STAGE_META = {
@@ -14,7 +19,7 @@ const STAGE_META = {
 
 const BASE_ORDER = ['webAnalyzer', 'ba', 'manualQa', 'automationQa', 'execution', 'manager'];
 
-export default function PipelineFlow({ run }) {
+export default function PipelineFlow({ run, tick = Date.now() }) {
   const stages = run?.stages;
 
   const visibleKeys = (() => {
@@ -28,21 +33,25 @@ export default function PipelineFlow({ run }) {
     return ordered;
   })();
 
-  const getStatus = (key) => stages?.[key]?.status || 'pending';
+  const getRawStatus = (key) => stages?.[key]?.status || 'pending';
+  const getDisplayStatus = (key) => normalizeStageStatus(getRawStatus(key));
 
   return (
     <div className="pipeline-seq-wrap">
       <div className="pipeline-seq">
         {visibleKeys.map((key, i) => {
           const meta = STAGE_META[key] || { label: key, short: key.slice(0, 4).toUpperCase() };
-          const status = getStatus(key);
+          const raw = getRawStatus(key);
+          const status = getDisplayStatus(key);
+          const stage = stages?.[key];
+          const duration = stage ? stageDurationMs(stage, tick) : null;
           const isLast = i === visibleKeys.length - 1;
+          const prevDone = i > 0 && getRawStatus(visibleKeys[i - 1]) === 'done';
 
           return (
             <div key={key} className={`pipeline-seq-stage pipeline-seq--${status}`}>
-              {/* Connecting line to next item */}
               {!isLast && (
-                <div className={`pipeline-line pipeline-line--${status === 'completed' ? 'done' : 'idle'}`} />
+                <div className={`pipeline-line pipeline-line--${prevDone || raw === 'done' ? 'done' : 'idle'}`} />
               )}
 
               <div className={`pipeline-dot pipeline-dot--${status}`}>
@@ -53,11 +62,14 @@ export default function PipelineFlow({ run }) {
                   <span className="pipeline-dot-label">{meta.short}</span>
                 )}
               </div>
-              
+
               <div className="pipeline-stage-name">
                 {meta.label}
                 {meta.optional && <span className="pipeline-opt">opt</span>}
               </div>
+              {duration != null && raw !== 'pending' && (
+                <div className="pipeline-stage-time">{formatDuration(duration)}</div>
+              )}
             </div>
           );
         })}

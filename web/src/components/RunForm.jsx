@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { apiUrl, API_BASE } from '../apiBase';
 import './RunForm.css';
 
 export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, run, hasFailures, canDownload }) {
@@ -26,7 +27,7 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
     const ottUrl = form?.ottUrl?.value?.trim();
     if (!ottUrl) return;
     try {
-      const res = await fetch('/api/recordings/start', {
+      const res = await fetch(apiUrl('/recordings/start'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ottUrl })
@@ -35,7 +36,7 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
       if (data.sessionId) {
         setRecordingSessionId(data.sessionId);
         setRecordingId(null);
-        const url = `/record?sessionId=${encodeURIComponent(data.sessionId)}&ottUrl=${encodeURIComponent(ottUrl)}`;
+        const url = `${API_BASE}/record?sessionId=${encodeURIComponent(data.sessionId)}&ottUrl=${encodeURIComponent(ottUrl)}`;
         window.open(url, 'record', 'width=520,height=520');
       }
     } catch (err) {

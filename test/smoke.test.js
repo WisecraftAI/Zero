@@ -56,7 +56,7 @@ function postRun() {
       {
         hostname: "127.0.0.1",
         port: PORT,
-        path: "/api/runs",
+        path: "/runs",
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -72,14 +72,14 @@ function postRun() {
           try {
             resolve({ status: res.statusCode, body: JSON.parse(raw || "{}") });
           } catch (err) {
-            reject(new Error(`Invalid JSON from POST /api/runs: ${raw.slice(0, 200)}`));
+            reject(new Error(`Invalid JSON from POST /runs: ${raw.slice(0, 200)}`));
           }
         });
       }
     );
     req.on("error", reject);
     req.setTimeout(15000, () => {
-      req.destroy(new Error("timeout POST /api/runs"));
+      req.destroy(new Error("timeout POST /runs"));
     });
     req.end(body);
   });
@@ -168,7 +168,7 @@ describe("S1 HTTP smoke", () => {
     expect(r.body.service).toBe("ZER0");
   });
 
-  it("POST /api/runs starts a pipeline and reaches a terminal status", async () => {
+  it("POST /runs starts a pipeline and reaches a terminal status", async () => {
     const created = await postRun();
     expect(created.status).toBe(202);
     expect(created.body.runId).toBeTruthy();
@@ -178,7 +178,7 @@ describe("S1 HTTP smoke", () => {
     let last;
 
     while (Date.now() < deadline) {
-      const r = await getJson(`/api/runs/${runId}`);
+      const r = await getJson(`/runs/${runId}`);
       expect(r.status).toBe(200);
       last = r.body;
       if (last.status === "completed" || last.status === "failed") break;

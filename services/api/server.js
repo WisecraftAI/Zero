@@ -1,0 +1,543 @@
+require("dotenv").config();
+
+const express = require("express");
+const fs = require("fs/promises");
+const path = require("path");
+const multer = require("multer");
+const { Pool } = require("pg");
+const compression = require("compression");
+const cors = require("cors");
+
+// Professional plugins
+const logger = require("./logger");
+const apiKeyManager = require("./apiKeyManager");
+const swaggerSpec = require("./swagger");
+const { 
+  rateLimiters, 
+  securityHeaders, 
+  corsOptions, 
+  requestId,
+  cacheMiddleware,
+  invalidateCache
+} = require("./middleware");
+
+// Swagger UI (conditionally load)
+let swaggerUi;
+try {
+  swaggerUi = require("swagger-ui-express");
+} catch (e) {
+  logger.warn("swagger-ui-express not installed, API docs disabled");
+}
+
+const dbHelpers = require("@zero/db");
+const { mergeOptionalArtifactsFromFile } = require("@zero/db/runStore");
+const cloud = require("@zero/cloud");
+const cloudHttp = require("@zero/cloud/http");
+const { RUNS_REQUESTED } = require("@zero/domain");
+const { requestExecution } = require("@zero/domain/execution");
+const encryption = require("./encryption");
+const auth = require("./auth");
+const elementLogger = require("@zero/locators/elementLogger");
+const registerRecordingRoutes = require("./src/routes/recordings");
+const registerRunsRoutes = require("./src/routes/runs");
+const registerLocatorRoutes = require("./src/routes/locators");
+const registerSettingsRoutes = require("./src/routes/settings");
+const registerCmsRoutes = require("./src/routes/cms");
+const registerKeyRoutes = require("./src/routes/keys");
+const registerHealthRoutes = require("./src/routes/health");
+const { artifactsDir } = require("@zero/domain").outputRoots;
+
+const app = express();
+// S7 default: the API listens on :3001. The web nginx image owns :3000.
+const PORT = Number(process.env.PORT) || 3001;
+
+// Security middleware
+app.use(securityHeaders);
+app.use(cors(corsOptions));
+app.use(compression());
+app.use(requestId);
+
+// Request logging
+app.use(logger.requestLogger);
+
+// S7: the API service owns route paths natively (no /api prefix). Auth and
+// rate limits apply globally; sensitive routes still declare explicit scopes.
+app.use(rateLimiters.general);
+app.use(auth.attachIdentity());
+app.use("/runs", auth.requireAuthWhenEnabled());
+app.use("/provider-keys", auth.requireAuthWhenEnabled());
+app.use("/agent-settings", auth.requireAuthWhenEnabled());
+
+// Swagger API documentation
+if (swaggerUi) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "ZER0 API Documentation"
+  }));
+  logger.info("API documentation available at /api-docs");
+}
+
+app.use(express.json({ limit: "1mb" }));
+
+const artifactsRoot = artifactsDir();
+
+// Ensure artifactsRoot exists on Vercel
+if (process.env.VERCEL) {
+  const fsSync = require("fs");
+  if (!fsSync.existsSync(artifactsRoot)) {
+    fsSync.mkdirSync(artifactsRoot, { recursive: true });
+  }
+}
+
+app.use("/cloud", cloudHttp.createCloudRouter());
+app.use("/artifacts", (_req, res) => {
+  res.status(404).json({
+    error: "Artifacts are not world-readable. Use a signed URL or GET /runs/:id/files/:name"
+  });
+});
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }
+});
+
+const runs = new Map();
+const memoryProviderKeys = new Map(); // composite key "userEmail:provider" -> { provider, encrypted_key, last_4, created_at, updated_at }
+const memoryAgentSettings = new Map(); // composite key "userEmail:agent" -> { agent, provider, model, prompt, updated_at }
+
+// In-memory recording sessions (sessionId -> { ottUrl, events[], createdAt })
+const recordingSessions = new Map();
+const recordingsById = new Map(); // recordingId -> { sessionId, ottUrl, events, createdAt }
+const endedSessionToRecordingId = new Map(); // sessionId -> recordingId (so /record page can poll)
+let recordingIdCounter = 0;
+
+let dbPool = null;
+let dbEnabled = false;
+
+
+
+function maskLogin(value) {
+  if (!value) return null;
+  const text = String(value);
+  if (text.length <= 2) return "**";
+  return `${text.slice(0, 2)}***`;
+}
+
+async function setRunSecret(runId, secret) {
+  if (!secret || (!secret.username && !secret.password)) {
+    return;
+  }
+  try {
+    await cloud.cache.set(`runSecret.${runId}`, secret, 7200);
+  } catch {
+    // executor reads this when Chromium is in another process
+  }
+}
+
+function databaseConfigured() {
+  return dbHelpers.isDatabaseConfigured();
+}
+
+async function initDatabase() {
+  if (!databaseConfigured()) return;
+
+  try {
+    dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL || undefined,
+      host: process.env.PGHOST || undefined,
+      port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+      user: process.env.PGUSER || undefined,
+      password: process.env.PGPASSWORD || undefined,
+      database: process.env.PGDATABASE || undefined,
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 5000,
+      query_timeout: 10000
+    });
+
+    await dbHelpers.initAllTables(dbPool);
+    await dbHelpers.runPendingMigrations(dbPool);
+    dbEnabled = true;
+  } catch (err) {
+    dbPool = null;
+    dbEnabled = false;
+    console.warn("Postgres connection failed (running with memory/file persistence):", err.message);
+  }
+}
+
+if (process.env.VERCEL) {
+  auth.assertProductionSecrets();
+  app.use((req, res, next) => {
+    if (!dbPool && databaseConfigured()) {
+      initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
+    }
+    next();
+  });
+}
+
+async function persistRun(run) {
+  runs.set(run.id, run);
+
+  try {
+    const runPath = path.join(run.runDir, "run.json");
+    await fs.mkdir(run.runDir, { recursive: true });
+
+    // Exclude large temporary file buffers/contents from the persisted JSON to save disk/temp space
+    const storageRun = {
+      ...run,
+      input: {
+        ...run.input,
+        tcFileBuffer: undefined
+      }
+    };
+    await fs.writeFile(runPath, JSON.stringify(storageRun, null, 2), "utf8");
+  } catch (e) {
+    console.error(`Failed to write run.json for ${run.id}:`, e.message);
+  }
+
+  if (dbEnabled && dbPool) {
+    try {
+      await dbHelpers.upsertRun(dbPool, run);
+    } catch (e) {
+      console.error(`Failed to persist run ${run.id} to Postgres:`, e.message);
+    }
+  }
+
+  try {
+    const json = await fs.readFile(path.join(run.runDir, "run.json"));
+    await cloud.objectStore.put(`runs/${run.id}/run.json`, json, { contentType: "application/json" });
+  } catch (e) {
+    if (e.code !== "ENOENT") {
+      console.error(`Failed to persist run ${run.id} to object store:`, e.message);
+    }
+  }
+
+  await publishRunState(run);
+}
+
+async function publishRunState(run) {
+  if (!run || !run.id) return;
+  const snapshot = {
+    runId: run.id,
+    status: run.status,
+    stages: run.stages,
+    updatedAt: run.updatedAt
+  };
+  try {
+    await cloud.cache.set(`state.${run.id}`, snapshot, 86400);
+    await cloud.cache.publish(`state.${run.id}`, snapshot);
+  } catch (e) {
+    console.error(`Failed to publish run state ${run.id}:`, e.message);
+  }
+}
+
+async function enqueueRun(runId, options = {}) {
+  await cloud.queue.publish(RUNS_REQUESTED, {
+    runId,
+    requestedAt: new Date().toISOString(),
+    rerunFailedOnly: Boolean(options.rerunFailedOnly)
+  });
+}
+
+function toRunShape(row) {
+  const input = row.input_json || {};
+  return {
+    id: row.id,
+    tenantId: row.tenant_id || input.tenantId || auth.LOCAL_TENANT,
+    runDir: path.join(artifactsRoot, row.id),
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+    input,
+    status: row.status,
+    stages: row.stages_json,
+    artifacts: {
+      requirements: row.requirements_json,
+      manualTestCases: row.manual_tc_json,
+      automationBundle: row.automation_bundle_json,
+      executionReport: row.execution_report_json,
+      managerReport: row.manager_report_json,
+      deliveryReport: row.delivery_report_json || null,
+      recording: input.recording || null,
+      cmsSignalReport: row.cms_signal_json || null
+    },
+    picture: buildArchitecturePictureSvg()
+  };
+}
+
+async function loadRunForRequest(req, res) {
+  const run = await getRun(req.params.id);
+  if (!run || !auth.canAccessRun(req.auth, run)) {
+    res.status(404).json({ error: "Run not found" });
+    return null;
+  }
+  return run;
+}
+
+async function getRun(id) {
+  if (dbEnabled && dbPool) {
+    try {
+      const row = await dbHelpers.getRunById(dbPool, id);
+      if (row) {
+        const run = await mergeOptionalArtifactsFromFile(toRunShape(row), artifactsRoot);
+        runs.set(id, run);
+        return run;
+      }
+    } catch (e) {
+      console.error(`Postgres getRun failed for ${id}:`, e.message);
+    }
+  }
+
+  try {
+    const runPath = path.join(artifactsRoot, id, "run.json");
+    const data = await fs.readFile(runPath, "utf8");
+    const run = JSON.parse(data);
+
+    // Dynamic patch of runDir in case of absolute path mapping changes across deployment environments
+    run.runDir = path.join(artifactsRoot, id);
+
+    runs.set(id, run);
+    return run;
+  } catch (e) {
+    return runs.get(id) || null;
+  }
+}
+
+function createRun(input) {
+  const id = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const now = new Date().toISOString();
+
+  // Check if we need Web Analyzer (no test document provided)
+  const needsWebAnalyzer = !input.tcFileBuffer && !input.tcFileContent && (!input.notes || input.notes.trim().length < 50);
+
+  // Base stages - conditionally include web analyzer
+  const stages = {};
+  
+  if (needsWebAnalyzer) {
+    stages.webAnalyzer = { label: "Web Analyzer Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+
+  stages.ba = { label: "BA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.manualQa = { label: "Manual QA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.automationQa = { label: "Automation QA Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.execution = { label: "Execution Service", status: "pending", startedAt: null, finishedAt: null };
+
+  // Optional agents - only add if enabled in input
+  if (input.enableAccessibility) {
+    stages.accessibility = { label: "Accessibility Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+  if (input.enablePerformance) {
+    stages.performance = { label: "Performance Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+  if (input.enableSecurity) {
+    stages.security = { label: "Security Agent", status: "pending", startedAt: null, finishedAt: null };
+  }
+
+  // Final stages - always included
+  stages.manager = { label: "Manager Agent", status: "pending", startedAt: null, finishedAt: null };
+  stages.delivery = { label: "Delivery Manager Agent", status: "pending", startedAt: null, finishedAt: null };
+
+  const artifacts = {
+    webAnalysis: null,
+    requirements: null,
+    manualTestCases: null,
+    automationBundle: null,
+    executionReport: null,
+    managerReport: null,
+    deliveryReport: null
+  };
+
+  // Add optional artifact slots if enabled
+  if (input.enableAccessibility) {
+    artifacts.accessibilityReport = null;
+  }
+  if (input.enablePerformance) {
+    artifacts.performanceReport = null;
+  }
+  if (input.enableSecurity) {
+    artifacts.securityReport = null;
+  }
+
+  const run = {
+    id,
+    tenantId: input.tenantId || auth.LOCAL_TENANT,
+    runDir: path.join(artifactsRoot, id),
+    createdAt: now,
+    updatedAt: now,
+    input,
+    status: "queued",
+    stages,
+    artifacts,
+    picture: buildArchitecturePictureSvg()
+  };
+  runs.set(id, run);
+  return run;
+}
+const routeCtx = {
+  get dbEnabled() { return dbEnabled; },
+  get dbPool() { return dbPool; },
+  get recordingIdCounter() { return recordingIdCounter; },
+  set recordingIdCounter(v) { recordingIdCounter = v; },
+  runs,
+  recordingSessions,
+  recordingsById,
+  endedSessionToRecordingId,
+  memoryProviderKeys,
+  memoryAgentSettings,
+  artifactsRoot,
+  PORT,
+  upload,
+  auth,
+  cloud,
+  cloudHttp,
+  dbHelpers,
+  encryption,
+  elementLogger,
+  apiKeyManager,
+  logger,
+  rateLimiters,
+  cacheMiddleware,
+  requestExecution,
+  persistRun,
+  enqueueRun,
+  loadRunForRequest,
+  createRun,
+  setRunSecret,
+  maskLogin,
+  toRunShape
+};
+
+registerRecordingRoutes(app, routeCtx);
+registerRunsRoutes(app, routeCtx);
+registerLocatorRoutes(app, routeCtx);
+registerSettingsRoutes(app, routeCtx);
+registerCmsRoutes(app, routeCtx);
+registerKeyRoutes(app, routeCtx);
+registerHealthRoutes(app, routeCtx);
+
+// Error logging middleware
+app.use(logger.errorLogger);
+
+// Global error handler
+app.use((err, req, res, _next) => {
+  logger.error("Unhandled error", { 
+    error: err.message, 
+    stack: err.stack,
+    requestId: req.requestId 
+  });
+  
+  res.status(err.status || 500).json({
+    error: err.message || "Internal server error",
+    requestId: req.requestId
+  });
+});
+
+function tryListen(port) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => {
+      resolve(server);
+    });
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") reject(err);
+      else reject(err);
+    });
+  });
+}
+
+// Local/Dedicated environments: start server listener
+if (!process.env.VERCEL) {
+  fs.mkdir(artifactsRoot, { recursive: true })
+    .then(async () => {
+      auth.assertProductionSecrets();
+      await initDatabase();
+      if (dbEnabled) {
+        console.log("Postgres persistence enabled");
+      } else if (databaseConfigured()) {
+        console.log("Postgres configured but unavailable; using memory/file persistence");
+      } else {
+        console.log("Postgres not configured. Running with memory/file persistence");
+      }
+
+      let server = null;
+      let port = PORT;
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          server = await tryListen(port);
+          const webHint = process.env.ZERO_WEB_URL || "http://localhost:3000";
+          console.log(`ZER0 API listening on http://localhost:${port} (UI: ${webHint})`);
+          break;
+        } catch (err) {
+          if (err.code === "EADDRINUSE" && attempt < 5) {
+            port = PORT + attempt + 1;
+            console.warn(`Port ${port - 1} in use, trying ${port}...`);
+          } else {
+            console.error("Startup failed:", err.code === "EADDRINUSE" ? `Port ${port} in use. Stop the other process or set PORT=3002` : err.message);
+            process.exit(1);
+          }
+        }
+      }
+    }).catch((error) => {
+      console.error("Unable to initialize artifacts directory", error);
+      process.exit(1);
+    });
+}
+
+function buildArchitecturePictureSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c111d"/>
+      <stop offset="100%" stop-color="#121b2f"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 28px 'Segoe UI', sans-serif; fill: #d9e8ff; }
+      .label { font: 600 16px 'Segoe UI', sans-serif; fill: #d8f4ff; }
+      .small { font: 500 14px 'Segoe UI', sans-serif; fill: #a5c6d9; }
+      .box { fill: #121b2f; stroke: #46d8d2; stroke-width: 2; rx: 14; }
+      .line { stroke: #66b9ff; stroke-width: 2.5; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#66b9ff"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1400" height="560" fill="url(#bg)"/>
+  <text x="40" y="55" class="title">ZER0 - Architect Flow</text>
+  <rect class="box" x="40" y="120" width="220" height="88"/>
+  <text x="68" y="155" class="label">User Input</text>
+  <text x="68" y="180" class="small">URL + Figma or TC File</text>
+  <rect class="box" x="310" y="120" width="220" height="88"/>
+  <text x="375" y="155" class="label">BA Agent</text>
+  <text x="338" y="180" class="small">Channel Requirements</text>
+  <rect class="box" x="580" y="120" width="220" height="88"/>
+  <text x="623" y="155" class="label">Manual QA</text>
+  <text x="602" y="180" class="small">App-specific TC</text>
+  <rect class="box" x="850" y="120" width="230" height="88"/>
+  <text x="883" y="155" class="label">Automation QA</text>
+  <text x="865" y="180" class="small">Adaptive Locators</text>
+  <rect class="box" x="1130" y="120" width="230" height="88"/>
+  <text x="1170" y="155" class="label">Execution</text>
+  <text x="1145" y="180" class="small">Playwright + Retries</text>
+  <rect class="box" x="580" y="290" width="240" height="100"/>
+  <text x="618" y="332" class="label">Manager Review</text>
+  <text x="620" y="357" class="small">Architect Report</text>
+  <line class="line" x1="260" y1="164" x2="310" y2="164"/>
+  <line class="line" x1="530" y1="164" x2="580" y2="164"/>
+  <line class="line" x1="800" y1="164" x2="850" y2="164"/>
+  <line class="line" x1="1080" y1="164" x2="1130" y2="164"/>
+  <line class="line" x1="1245" y1="208" x2="820" y2="290"/>
+  <rect class="box" x="40" y="430" width="1320" height="90"/>
+  <text x="66" y="468" class="label">Artifacts</text>
+  <text x="66" y="496" class="small">requirements + manual_tc + automation_bundle + execution + manager_report</text>
+</svg>`;
+}
+
+// Diagnostic handler to convert unhandled service-level crash stacktraces into friendly UI JSON responses
+app.use((err, req, res, next) => {
+  console.error("UNHANDLED API ERROR CAPTURED:", err);
+  res.status(500).json({
+    error: "API execution trace collapsed",
+    message: err.message || "Unknown fault",
+    diagnostic: err.stack ? err.stack.split("\n")[0] : "Unavailable"
+  });
+});
+
+module.exports = app;
+module.exports.enqueueRun = enqueueRun;

@@ -1,6 +1,9 @@
-# V3 S5 — API + orchestrator + executor images (Playwright only in executor).
-# Extra instances: docs (zero-docs nginx) + workflow (milestone probes on live tree).
-# Hybrid: docker compose up -d postgres redis minio  →  npm start on host
+# V3 S7 — web + API + orchestrator + executor images. The SPA runs as its
+# own nginx container (`zero-web`) on :3000. The API service (`zero-api`)
+# listens on :3001. Chromium remains executor-only. Extra instances: docs
+# (zero-docs Vite) + workflow (milestone probes on live tree).
+# Hybrid: docker compose up -d postgres redis → npm run start:all on host
+# Optional S3 drill: docker compose --profile s3 up -d minio minio-init
 
 name: zero
 
@@ -9,16 +12,17 @@ name: zero
 # NODE_ENV=production plus KEY_ENC_SECRET and ZERO_API_KEYS.
 x-app-env: &app-env
   NODE_ENV: ${NODE_ENV:-development}
-  PORT: "3000"
+  PORT: "3001"
   ZERO_CLOUD: local
-  ZERO_PUBLIC_BASE_URL: http://localhost:3000
+  # Signed URLs point at the API service origin (browser talks to it directly).
+  ZERO_PUBLIC_BASE_URL: http://localhost:3001
+  ZERO_WEB_URL: http://localhost:3000
   DATABASE_URL: postgres://zero:zero@postgres:5432/zero
   REDIS_URL: redis://redis:6379
-  S3_ENDPOINT: http://minio:9000
-  S3_BUCKET: zero-artifacts
-  S3_ACCESS_KEY: zerominio
-  S3_SECRET_KEY: zerominio123
   EXECUTION_MODE: minimal
+  # Optional — enable LLM from .env without UI keys (see .env.example):
+  # ZERO_LLM_ENV_KEYS: ${ZERO_LLM_ENV_KEYS:-}
+  # GEMINI_API_KEY: ${GEMINI_API_KEY:-}
 
 services:
   postgres:
@@ -49,6 +53,7 @@ services:
       retries: 10
 
   minio:
+    profiles: ["s3"]
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
@@ -67,6 +72,7 @@ services:
       start_period: 10s
 
   minio-init:
+    profiles: ["s3"]
     image: minio/mc:latest
     depends_on:
       minio:
@@ -78,6 +84,19 @@ services:
       "
     restart: "no"
 
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # Baked into the Vite bundle at build time; matches the api service publish.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001}
+    image: zero-web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+
   api:
     build:
       context: .
@@ -86,57 +105,45 @@ services:
     environment:
       <<: *app-env
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${API_PORT:-3001}:3001"
     volumes:
-      - app-artifacts:/app/artifacts
+      - app-artifacts:/app/dist/artifacts
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
 
   executor:
     build:
       context: .
-      dockerfile: apps/executor/Dockerfile
+      dockerfile: services/executor/Dockerfile
     image: zero-executor
     environment:
       <<: *app-env
     volumes:
-      - app-artifacts:/app/artifacts
+      - app-artifacts:/app/dist/artifacts
     shm_size: 1gb
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
 
   orchestrator:
     build:
       context: .
-      dockerfile: apps/orchestrator/Dockerfile
+      dockerfile: services/orchestrator/Dockerfile
     image: zero-orchestrator
     environment:
       <<: *app-env
     volumes:
-      - app-artifacts:/app/artifacts
+      - app-artifacts:/app/dist/artifacts
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
 
   docs:
     image: node:20-bookworm
@@ -144,23 +151,23 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: "1"
     command: >
-      sh -c "test -d node_modules/vite || npm ci;
+      sh -c "npm ci &&
       npm run dev -- --host 0.0.0.0 --port 5174"
     ports:
       - "${DOCS_PORT:-5174}:5174"
     volumes:
-      - ./zero-docs:/src
+      - ./support/zero-docs:/src
       - docs-nm:/src/node_modules
 
   workflow:
     build:
       context: .
-      dockerfile: agent-workflow/Dockerfile
+      dockerfile: support/agent-workflow/Dockerfile
     environment:
       PORT: "5175"
     ports:
       - "${WORKFLOW_PORT:-5175}:5175"
-    # Live repo — detect/verify read apps/ + packages/ from the host
+    # Live repo — detect/verify read services/ + packages/ from the host
     volumes:
       - .:/repo:ro
 

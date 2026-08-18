@@ -19,10 +19,10 @@ For diagrams → use `zero-diagrams`.
 
 ## First actions (mandatory)
 
-1. Read `agent-workflow/WORKFLOW.md`
-2. Read `agent-workflow/prompts/packaging.md`
+1. Read `support/agent-workflow/WORKFLOW.md`
+2. Read `support/agent-workflow/prompts/packaging.md`
 3. Run `npm run workflow:status`
-4. Open the matching `agent-workflow/milestones/S{N}-*.md` (capability M* only if a probe regressed)
+4. Open the matching `support/agent-workflow/milestones/S{N}-*.md` (capability M* only if a probe regressed)
 5. Follow: **plan → implement → verify → update progress.json → continue if asked**
 
 Do **not** invent a different cloud shape. Do **not** re-implement M1–M7.
@@ -31,9 +31,9 @@ Do **not** invent a different cloud shape. Do **not** re-implement M1–M7.
 
 | Tier | Folder | npm package | Cursor skill |
 |------|--------|-------------|--------------|
-| HTTP API | `apps/api/` | `@zero/api` | `/zero-api` |
-| Orchestrator worker | `apps/orchestrator/` | `@zero/orchestrator` | `/zero-orchestrator` |
-| Playwright executor | `apps/executor/` | `@zero/executor` | `/zero-executor` |
+| HTTP API | `services/api/` | `@zero/api` | `/zero-api` |
+| Orchestrator worker | `services/orchestrator/` | `@zero/orchestrator` | `/zero-orchestrator` |
+| Playwright executor | `services/executor/` | `@zero/executor` | `/zero-executor` |
 
 Primitives via `@zero/cloud` (`ZERO_CLOUD=local|aws|gcp|azure|vercel`).
 
@@ -41,28 +41,28 @@ Primitives via `@zero/cloud` (`ZERO_CLOUD=local|aws|gcp|azure|vercel`).
 
 Capability (frozen): `M1` → … → `M7`
 
-Packaging: `S5` → `S6`  (S0–S4 done)
+Packaging: `S0` → … → `S6` — complete.
 
-Never skip. Earliest unfinished wins. Today that is **S5**.
+If every hardened probe is green, do not invent another packaging milestone. Move to an explicitly requested product or operational-hardening task.
 
 ## Agent roles
 
 | Phase | Prompt |
 |-------|--------|
-| Plan | `agent-workflow/agents/planner.md` |
-| Implement | `agent-workflow/agents/implementer.md` |
-| Verify | `agent-workflow/agents/verifier.md` |
+| Plan | `support/agent-workflow/agents/planner.md` |
+| Implement | `support/agent-workflow/agents/implementer.md` |
+| Verify | `support/agent-workflow/agents/verifier.md` |
 
 ## Commands
 
 ```bash
 npm run workflow:status
-npm run workflow:verify -- --milestone S5
+npm run workflow:verify -- --milestone S6
 ```
 
 ## Progress
 
-Update `agent-workflow/progress.json` only after verify exits 0. Flip `zero-docs/src/data/migration.ts` when a packaging step lands.
+Update `support/agent-workflow/progress.json` only after verify exits 0. Flip `support/zero-docs/src/data/migration.ts` when a packaging step lands.
 
 ## Product rules (preserve)
 
@@ -70,5 +70,5 @@ Update `agent-workflow/progress.json` only after verify exits 0. Flip `zero-docs
 - `EXECUTION_MODE=minimal` is not E2E proof
 - No login passwords in artifacts/logs
 - UI edits in `web/src/**` + `npm run build`
-- Apps never import sibling `apps/*`
+- Services never import sibling `services/*`
 - Ask before destructive migrations or public API breaks

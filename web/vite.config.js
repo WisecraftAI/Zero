@@ -1,19 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// S7: the SPA is its own origin. Fetch calls go straight to the API host
+// via web/src/apiBase.js (VITE_API_BASE_URL). No dev proxy needed.
 export default defineConfig({
   plugins: [react()],
   root: '.',
   build: {
-    outDir: '../public',
+    outDir: '../dist/web',
     emptyOutDir: true,
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true },
-      '/artifacts': { target: 'http://localhost:3000', changeOrigin: true },
-      '/health': { target: 'http://localhost:3000', changeOrigin: true },
-    },
   },
 });

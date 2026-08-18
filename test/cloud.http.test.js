@@ -74,7 +74,7 @@ describe("M2 signed object-store HTTP", () => {
       ZERO_LLM: "off"
     };
     delete env.VERCEL;
-    child = spawn(process.execPath, ["apps/api/server.js"], {
+    child = spawn(process.execPath, ["services/api/server.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]
@@ -96,10 +96,10 @@ describe("M2 signed object-store HTTP", () => {
     expect(r.status).not.toBe(200);
   });
 
-  it("presign PUT → GET → commit without streaming the file through POST /api/runs", async () => {
+  it("presign PUT → GET → commit without streaming the file through POST /runs", async () => {
     const created = await request({
       method: "POST",
-      urlPath: "/api/runs",
+      urlPath: "/runs",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ottUrl: "https://example.com",
@@ -115,9 +115,9 @@ describe("M2 signed object-store HTTP", () => {
     expect(created.body.uploads).toHaveLength(1);
     const upload = created.body.uploads[0];
     expect(upload.method).toBe("PUT");
-    expect(upload.url).toMatch(/\/api\/cloud\/local\?/);
+    expect(upload.url).toMatch(/\/cloud\/local\?/);
 
-    const pending = await request({ method: "GET", urlPath: `/api/runs/${created.body.runId}` });
+    const pending = await request({ method: "GET", urlPath: `/runs/${created.body.runId}` });
     expect(pending.body.status).toBe("awaiting_uploads");
 
     const csv = Buffer.from("id,feature,steps\nTC-1,home,open url\n");
@@ -137,7 +137,7 @@ describe("M2 signed object-store HTTP", () => {
     const forgedGet = await request({ method: "GET", urlPath: getUrl.pathname + getUrl.search });
     expect(forgedGet.status).toBe(403);
 
-    const commit = await request({ method: "POST", urlPath: `/api/runs/${created.body.runId}/commit` });
+    const commit = await request({ method: "POST", urlPath: `/runs/${created.body.runId}/commit` });
     expect(commit.status).toBe(202);
     expect(commit.body.runId).toBe(created.body.runId);
   });

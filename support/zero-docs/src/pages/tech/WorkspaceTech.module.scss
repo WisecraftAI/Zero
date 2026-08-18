@@ -1,0 +1,251 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.ws {
+  margin-top: $s-4;
+}
+
+.head {
+  margin-bottom: $s-5;
+}
+
+.title {
+  @include brand-heading($fs-xl);
+  display: flex;
+  align-items: center;
+  gap: $s-3;
+  margin: 0 0 $s-2;
+}
+
+.identity {
+  color: var(--mute);
+  font-size: $fs-sm;
+  margin: 0 0 $s-3;
+
+  code { color: var(--signal); font-size: 0.9em; }
+}
+
+.mission {
+  font-size: $fs-body;
+  color: var(--text);
+  margin: 0;
+  max-width: var(--read-max);
+  line-height: 1.6;
+}
+
+.h4 {
+  @include brand-heading($fs-lg);
+  margin: $s-6 0 $s-3;
+  padding-top: $s-3;
+  border-top: 1px solid var(--line);
+}
+
+.h5 {
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mute);
+  margin: $s-5 0 $s-2;
+}
+
+.sub {
+  color: var(--mute);
+  font-size: $fs-sm;
+  margin: 0 0 $s-3;
+  max-width: var(--read-max);
+}
+
+// Design ─────────────────────────────────────────────
+.tags {
+  list-style: none;
+  margin: 0 0 $s-3;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2;
+
+  li {
+    background: var(--tint-info);
+    border: 1px solid color-mix(in srgb, var(--signal) 25%, var(--line));
+    border-radius: 999px;
+    padding: 2px $s-3;
+    font-size: $fs-xs;
+    color: var(--signal);
+    font-weight: 500;
+  }
+}
+
+.design {
+  margin: 0;
+  padding-left: $s-5;
+  display: grid;
+  gap: $s-2;
+
+  li {
+    font-size: $fs-body;
+    color: var(--text);
+    line-height: 1.55;
+
+    code { color: var(--signal); }
+  }
+}
+
+// Contract ───────────────────────────────────────────
+.contract {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $s-4;
+
+  @include down(lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contractCol {
+  @include surface;
+  padding: $s-4;
+}
+
+.contractItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: $s-3;
+
+  li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: $s-2 $s-3;
+  }
+}
+
+.kind {
+  grid-row: span 2;
+  align-self: start;
+  display: inline-grid;
+  place-items: center;
+  min-width: 3.4rem;
+  padding: 2px $s-2;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--signal);
+  background: var(--tint-info);
+  border: 1px solid color-mix(in srgb, var(--signal) 30%, var(--line));
+
+  &[data-kind='queue'],
+  &[data-kind='event'] {
+    color: var(--warn);
+    background: var(--tint-warn);
+    border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
+  }
+
+  &[data-kind='sse'] {
+    color: var(--violet);
+    background: color-mix(in srgb, var(--violet) 12%, transparent);
+    border-color: color-mix(in srgb, var(--violet) 30%, var(--line));
+  }
+}
+
+.wire {
+  font-size: $fs-sm;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.detail {
+  grid-column: 2;
+  font-size: $fs-sm;
+  color: var(--mute);
+  line-height: 1.5;
+}
+
+.none {
+  color: var(--mute);
+  font-size: $fs-sm;
+  font-style: italic;
+  margin: 0;
+}
+
+// How to work ────────────────────────────────────────
+.steps {
+  margin: 0;
+  padding-left: $s-5;
+  display: grid;
+  gap: $s-2;
+
+  li {
+    font-size: $fs-sm;
+    color: var(--text);
+    line-height: 1.5;
+
+    code { color: var(--signal); }
+  }
+}
+
+// Roadmap ────────────────────────────────────────────
+.roadmap {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: $s-3;
+  position: relative;
+}
+
+.task {
+  @include surface;
+  padding: $s-3 $s-4;
+  border-left: 3px solid color-mix(in srgb, var(--signal) 45%, var(--line));
+}
+
+.taskHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $s-2 $s-3;
+  margin-bottom: 2px;
+
+  strong { font-size: $fs-body; color: var(--text); }
+}
+
+.taskId {
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  color: var(--signal);
+  background: var(--tint-info);
+  border-radius: var(--radius);
+  padding: 1px $s-2;
+}
+
+.track {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mute);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px $s-2;
+}
+
+.taskSummary {
+  margin: $s-1 0 0;
+  font-size: $fs-sm;
+  color: var(--mute);
+  line-height: 1.5;
+}
+
+.deps {
+  margin: $s-2 0 0;
+  font-family: var(--font-mono);
+  font-size: $fs-xs;
+  color: var(--warn);
+}

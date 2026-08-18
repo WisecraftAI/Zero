@@ -3,5 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "main": "index.js",
-  "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators."
+  "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators.",
+  "exports": {
+    ".": "./index.js",
+    "./runStore": "./runStore.js",
+    "./schema": "./lib/schema/index.js"
+  },
+  "dependencies": {
+    "@zero/domain": "*"
+  }
 }

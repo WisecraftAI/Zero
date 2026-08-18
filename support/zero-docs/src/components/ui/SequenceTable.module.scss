@@ -1,0 +1,132 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $s-2;
+  margin-top: $s-4;
+}
+
+.chip {
+  padding: $s-1 $s-2;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--mute);
+  font-size: $fs-xs;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  b {
+    margin-right: $s-1;
+    color: var(--signal);
+    font-weight: 600;
+  }
+}
+
+.wrap {
+  @include surface;
+  @include scroll-x;
+  margin-top: $s-3;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $fs-sm;
+
+  thead th {
+    padding: $s-2 $s-3;
+    text-align: left;
+    color: var(--signal);
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--font-brand);
+    font-weight: 500;
+    font-size: $fs-xs;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+  }
+
+  td {
+    padding: $s-2 $s-3;
+    border-bottom: 1px solid var(--line);
+    color: var(--mute);
+    vertical-align: top;
+  }
+
+  tbody tr:hover td { background: var(--glow); }
+  tbody:last-child tr:last-child td { border-bottom: none; }
+}
+
+.group th {
+  padding: $s-3 $s-3 $s-2;
+  text-align: left;
+  background: var(--panel-2);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--font-brand);
+  font-weight: 600;
+  font-size: $fs-md;
+}
+
+.range {
+  margin-left: $s-2;
+  color: var(--mute);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: $fs-xs;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.goal {
+  display: block;
+  max-width: 78ch;
+  margin-top: $s-1;
+  color: var(--mute);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: $fs-sm;
+  line-height: 1.6;
+}
+
+.n {
+  width: 2.75rem;
+  text-align: right;
+  color: var(--line-strong);
+  white-space: nowrap;
+}
+
+.hop {
+  color: var(--text);
+  white-space: nowrap;
+
+  .arrow { color: var(--signal); }
+}
+
+.op {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.crosses {
+  color: var(--violet);
+  white-space: nowrap;
+}
+
+.owner {
+  white-space: nowrap;
+
+  code { color: var(--signal); font-size: 0.85em; }
+}
+
+.loop td {
+  color: var(--line-strong);
+  font-style: italic;
+}

@@ -170,8 +170,8 @@ describe("M7 multi-cloud adapters", () => {
     const root = path.resolve(__dirname, "..");
     const banned = /@aws-sdk|@google-cloud\/|aws-sdk|@azure\/|@google-cloud/;
     const files = [
-      path.join(root, "apps/api/server.js"),
-      ...walkJs(path.join(root, "apps")),
+      path.join(root, "services/api/server.js"),
+      ...walkJs(path.join(root, "services")),
       ...walkJs(path.join(root, "packages")).filter((f) => !f.includes(`${path.sep}cloud${path.sep}`))
     ];
     for (const file of files) {

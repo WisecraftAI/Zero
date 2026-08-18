@@ -7,6 +7,6 @@ description: >-
 
 # @zero/db
 
-1. Read `agent-workflow/prompts/repos/db.md`
+1. Read `support/agent-workflow/prompts/repos/db.md`
 2. Never store login passwords
 3. Do not hard-disable `databaseConfigured()`

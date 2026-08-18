@@ -1,4 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
+import { apiUrl } from '../apiBase';
+import AiSetupBanner from '../components/AiSetupBanner';
+import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
 import './AgentsView.css';
 
 const AGENTS = [
@@ -6,38 +9,38 @@ const AGENTS = [
     id: 'ba',
     name: 'BA Agent',
     code: 'AG-0091-ALPHA',
-    specialization: 'Requirement Analysis & Gherkin Generation',
-    desc: 'Extracts requirements, scope, and constraints from user input and release notes',
+    specialization: 'Requirement Analysis & Scope',
+    desc: 'AI consolidates URL crawl, notes, and uploads into testable requirements',
     defaultPrompt:
-      'You are a Business Analyst agent for OTT/streaming QA. Given a target URL and optional release notes, ' +
-      'produce a structured set of testable requirements, assumptions, and risks. Be specific and traceable.',
+      'You are a Business Analyst agent for web QA on any site type. Given a target URL, crawl insights, ' +
+      'and optional notes, produce structured testable requirements, assumptions, and risks. Be specific and traceable.',
   },
   {
     id: 'manualQa',
     name: 'Manual QA Agent',
     code: 'AG-0042-BETA',
     specialization: 'Exploratory Testing & UX Validation',
-    desc: 'Drafts manual test cases (feature, scenario, expected) tailored to the channel and requirements',
+    desc: 'AI drafts manual test cases tailored to the detected domain profile and requirements',
     defaultPrompt:
-      'You are a Manual QA agent. Given the BA requirements and a channel profile, generate granular test cases ' +
-      'with id, feature, scenario, steps, and expected result. Cover navigation, auth, playback, accessibility hints.',
+      'You are a Manual QA agent. Given BA requirements and the site domain profile, generate granular test cases ' +
+      'with id, feature, scenario, steps, and expected result. Cover navigation, forms, auth, content, and accessibility hints.',
   },
   {
     id: 'automationQa',
     name: 'Automation QA',
     code: 'AG-0128-DELTA',
-    specialization: 'Script Generation & Flakiness Repair',
-    desc: 'Converts manual test cases into Selenium/Java + Playwright runnable scripts using the locator registry',
+    specialization: 'Script Generation & Locator Hints',
+    desc: 'AI augments locator candidates and automation guidance from crawl + registry',
     defaultPrompt:
-      'You are an Automation QA agent. Given manual test cases and selector candidates, output runnable ' +
-      'Selenium/Java and Playwright scripts. Prefer stable selectors from the locator registry.',
+      'You are an Automation QA agent. Given manual test cases and selector candidates, suggest stable locators ' +
+      'and automation hints. Prefer selectors from the locator registry when available.',
   },
   {
     id: 'manager',
     name: 'Manager Agent',
     code: 'AG-MGR-01',
     specialization: 'Orchestration & Verdict Synthesis',
-    desc: 'Reviews execution evidence, produces verdict, traceability matrix, root causes, and action plan',
+    desc: 'AI reviews execution evidence and produces executive verdict and action plan',
     defaultPrompt:
       'You are a QA Manager agent. Given the execution report and artifacts, produce an executive summary ' +
       '(GO / CONDITIONAL GO / HOLD), traceability matrix, root causes, and an action plan.',
@@ -56,6 +59,7 @@ const PROVIDER_MODELS = {
     { id: 'o1-mini',     name: 'o1-mini',     contextWindow: 128_000, label: '128k' },
   ],
   gemini: [
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', contextWindow: 1_000_000, label: '1M', recommended: true },
     { id: 'gemini-1.5-pro',   name: 'Gemini 1.5 Pro',   contextWindow: 2_000_000, label: '2M' },
     { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1_000_000, label: '1M' },
   ],
@@ -81,21 +85,22 @@ function statusFor(cfg, hasKey) {
 
 const STATUS_LABEL = { idle: 'IDLE', active: 'ACTIVE', optimizing: 'CONFIG' };
 
-export default function AgentsView() {
+export default function AgentsView({ onNavigate }) {
   const [settings, setSettings] = useState({});
   const [keys, setKeys] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [enablingAi, setEnablingAi] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
       const [agentsRes, keysRes] = await Promise.all([
-        fetch('/api/agent-settings').then(r => r.json()),
-        fetch('/api/provider-keys').then(r => r.json()),
+        fetch(apiUrl('/agent-settings')).then(r => r.json()),
+        fetch(apiUrl('/provider-keys')).then(r => r.json()),
       ]);
       const byAgent = {};
       for (const i of agentsRes.items || []) byAgent[i.agent] = i;
@@ -130,7 +135,7 @@ export default function AgentsView() {
     );
   }
 
-  const activeCount = AGENTS.filter(a => statusFor(settings[a.id], keys[settings[a.id]?.provider]) === 'active').length;
+  const activeCount = countActiveAgents(settings, keys);
   const totalContextK = AGENTS.reduce((sum, a) => {
     const m = findModel(settings[a.id]?.provider, settings[a.id]?.model);
     return sum + (m?.contextWindow || 0);
@@ -147,7 +152,8 @@ export default function AgentsView() {
           </div>
           <h1 className="view-title agv-title">Agents Control Room</h1>
           <p className="view-subtitle">
-            Configure the model and prompt for each LLM-driven agent. Status reflects real-time configuration health.
+            Configure AI models and prompts for BA, Manual QA, Automation, and Manager. Each stage uses LLM
+            enrichment when a provider key is linked — otherwise templates still complete the pipeline.
           </p>
         </div>
         <div className="agv-header-actions">
@@ -156,6 +162,29 @@ export default function AgentsView() {
       </div>
 
       {error && <div className="agv-error">{error}</div>}
+
+      {!loading && (
+        <AiSetupBanner
+          variant="agents"
+          geminiConfigured={!!keys.gemini}
+          activeCount={activeCount}
+          totalAgents={AGENTS.length}
+          onGoApiKeys={() => onNavigate?.('apikeys')}
+          onEnableGemini={keys.gemini ? async () => {
+            setEnablingAi(true);
+            setError('');
+            try {
+              await applyGeminiToAllAgents(apiUrl);
+              await load();
+            } catch (e) {
+              setError(e.message || 'Failed to enable AI agents.');
+            } finally {
+              setEnablingAi(false);
+            }
+          } : undefined}
+          enabling={enablingAi}
+        />
+      )}
 
       {/* Stat cards */}
       <div className="agv-stats">
@@ -253,7 +282,7 @@ export default function AgentsView() {
                         onClick={async () => {
                           setOpenMenuId(null);
                           if (!window.confirm(`Reset ${a.name} to defaults?`)) return;
-                          await fetch(`/api/agent-settings/${a.id}`, {
+                          await fetch(apiUrl(`/agent-settings/${a.id}`), {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ provider: null, model: null, prompt: null }),
@@ -314,7 +343,7 @@ function AgentDetailView({ agent, cfg, keys, onBack, onSaved }) {
     setSaving(true);
     setStatus('');
     try {
-      const res = await fetch(`/api/agent-settings/${agent.id}`, {
+      const res = await fetch(apiUrl(`/agent-settings/${agent.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

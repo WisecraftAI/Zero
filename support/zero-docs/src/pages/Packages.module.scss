@@ -1,0 +1,88 @@
+@use '@/styles/tokens' as *;
+
+.h4 {
+  margin: $s-6 0 $s-2;
+  font-size: $fs-lg;
+  color: var(--text);
+}
+
+.strategy {
+  margin: 0 0 $s-2;
+  color: var(--mute);
+  font-size: $fs-sm;
+}
+
+.reexport {
+  margin: 0;
+  color: var(--mute);
+  font-size: $fs-sm;
+
+  code { color: var(--signal); }
+}
+
+.exports {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--mute);
+  font-size: $fs-sm;
+
+  li { margin-bottom: 0.3rem; }
+  li code { color: var(--signal); }
+}
+
+.dep {
+  display: inline-block;
+  margin: 0 0.25rem 0.25rem 0;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: $radius;
+  background: var(--panel-2);
+  color: var(--signal);
+  font-family: $font-mono;
+  font-size: $fs-xs;
+}
+
+.folders {
+  display: grid;
+  gap: $s-4;
+  margin-top: $s-3;
+}
+
+.folder {
+  border: 1px solid var(--line);
+  border-radius: $radius;
+  background: var(--panel);
+  padding: $s-4;
+}
+
+.folderName {
+  margin: 0 0 $s-3;
+  font-size: $fs-md;
+
+  code { color: var(--violet); }
+}
+
+.role {
+  color: var(--mute);
+  font-weight: 400;
+  font-size: $fs-sm;
+}
+
+.moduleList {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--mute);
+  font-size: $fs-sm;
+
+  li { margin-bottom: 0.45rem; }
+  li > code { color: var(--text); font-weight: 500; }
+}
+
+.loc {
+  color: var(--mute);
+  font-size: $fs-xs;
+}
+
+.moduleExports {
+  display: inline;
+}

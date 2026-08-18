@@ -1,6 +1,7 @@
 /**
  * HTTP surface for local signed object-store URLs.
- * PUT/GET /api/cloud/local?key=&op=&exp=&token=
+ * PUT/GET /cloud/local?key=&op=&exp=&token=
+ * (Mounted at `/cloud` from services/api/server.js.)
  */
 
 "use strict";

@@ -7,6 +7,6 @@ description: >-
 
 # @zero/domain
 
-1. Read `agent-workflow/prompts/repos/domain.md`
+1. Read `support/agent-workflow/prompts/repos/domain.md`
 2. No I/O, no Express, no Playwright, no vendor SDKs
 3. Do not reorder `stageKeys`

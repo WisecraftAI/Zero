@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiUrl } from '../apiBase';
 import './LocatorsView.css';
 
 export default function LocatorsView() {
@@ -24,7 +25,7 @@ export default function LocatorsView() {
     setLogSubmitting(true);
     setLogResult(null);
     try {
-      const res = await fetch('/api/element-log', {
+      const res = await fetch(apiUrl('/element-log'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -43,7 +44,7 @@ export default function LocatorsView() {
     setQueryLoading(true);
     setLocators(null);
     try {
-      const res = await fetch(`/api/locators?host=${encodeURIComponent(queryHost)}`);
+      const res = await fetch(apiUrl(`/locators?host=${encodeURIComponent(queryHost)}`));
       const data = await res.json();
       setLocators(data);
     } catch (e) {

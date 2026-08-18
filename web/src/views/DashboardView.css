@@ -85,6 +85,10 @@
   font-size: 0.75rem;
   color: var(--accent);
 }
+.dash-hero-stage {
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
 .dash-hero-right { flex-shrink: 0; }
 
 /* Stat card values with color */

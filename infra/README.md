@@ -27,3 +27,16 @@ ZERO_SQS_EXECUTION_REQUESTED=...
 ZERO_SQS_EXECUTION_COMPLETED=...
 REDIS_URL=redis://...
 ```
+
+## Cost (approximate)
+
+These modules cover adapters only. Full production floors (Postgres, compute, networking) are higher — see `support/zero-docs/docs/v1/COST.md` or the docs site **Deployment → Cost** tab.
+
+| Module resource | AWS (~/mo) | GCP (~/mo) |
+|-----------------|------------|------------|
+| Object store | S3 pennies + storage | GCS pennies + storage |
+| Queue | SQS free tier | Pub/Sub free tier |
+| Secrets | ~$0.40/secret | ~$0.06/version |
+| Cache | ~$12 (cache.t3.micro) | ~$35 (Memorystore 1 GB BASIC) |
+
+Add managed Postgres (~$7–25/mo smallest tier), executor compute (~$0.003–0.08/job), and optional LLM spend (`ZERO_LLM_MAX_USD_PER_RUN`, default $0.50/run cap).

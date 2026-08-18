@@ -1,4 +1,9 @@
+import { useState, useEffect } from 'react';
 import './DashboardView.css';
+import { apiUrl } from '../apiBase';
+import AiSetupBanner from '../components/AiSetupBanner';
+import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
+import { computeRunProgress, formatDuration, runElapsedMs } from '../lib/runProgress';
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -24,10 +29,47 @@ function computeStats(runs) {
   return { total, completed, running, failed, avgPass };
 }
 
-export default function DashboardView({ runs, loading, onOpenRun, onNewRun }) {
+export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNavigate }) {
   const recent = [...runs].slice(0, 6);
   const st = computeStats(runs);
   const activeRun = runs.find(r => r.status === 'running');
+  const [, setTick] = useState(0);
+  const [aiKeys, setAiKeys] = useState({});
+  const [aiSettings, setAiSettings] = useState({});
+  const [aiLoading, setAiLoading] = useState(true);
+  const [enablingAi, setEnablingAi] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [agentsRes, keysRes] = await Promise.all([
+          fetch(apiUrl('/agent-settings')).then(r => r.json()),
+          fetch(apiUrl('/provider-keys')).then(r => r.json()),
+        ]);
+        if (cancelled) return;
+        const byAgent = {};
+        for (const i of agentsRes.items || []) byAgent[i.agent] = i;
+        const byProvider = {};
+        for (const i of keysRes.items || []) byProvider[i.provider] = i.configured;
+        setAiSettings(byAgent);
+        setAiKeys(byProvider);
+      } catch {
+        /* banner is optional */
+      } finally {
+        if (!cancelled) setAiLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const activeAgentCount = countActiveAgents(aiSettings, aiKeys);
+
+  useEffect(() => {
+    if (!activeRun) return undefined;
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [activeRun?.id]);
 
   return (
     <div className="view dash-view">
@@ -38,12 +80,20 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun }) {
           <div className="dash-hero-left">
             <div className="dash-hero-eyebrow">
               <span className="dash-live-dot" />
-              <span className="dash-live-label">LIVE</span>
+              <span className="dash-live-label">LIVE · {formatDuration(runElapsedMs(activeRun))}</span>
             </div>
             <div className="dash-hero-url">{truncate(activeRun.input?.ottUrl || activeRun.url, 60)}</div>
             <div className="dash-hero-id">
               <code>{String(activeRun.id || activeRun.runId || '').slice(0, 20)}</code>
               <span className="chip running" style={{ marginLeft: 8 }}>running</span>
+              {(() => {
+                const p = computeRunProgress(activeRun);
+                return p.currentLabel ? (
+                  <span className="dash-hero-stage" style={{ marginLeft: 8 }}>
+                    {p.currentLabel} · {p.percent}%
+                  </span>
+                ) : null;
+              })()}
             </div>
           </div>
           <div className="dash-hero-right">
@@ -68,6 +118,29 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun }) {
             </button>
           </div>
         </div>
+      )}
+
+      {!aiLoading && onNavigate && (
+        <AiSetupBanner
+          variant="dashboard"
+          geminiConfigured={!!aiKeys.gemini}
+          activeCount={activeAgentCount}
+          onGoApiKeys={() => onNavigate('apikeys')}
+          onGoAgents={() => onNavigate('agents')}
+          onEnableGemini={aiKeys.gemini ? async () => {
+            setEnablingAi(true);
+            try {
+              await applyGeminiToAllAgents(apiUrl);
+              const agentsRes = await fetch(apiUrl('/agent-settings')).then(r => r.json());
+              const byAgent = {};
+              for (const i of agentsRes.items || []) byAgent[i.agent] = i;
+              setAiSettings(byAgent);
+            } finally {
+              setEnablingAi(false);
+            }
+          } : undefined}
+          enabling={enablingAi}
+        />
       )}
 
       {/* Stats row */}

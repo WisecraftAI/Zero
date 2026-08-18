@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZER0 — Web UI LLD</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0b1220;
+      --panel: #121c2e;
+      --panel-2: #0f172a;
+      --line: #24314a;
+      --line-strong: #3a4d6e;
+      --mute: #8b9bb8;
+      --text: #e8eef9;
+      --signal: #3dd6c6;
+      --violet: #a78bfa;
+      --warn: #f0b429;
+      --danger: #f07178;
+      --glow: rgba(61, 214, 198, 0.18);
+      --max: 1080px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 15px;
+      line-height: 1.65;
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, var(--glow), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(167, 139, 250, 0.07), transparent 45%),
+        linear-gradient(180deg, #070b14 0%, var(--ink) 40%, #0a101c 100%);
+      min-height: 100vh;
+    }
+    a { color: var(--signal); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    a:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+    code {
+      font-family: inherit;
+      font-size: 0.88em;
+      color: var(--signal);
+      background: rgba(61, 214, 198, 0.08);
+      padding: 0.1em 0.35em;
+      border-radius: 2px;
+    }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+    .hero { position: relative; padding: 2.25rem 0 2rem; overflow: hidden; }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: auto -20% -40% 20%;
+      height: 180px;
+      background: linear-gradient(90deg, transparent, var(--signal), transparent);
+      opacity: 0.12;
+      filter: blur(24px);
+      animation: pulse 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.08; transform: translateX(-4%); }
+      50%      { opacity: 0.2;  transform: translateX(4%); }
+    }
+    .kicker {
+      display: inline-block;
+      font-size: 0.68rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin: 0 0 0.75rem;
+    }
+    .brand {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.6rem, 8vw, 4.25rem);
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      margin: 0 0 0.9rem;
+      background: linear-gradient(135deg, #fff 30%, var(--signal));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: brandIn 0.7s ease-out both;
+    }
+    @keyframes brandIn {
+      from { opacity: 0; transform: translateY(12px); letter-spacing: 0.08em; }
+      to   { opacity: 1; transform: none; letter-spacing: -0.04em; }
+    }
+    .lede {
+      max-width: 46rem;
+      margin: 0;
+      color: var(--mute);
+      font-size: 0.95rem;
+      animation: fadeUp 0.6s 0.15s ease-out both;
+    }
+    .lede strong { color: var(--text); font-weight: 500; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .meta-row {
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--mute);
+      animation: fadeUp 0.6s 0.25s ease-out both;
+    }
+    .meta-row span { color: var(--text); }
+
+    .tabs {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(7, 11, 20, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      margin: 1.75rem -1.25rem 0;
+      padding: 0 1.25rem;
+      display: flex; gap: 0; overflow-x: auto;
+    }
+    .tab {
+      appearance: none; background: none; border: none;
+      color: var(--mute);
+      font-family: inherit;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1rem 1.1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+      display: flex; align-items: baseline; gap: 0.6rem;
+    }
+    .tab:hover { color: var(--text); }
+    .tab .tab-num { font-size: 0.65rem; color: var(--line-strong); }
+    .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--signal); }
+    .tab[aria-selected="true"] .tab-num { color: var(--signal); }
+    .tab:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+
+    .panel { display: none; padding: 2.25rem 0 0; }
+    .panel[data-active="true"] { display: block; animation: panelIn 0.35s ease-out both; }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    section { padding: 2rem 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: none; }
+    h2 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem;
+    }
+    .section-sub { margin: 0 0 1.5rem; color: var(--mute); font-size: 0.85rem; }
+    h3 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      margin: 1.75rem 0 0.5rem;
+    }
+    h3:first-of-type { margin-top: 0; }
+    p { margin: 0 0 1rem; color: var(--mute); }
+    p strong { color: var(--text); font-weight: 500; }
+    ul, ol { margin: 0 0 1rem; padding-left: 1.25rem; color: var(--mute); }
+    li { margin: 0.35rem 0; }
+    li strong { color: var(--text); font-weight: 500; }
+
+    pre, .diagram {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 1.1rem 1.15rem;
+      overflow-x: auto;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      margin: 0.75rem 0 1.25rem;
+      color: var(--mute);
+    }
+    .diagram .hi  { color: var(--signal); }
+    .diagram .vi  { color: var(--violet); }
+    .diagram .lo  { color: #5a6d8c; }
+    .diagram .bad { color: var(--danger); }
+    .diagram .ok  { color: #7dcea0; }
+
+    .note {
+      margin: 1rem 0;
+      padding: 0.85rem 1rem;
+      border-left: 3px solid var(--warn);
+      background: rgba(240, 180, 41, 0.06);
+      color: var(--mute);
+      font-size: 0.82rem;
+    }
+    .note strong { color: var(--warn); font-weight: 500; }
+    .note.info { border-left-color: var(--signal); background: rgba(61, 214, 198, 0.06); }
+    .note.info strong { color: var(--signal); }
+    .note.danger { border-left-color: var(--danger); background: rgba(240, 113, 120, 0.06); }
+    .note.danger strong { color: var(--danger); }
+
+    .cards { display: grid; gap: 0.65rem; margin: 1rem 0; }
+    @media (min-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 900px) { .cards.three { grid-template-columns: 1fr 1fr 1fr; } }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 1rem 1.1rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+    .card h4 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin: 0 0 0.4rem;
+      color: var(--text);
+    }
+    .card p { margin: 0; font-size: 0.82rem; }
+    .card .tag {
+      display: inline-block;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: 0.35rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin: 0.75rem 0 1.25rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      color: var(--mute);
+      font-weight: 500;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--panel-2);
+    }
+    td { color: var(--mute); }
+    td:first-child { color: var(--text); white-space: nowrap; }
+
+    .layers {
+      display: grid;
+      gap: 0.5rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .layer {
+      display: grid;
+      grid-template-columns: 7.5rem 1fr;
+      gap: 1rem;
+      align-items: start;
+      padding: 0.9rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--signal);
+    }
+    .layer.l2 { border-left-color: var(--violet); }
+    .layer.l3 { border-left-color: var(--warn); }
+    .layer.l4 { border-left-color: var(--line-strong); }
+    .layer-id {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+      padding-top: 0.15rem;
+    }
+    .layer.l2 .layer-id { color: var(--violet); }
+    .layer.l3 .layer-id { color: var(--warn); }
+    .layer.l4 .layer-id { color: var(--mute); }
+    .layer h4 {
+      font-family: Syne, system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin: 0 0 0.25rem;
+    }
+    .layer p { margin: 0; font-size: 0.8rem; }
+
+    .footer {
+      margin-top: 2.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.75rem;
+      color: var(--mute);
+      display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <p class="kicker">Low-level design · client only</p>
+      <h1 class="brand">ZER0 Web</h1>
+      <p class="lede">
+        LLD for <strong>@zero/web</strong> (<code>web/</code>) — the React 18 + Vite SPA.
+        Presentation and form validation only. No Playwright, no Postgres, no cloud SDKs.
+        Talks to <code>@zero/api</code> over same-origin <code>/api/*</code>.
+      </p>
+      <div class="meta-row">
+        <div>Package <span>@zero/web</span></div>
+        <div>Folder <span>web/src/</span></div>
+        <div>Build → <span>dist/web/</span></div>
+        <div>Dev <span>:5173 → proxy :3000</span></div>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="LLD sections">
+      <button class="tab" role="tab" aria-selected="true"  aria-controls="p-purpose"  id="t-purpose"  data-tab="purpose"><span class="tab-num">01</span> Purpose</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-comms"    id="t-comms"    data-tab="comms"><span class="tab-num">02</span> Communication</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-seq"      id="t-seq"      data-tab="seq"><span class="tab-num">03</span> Sequences</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-state"    id="t-state"    data-tab="state"><span class="tab-num">04</span> State</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-patterns" id="t-patterns" data-tab="patterns"><span class="tab-num">05</span> Patterns</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-next"     id="t-next"     data-tab="next"><span class="tab-num">06</span> Next steps</button>
+    </nav>
+
+    <!-- ═══════════════ 01 PURPOSE ═══════════════ -->
+    <div class="panel" id="p-purpose" role="tabpanel" data-active="true" aria-labelledby="t-purpose">
+      <section>
+        <h2>Purpose</h2>
+        <p class="section-sub">What the SPA is for — and what it deliberately is not.</p>
+
+        <p>
+          The Web UI is the human front door to the QA orchestration pipeline.
+          Operators create runs against an OTT/target URL, watch stage progress,
+          inspect artifacts (requirements, TCs, scripts, reports), manage LLM
+          provider keys / agent prompts, and feed locator intelligence.
+        </p>
+
+        <div class="cards three">
+          <div class="card">
+            <div class="tag">Owns</div>
+            <h4>Presentation</h4>
+            <p>Views, forms, validation, pipeline visualization, download links, theme.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Owns</div>
+            <h4>Client orchestration</h4>
+            <p>View switching, run list refresh, 1.5s poll while a run is active, FormData assembly.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Never</div>
+            <h4>Business logic</h4>
+            <p>No stage DAG, no Playwright, no secret decryption, no artifact byte proxying, no pg/cloud SDKs.</p>
+          </div>
+        </div>
+
+        <h3>Surface map (views)</h3>
+        <table>
+          <thead>
+            <tr><th>View</th><th>Job</th><th>API touchpoints</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>DashboardView</td>
+              <td>Stats + recent / live run strip</td>
+              <td>Consumes <code>runs[]</code> from App</td>
+            </tr>
+            <tr>
+              <td>RunsListView</td>
+              <td>Full run history, open / refresh</td>
+              <td><code>GET /api/runs</code> (via App)</td>
+            </tr>
+            <tr>
+              <td>NewRunView</td>
+              <td>Wizard: URL, TCs, creds, options, recording</td>
+              <td><code>POST /api/runs</code> (multipart), <code>POST /api/recordings/start</code></td>
+            </tr>
+            <tr>
+              <td>RunDetailView</td>
+              <td>Pipeline strip + stage artifact tabs</td>
+              <td><code>GET /api/runs/:id</code> (poll), download, rerun-failed</td>
+            </tr>
+            <tr>
+              <td>LocatorsView</td>
+              <td>Submit element logs / query by host</td>
+              <td><code>POST /api/element-log</code>, <code>GET /api/locators</code></td>
+            </tr>
+            <tr>
+              <td>ApiKeysView</td>
+              <td>Save Claude / OpenAI / Gemini keys</td>
+              <td><code>GET|PUT|DELETE /api/provider-keys</code></td>
+            </tr>
+            <tr>
+              <td>AgentsView</td>
+              <td>Per-agent provider, model, prompt</td>
+              <td><code>/api/agent-settings</code>, <code>/api/provider-keys</code></td>
+            </tr>
+            <tr>
+              <td>IntegrationsView</td>
+              <td>UI shell only</td>
+              <td>None wired</td>
+            </tr>
+            <tr>
+              <td>CmsScreenshotCapture</td>
+              <td>Stream-tab bulk CMS captures</td>
+              <td><code>/api/capture-cms-screenshot</code>, <code>…-signal-bulk</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note info">
+          <strong>Boundary.</strong> Passwords entered in New Run are runtime-only
+          (<code>FormData</code> → API → <code>runSecrets</code>). The client must not
+          put them in <code>localStorage</code> or log them. Theme is the only durable
+          client preference today (<code>zero-theme</code>).
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ 02 COMMUNICATION ═══════════════ -->
+    <div class="panel" id="p-comms" role="tabpanel" data-active="false" aria-labelledby="t-comms">
+      <section>
+        <h2>How it communicates</h2>
+        <p class="section-sub">Transport, proxy, and the API contract the SPA actually uses today.</p>
+
+        <h3>Transport model</h3>
+        <div class="layers">
+          <div class="layer">
+            <div class="layer-id">Browser</div>
+            <div>
+              <h4>fetch() + FormData + window.open</h4>
+              <p>Relative URLs (<code>/api/…</code>). No axios, no react-query, no EventSource yet.</p>
+            </div>
+          </div>
+          <div class="layer l2">
+            <div class="layer-id">Dev proxy</div>
+            <div>
+              <h4>Vite <code>server.proxy</code></h4>
+              <p><code>/api</code>, <code>/artifacts</code>, <code>/health</code> → <code>http://localhost:3000</code>. Same-origin in production when API serves <code>dist/web/</code>.</p>
+            </div>
+          </div>
+          <div class="layer l3">
+            <div class="layer-id">API</div>
+            <div>
+              <h4><code>@zero/api</code> · <code>services/api/</code></h4>
+              <p>Only HTTP peer. Orchestrator / executor are invisible to the SPA — progress arrives as run JSON.</p>
+            </div>
+          </div>
+          <div class="layer l4">
+            <div class="layer-id">Out of band</div>
+            <div>
+              <h4>Recording popup</h4>
+              <p><code>/record?sessionId=…</code> opened via <code>window.open</code>; completion signaled with <code>postMessage</code> back to NewRunView.</p>
+            </div>
+          </div>
+        </div>
+
+        <pre class="diagram" aria-label="communication topology"><span class="hi">web/src (React SPA)</span>
+        │
+        │  fetch('/api/…')   FormData POST   window.open('/record…')
+        │  poll 1.5s         JSON PUT/DELETE  postMessage ← recorder
+        ▼
+┌───────────────────────────────────────┐
+│  Vite :5173 proxy  <span class="lo">or</span>  same-origin   │
+│  /api  /artifacts  /health  /record  │
+└───────────────────┬───────────────────┘
+                    ▼
+           <span class="vi">@zero/api :3000</span>
+                    │
+        (queue / workers — not called by UI)
+                    ▼
+     orchestrator → executor → artifacts</pre>
+
+        <h3>API surface consumed</h3>
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Path</th><th>Caller</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>GET</td><td><code>/api/runs</code></td><td>App</td><td>List; seeds dashboard + runs list</td></tr>
+            <tr><td>POST</td><td><code>/api/runs</code></td><td>App ← NewRunView</td><td>multipart <code>FormData</code> (not JSON+presign yet)</td></tr>
+            <tr><td>GET</td><td><code>/api/runs/:id</code></td><td>App interval</td><td>1.5s while status ∉ {completed, failed}</td></tr>
+            <tr><td>POST</td><td><code>/api/runs/:id/rerun-failed</code></td><td>RunDetailView</td><td>Re-kick failed exec cases</td></tr>
+            <tr><td>GET</td><td><code>/api/runs/:id/download</code></td><td>RunDetailView</td><td><code>window.open</code> PDF</td></tr>
+            <tr><td>POST</td><td><code>/api/recordings/start</code></td><td>NewRunView / RunForm</td><td>Returns <code>sessionId</code></td></tr>
+            <tr><td>GET/PUT/DEL</td><td><code>/api/provider-keys…</code></td><td>ApiKeysView, AgentsView</td><td>Keys never echoed back as plaintext after save</td></tr>
+            <tr><td>GET/PUT</td><td><code>/api/agent-settings…</code></td><td>AgentsView</td><td>Provider · model · prompt per agent</td></tr>
+            <tr><td>POST</td><td><code>/api/element-log</code></td><td>LocatorsView, TabContent</td><td>DOM snapshot ingest</td></tr>
+            <tr><td>GET</td><td><code>/api/locators?host=</code></td><td>LocatorsView, TabContent</td><td>Merged selector registry</td></tr>
+            <tr><td>POST</td><td><code>/api/capture-cms-*</code></td><td>CmsScreenshotCapture</td><td>CMS Stream helper</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note">
+          <strong>Honest gap.</strong> Backend exposes <code>GET /api/runs/:id/stream</code> (SSE)
+          and JSON+presigned upload on <code>POST /api/runs</code>. The SPA today still
+          <em>polls</em> and posts <em>multipart</em>. Target V3 adds <code>src/data/</code>
+          hooks (<code>useRunStream</code>, <code>useUpload</code>).
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ 03 SEQUENCES ═══════════════ -->
+    <div class="panel" id="p-seq" role="tabpanel" data-active="false" aria-labelledby="t-seq">
+      <section>
+        <h2>Sequence diagrams</h2>
+        <p class="section-sub">Client-visible lifecycles — as implemented in <code>web/src</code>.</p>
+
+        <h3>Start a run (multipart path — current)</h3>
+        <pre class="diagram" aria-label="start run sequence"><span class="lo">User</span>          <span class="hi">NewRunView</span>           <span class="hi">App</span>                <span class="vi">@zero/api</span>
+ │                  │                    │                    │
+ │── fill wizard ──▶│                    │                    │
+ │── Submit ───────▶│                    │                    │
+ │                  │── validate URL/TC  │                    │
+ │                  │── FormData(form) ─▶│                    │
+ │                  │                    │─ POST /api/runs ──▶│
+ │                  │                    │   (multipart)      │
+ │                  │                    │◀── { runId } ──────│
+ │                  │                    │── setActiveRunId   │
+ │                  │                    │── navigate run-detail
+ │                  │                    │── GET /api/runs/:id│
+ │                  │                    │◀── run JSON ───────│
+ │◀── PipelineFlow ticks (poll every 1.5s while running) ─────│
+ │                  │                    │── … until completed│
+ │                  │                    │   or failed        │</pre>
+
+        <h3>Live run status (polling loop)</h3>
+        <pre class="diagram" aria-label="poll loop"><span class="hi">App</span>
+ │  useEffect([activeRunId, activeRun?.status])
+ │
+ │  if !activeRunId → stop
+ │  if status ∈ {completed, failed} → stop
+ │
+ ├─ fetchRun() immediately
+ └─ setInterval(fetchRun, 1500)
+      │
+      ▼
+   GET /api/runs/:id  ──▶  setActiveRun(json)
+      │
+      └─ RunDetailView re-renders PipelineFlow + tabs from run.stages / run.artifacts</pre>
+
+        <h3>Inline recording</h3>
+        <pre class="diagram" aria-label="recording sequence"><span class="lo">User</span>     <span class="hi">NewRunView</span>          <span class="vi">API</span>           <span class="ok">/record popup</span>
+ │            │                  │                  │
+ │─ Start ───▶│                  │                  │
+ │            │─ POST /recordings/start ──────────▶│
+ │            │◀── { sessionId } ──────────────────│
+ │            │─ window.open(/record?sessionId…) ──────────────▶│
+ │            │                  │                  │ capture DOM
+ │            │◀──────── postMessage({ recordingId }) ──────────│
+ │            │  stash recordingId on FormData at submit        │</pre>
+
+        <h3>Provider key save</h3>
+        <pre class="diagram" aria-label="api keys sequence"><span class="hi">ApiKeysView</span>                         <span class="vi">API</span>
+ │                                      │
+ │─ GET /api/provider-keys ────────────▶│  (metadata only)
+ │◀── items[{ provider, hasKey, … }] ───│
+ │                                      │
+ │─ PUT /api/provider-keys/:provider ──▶│  body { key }
+ │◀── ok ───────────────────────────────│  (encrypted at rest by API)
+ │─ reload list ───────────────────────▶│</pre>
+
+        <div class="note info">
+          <strong>Target sequence (not wired).</strong> JSON <code>POST /api/runs</code> with
+          <code>uploads[]</code> → browser <code>PUT</code> to presigned URLs →
+          <code>POST /api/runs/:id/commit</code> → <code>EventSource(/api/runs/:id/stream)</code>
+          with events <code>state</code> / <code>artifact</code> / <code>done</code> / <code>error</code>,
+          degrading to poll after two failed reconnects.
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ 04 STATE ═══════════════ -->
+    <div class="panel" id="p-state" role="tabpanel" data-active="false" aria-labelledby="t-state">
+      <section>
+        <h2>State maintenance</h2>
+        <p class="section-sub">Where truth lives — client memory vs server vs browser storage.</p>
+
+        <h3>Ownership model</h3>
+        <div class="cards">
+          <div class="card">
+            <div class="tag">Source of truth</div>
+            <h4>Server run document</h4>
+            <p><code>GET /api/runs/:id</code> is authoritative for status, stages, artifacts. Client never invents stage outcomes.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Session UI</div>
+            <h4>App.jsx React state</h4>
+            <p><code>view</code>, <code>activeRunId</code>, <code>activeRun</code>, <code>runs</code>, <code>runsLoading</code>. Lost on full reload.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Ephemeral form</div>
+            <h4>View-local useState</h4>
+            <p>Wizard step, drafts, tab selection, locator query results — die when the view unmounts.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Durable client</div>
+            <h4>localStorage</h4>
+            <p>Only <code>zero-theme</code> (<code>main.jsx</code> + Sidebar). No run cache, no keys, no passwords.</p>
+          </div>
+        </div>
+
+        <h3>App-level state machine (navigation)</h3>
+        <pre class="diagram" aria-label="view state"><span class="lo">[*]</span> → <span class="hi">dashboard</span>
+          │
+          ├─▶ runs ──────────────┐
+          ├─▶ new-run ──submit──▶│──▶ <span class="vi">run-detail</span>(activeRunId)
+          ├─▶ locators           │         │
+          ├─▶ apikeys            │         │ status running
+          ├─▶ agents             │         │   ↻ poll 1.5s
+          └─▶ integrations       │         ▼
+                                 │   completed / failed → stop poll
+                                 └◀── onBack / openRun</pre>
+
+        <h3>State table</h3>
+        <table>
+          <thead>
+            <tr><th>State</th><th>Holder</th><th>Lifetime</th><th>Sync</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>view</code></td>
+              <td>App</td>
+              <td>Session</td>
+              <td>In-memory only (no URL router today)</td>
+            </tr>
+            <tr>
+              <td><code>runs[]</code></td>
+              <td>App</td>
+              <td>Session</td>
+              <td>Fetched on mount; refreshed after start / manual refresh</td>
+            </tr>
+            <tr>
+              <td><code>activeRun</code></td>
+              <td>App</td>
+              <td>While detail open</td>
+              <td>Polled; cleared on navigate-with-new-id</td>
+            </tr>
+            <tr>
+              <td>New-run wizard fields</td>
+              <td>NewRunView + DOM form</td>
+              <td>Until submit / leave</td>
+              <td>Assembled into <code>FormData</code> at submit</td>
+            </tr>
+            <tr>
+              <td><code>activeTab</code></td>
+              <td>RunDetailView</td>
+              <td>Detail mount</td>
+              <td>Local; falls back if optional tab disappears</td>
+            </tr>
+            <tr>
+              <td>Provider / agent drafts</td>
+              <td>ApiKeysView / AgentsView</td>
+              <td>View mount</td>
+              <td>Persisted only after successful PUT</td>
+            </tr>
+            <tr>
+              <td><code>data-theme</code></td>
+              <td>document + localStorage</td>
+              <td>Across reloads</td>
+              <td>Sidebar toggle writes <code>zero-theme</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Derived UI (no separate store)</h3>
+        <ul>
+          <li><strong>PipelineFlow</strong> — reads <code>run.stages[*].status</code>; optional stages appear only when present.</li>
+          <li><strong>RunDetail tabs</strong> — <code>getVisibleTabs(run)</code> filters optional tabs from artifacts / stages.</li>
+          <li><strong>Dashboard stats</strong> — computed from <code>runs[]</code> (counts, avg pass rate).</li>
+        </ul>
+
+        <div class="note danger">
+          <strong>No global store.</strong> There is no Redux / Zustand / Context for runs.
+          Props drill from <code>App</code> → shell → views. Scaling concern for V3
+          <code>src/data/</code> hooks (one hook per endpoint).
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ 05 PATTERNS ═══════════════ -->
+    <div class="panel" id="p-patterns" role="tabpanel" data-active="false" aria-labelledby="t-patterns">
+      <section>
+        <h2>Architecture &amp; design patterns</h2>
+        <p class="section-sub">How the folder layout encodes responsibilities.</p>
+
+        <h3>Module map</h3>
+        <pre class="diagram" aria-label="module map"><span class="hi">web/</span>
+├─ <span class="vi">package.json</span>          @zero/web · React 18 · Vite
+├─ <span class="vi">vite.config.js</span>        build → ../dist/web · proxy /api → :3000
+├─ public/               static (favicon, architecture*.html, this LLD)
+└─ src/
+   ├─ <span class="hi">main.jsx</span>           StrictMode boot · theme from localStorage
+   ├─ <span class="hi">App.jsx</span>            <span class="ok">container</span> — navigation + run fetch/poll + handlers
+   ├─ layouts/
+   │  └─ AppShell.jsx    chrome: Sidebar · Topbar · &lt;main&gt;
+   ├─ views/             <span class="ok">route screens</span> (one job each, colocated .css)
+   └─ components/        reusable presentational pieces
+      ├─ PipelineFlow    stage timeline from run.stages
+      ├─ PipelineStatus  status chips
+      ├─ RunForm         alternate start form
+      ├─ TabContent      artifact renderers + locator helpers
+      └─ CmsScreenshotCapture</pre>
+
+        <h3>Patterns in play</h3>
+        <div class="cards">
+          <div class="card">
+            <div class="tag">Structural</div>
+            <h4>Container / Presentational</h4>
+            <p><code>App.jsx</code> owns data &amp; side effects. Views mostly render props + local form state. Shell is layout-only.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Structural</div>
+            <h4>Shell layout</h4>
+            <p><code>AppShell</code> = Sidebar + Topbar + outlet. Topbar props derived from current view + active run.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Behavioral</div>
+            <h4>View switch (manual SPA router)</h4>
+            <p>String <code>view</code> + <code>switch</code> — no react-router. Navigation is <code>navigate(to, runId?)</code>.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Behavioral</div>
+            <h4>Polling observer</h4>
+            <p>Interval subscription while run is live; tears down on terminal status or id change.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Creational</div>
+            <h4>FormData builder</h4>
+            <p>NewRunView validates, then constructs multipart payload (files, mode, recording ids) before handing to App.</p>
+          </div>
+          <div class="card">
+            <div class="tag">UI</div>
+            <h4>Wizard / multi-step form</h4>
+            <p>NewRun steps: Input → Assets → Creds → Options → Recording. Step index is local state.</p>
+          </div>
+          <div class="card">
+            <div class="tag">UI</div>
+            <h4>Colocated styles</h4>
+            <p>Each view/component imports its own <code>.css</code>. Global tokens in <code>index.css</code> / <code>App.css</code>.</p>
+          </div>
+          <div class="card">
+            <div class="tag">Boundary</div>
+            <h4>BFF-via-same-origin</h4>
+            <p>SPA never addresses orchestrator/executor. API is the single façade (Backend-for-Frontend shape without a separate BFF process).</p>
+          </div>
+        </div>
+
+        <h3>Layer diagram (client only)</h3>
+        <div class="layers">
+          <div class="layer">
+            <div class="layer-id">Chrome</div>
+            <div>
+              <h4>AppShell · Sidebar · Topbar</h4>
+              <p>Navigation affordances, theme toggle, breadcrumbs / status badge.</p>
+            </div>
+          </div>
+          <div class="layer l2">
+            <div class="layer-id">Screens</div>
+            <div>
+              <h4>views/*</h4>
+              <p>One primary user job per screen. May own form / tab local state.</p>
+            </div>
+          </div>
+          <div class="layer l3">
+            <div class="layer-id">Atoms</div>
+            <div>
+              <h4>components/*</h4>
+              <p>Pipeline visualization, tabs, CMS capture — reusable, mostly props-driven.</p>
+            </div>
+          </div>
+          <div class="layer l4">
+            <div class="layer-id">Session</div>
+            <div>
+              <h4>App.jsx data plane</h4>
+              <p>Runs list, active run, navigation callbacks. The only place that polls.</p>
+            </div>
+          </div>
+        </div>
+
+        <h3>Constraints (honour these)</h3>
+        <ul>
+          <li>Edit <code>web/src/**</code> only for UI behavior; rebuild with <code>npm run build</code> → <code>dist/web/</code>.</li>
+          <li>Do not import <code>playwright</code>, <code>pg</code>, AWS/GCP SDKs, or <code>@zero/cloud</code>.</li>
+          <li>Prefer EventSource on <code>/api/runs/:id/stream</code> when replacing the poller — do not add more polling endpoints.</li>
+          <li>Passwords: never <code>localStorage</code>, never console logs.</li>
+        </ul>
+
+        <div class="note info">
+          <strong>Related docs.</strong>
+          Full-system arch: <a href="/architecture.html">architecture.html</a> ·
+          Target blueprint: <a href="/architectureV2.html">architectureV2.html</a> ·
+          Coding prompt: <code>support/agent-workflow/prompts/repos/web.md</code>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ 06 NEXT STEPS ═══════════════ -->
+    <div class="panel" id="p-next" role="tabpanel" data-active="false" aria-labelledby="t-next">
+      <section>
+        <h2>Next steps</h2>
+        <p class="section-sub">Client work to close the gap between what the SPA does today and the backend it already talks to.</p>
+
+        <h3>Priority backlog</h3>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Change</th><th>Why</th><th>Touches</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>P0</td>
+              <td>Replace 1.5s poll with <code>EventSource(/api/runs/:id/stream)</code></td>
+              <td>Endpoint exists; SSE cuts latency &amp; request load. Degrade to poll after 2 failed reconnects.</td>
+              <td>App.jsx · new <code>src/data/useRunStream</code></td>
+            </tr>
+            <tr>
+              <td>P0</td>
+              <td>Switch <code>POST /api/runs</code> to JSON + <code>uploads[]</code> presign, then browser <code>PUT</code> + <code>commit</code></td>
+              <td>Stops streaming large files through API; matches shipped contract.</td>
+              <td>NewRunView · new <code>useUpload</code></td>
+            </tr>
+            <tr>
+              <td>P1</td>
+              <td>Introduce <code>src/data/</code> hooks (one per endpoint)</td>
+              <td>Removes <code>fetch</code> inside views; centralizes error/retry/auth.</td>
+              <td><code>useRuns</code>, <code>useRun</code>, <code>useLocators</code></td>
+            </tr>
+            <tr>
+              <td>P1</td>
+              <td>Real router + deep links (<code>/runs/:id</code>)</td>
+              <td>Today <code>view</code> is in-memory only — no shareable URLs, reload loses context.</td>
+              <td>App.jsx routing</td>
+            </tr>
+            <tr>
+              <td>P2</td>
+              <td>Auth UI: 401 refresh / 403 → login</td>
+              <td>M5 API keys / JWT exist server-side; no client login screen.</td>
+              <td>App shell · fetch wrapper</td>
+            </tr>
+            <tr>
+              <td>P2</td>
+              <td>Wire or hide IntegrationsView</td>
+              <td>Placeholder with no backend — currently misleading.</td>
+              <td>IntegrationsView</td>
+            </tr>
+            <tr>
+              <td>P3</td>
+              <td>Shared run store (Context / lightweight store)</td>
+              <td>Ends prop-drilling from App → shell → views as surface grows.</td>
+              <td>App.jsx · views</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Sequenced plan</h3>
+        <pre class="diagram" aria-label="next steps sequence"><span class="hi">1</span> data/ hooks scaffold ─▶ move fetch out of views (no behavior change)
+        │
+<span class="hi">2</span> useUpload  ──────────▶ JSON POST /runs + presigned PUT + commit
+        │
+<span class="hi">3</span> useRunStream ───────▶ EventSource; poll becomes fallback only
+        │
+<span class="hi">4</span> router ─────────────▶ deep-linkable run-detail, back/forward
+        │
+<span class="hi">5</span> auth wrapper ───────▶ 401 refresh / 403 redirect
+        │
+<span class="hi">6</span> store ──────────────▶ retire prop-drilling</pre>
+
+        <h3>Guardrails while doing this</h3>
+        <ul>
+          <li>No new polling endpoints — SSE first, poll only as fallback.</li>
+          <li>Keep the client free of <code>playwright</code>, <code>pg</code>, cloud SDKs, <code>@zero/cloud</code>.</li>
+          <li>Rebuild with <code>npm run build</code>; never hand-edit <code>dist/web/</code>.</li>
+          <li>Passwords stay runtime-only — never <code>localStorage</code>, never logs.</li>
+        </ul>
+
+        <div class="note info">
+          <strong>Definition of done.</strong> A run started from the UI streams stage
+          ticks over SSE, uploads via presigned PUT, survives reload via a deep link, and
+          all network access flows through <code>src/data/</code> hooks.
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <span>ZER0 · @zero/web LLD · grounded in <code>web/src</code> as of analysis</span>
+      <span><a href="/architecture.html">System architecture</a> · <a href="/">App</a></span>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('.tab'));
+      const panels = {
+        purpose: document.getElementById('p-purpose'),
+        comms: document.getElementById('p-comms'),
+        seq: document.getElementById('p-seq'),
+        state: document.getElementById('p-state'),
+        patterns: document.getElementById('p-patterns'),
+        next: document.getElementById('p-next'),
+      };
+
+      function activate(id) {
+        tabs.forEach((t) => {
+          const on = t.dataset.tab === id;
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        Object.keys(panels).forEach((k) => {
+          panels[k].dataset.active = k === id ? 'true' : 'false';
+        });
+        history.replaceState(null, '', '#' + id);
+      }
+
+      tabs.forEach((t) => {
+        t.addEventListener('click', () => activate(t.dataset.tab));
+      });
+
+      const hash = (location.hash || '#purpose').slice(1);
+      if (panels[hash]) activate(hash);
+    })();
+  </script>
+</body>
+</html>

@@ -86,7 +86,7 @@ describe("M5 auth HTTP", () => {
       ZERO_LLM: "off"
     };
     delete env.VERCEL;
-    child = spawn(process.execPath, ["apps/api/server.js"], {
+    child = spawn(process.execPath, ["services/api/server.js"], {
       cwd: ROOT,
       env,
       stdio: ["ignore", "pipe", "pipe"]
@@ -103,12 +103,12 @@ describe("M5 auth HTTP", () => {
   });
 
   it("rejects unauthenticated run reads and unverified keys", async () => {
-    const noKey = await request({ method: "GET", urlPath: "/api/runs" });
+    const noKey = await request({ method: "GET", urlPath: "/runs" });
     expect(noKey.status).toBe(401);
 
     const garbage = await request({
       method: "GET",
-      urlPath: "/api/runs",
+      urlPath: "/runs",
       headers: { "x-api-key": "sk-not-a-real-key" }
     });
     expect(garbage.status).toBe(401);
@@ -117,7 +117,7 @@ describe("M5 auth HTTP", () => {
   it("prevents tenant B from reading tenant A runs or artifacts", async () => {
     const created = await request({
       method: "POST",
-      urlPath: "/api/runs",
+      urlPath: "/runs",
       headers: { "content-type": "application/json", "x-api-key": ACME_KEY },
       body: startRunBody()
     });
@@ -127,7 +127,7 @@ describe("M5 auth HTTP", () => {
 
     const asAcme = await request({
       method: "GET",
-      urlPath: `/api/runs/${runId}`,
+      urlPath: `/runs/${runId}`,
       headers: { "x-api-key": ACME_KEY }
     });
     expect(asAcme.status).toBe(200);
@@ -135,21 +135,21 @@ describe("M5 auth HTTP", () => {
 
     const asBeta = await request({
       method: "GET",
-      urlPath: `/api/runs/${runId}`,
+      urlPath: `/runs/${runId}`,
       headers: { "x-api-key": BETA_KEY }
     });
     expect(asBeta.status).toBe(404);
 
     const files = await request({
       method: "GET",
-      urlPath: `/api/runs/${runId}/files/run.json`,
+      urlPath: `/runs/${runId}/files/run.json`,
       headers: { "x-api-key": BETA_KEY }
     });
     expect(files.status).toBe(404);
 
     const spoof = await request({
       method: "GET",
-      urlPath: `/api/runs/${runId}`,
+      urlPath: `/runs/${runId}`,
       headers: { "X-User-Email": "qa@acme.test" }
     });
     expect(spoof.status).toBe(401);

@@ -4,11 +4,11 @@ module.exports = {
   testMatch: ["<rootDir>/test/**/*.test.js"],
   testTimeout: 180000,
   watchman: false,
+  coverageDirectory: "<rootDir>/dist/coverage",
   coveragePathIgnorePatterns: [
     "/node_modules/",
     "/web/",
-    "/zero-docs/",
-    "/public/",
-    "/artifacts/"
+    "/support/zero-docs/",
+    "/dist/"
   ]
 };

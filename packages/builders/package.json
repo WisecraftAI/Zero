@@ -2,8 +2,17 @@
   "name": "@zero/builders",
   "version": "0.0.0",
   "private": true,
-  "main": "scriptBuilder.js",
+  "main": "index.js",
   "description": "Playwright spec and Java/Selenium emitters.",
+  "exports": {
+    ".": "./index.js",
+    "./scriptBuilder": "./scriptBuilder.js",
+    "./javaSeleniumBuilder": "./javaSeleniumBuilder.js",
+    "./playwright": "./lib/playwright/index.js",
+    "./selenium": "./lib/selenium/index.js",
+    "./shared/selectors": "./lib/shared/selectors.js",
+    "./shared/text": "./lib/shared/text.js"
+  },
   "dependencies": {
     "@zero/locators": "*"
   }

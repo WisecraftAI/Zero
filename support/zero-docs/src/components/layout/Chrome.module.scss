@@ -1,0 +1,57 @@
+@use '@/styles/mixins' as *;
+@use '@/styles/tokens' as *;
+
+.chrome {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--chrome);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: $s-2 var(--page-pad);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $s-2 $s-4;
+}
+
+.mark {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  flex: 0 0 auto;
+
+  span {
+    font-weight: 500;
+    color: var(--mute);
+    letter-spacing: 0;
+  }
+}
+
+.nav {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.tools {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+@include down(md) {
+  .nav { flex: 1 1 100%; order: 3; }
+}
+
+@include down(sm) {
+  .inner { padding: $s-2 var(--page-pad); }
+}

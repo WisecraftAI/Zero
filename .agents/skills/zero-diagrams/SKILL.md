@@ -19,7 +19,7 @@ For layered HTML architecture panels, see `architecture` + `zero-architecture`.
 ## Defaults
 
 1. Prefer **Mermaid** in fenced ` ```mermaid ` blocks for chat and Markdown docs
-2. Prefer **ASCII / preformatted** inside `public/architecture.html` (already styled)
+2. Prefer **ASCII / preformatted** inside `web/public/architecture.html` (already styled; built into `dist/web/` and served)
 3. Prefer **HTML layered panels** only when publishing rich arch pages (follow `architecture` skill + Zero HTML path)
 4. Keep labels tied to real names: stages, files, routes, tables
 
@@ -41,16 +41,17 @@ Use `flowchart` (not deprecated `graph`). Top-down for stacks; left-right for pi
 
 ```mermaid
 flowchart LR
-  UI[React SPA] --> API[Express server.js]
-  API --> BA[BA]
+  UI[React SPA web/] --> API["@zero/api services/api/server.js"]
+  API --> ORCH["@zero/orchestrator"]
+  ORCH --> BA[BA]
   BA --> MQ[Manual QA]
   MQ --> AQ[Automation QA]
-  AQ --> EX[Playwright]
+  AQ --> EX["@zero/executor Playwright"]
   EX --> MG[Manager]
   MG --> DL[Delivery]
-  API --> LIB[lib/]
-  LIB --> PG[(Postgres optional)]
-  EX --> ART[artifacts/]
+  ORCH --> PKG["packages/* @zero/*"]
+  PKG --> PG[(Postgres optional)]
+  EX --> ART[dist/artifacts/]
 ```
 
 ### Locator merge
@@ -68,14 +69,16 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   participant U as UI
-  participant S as server.js
-  participant PW as Playwright
-  U->>S: POST /api/runs
-  S->>S: BA → Manual → Automation
-  S->>PW: execution checks
-  PW-->>S: results + screenshots
-  S->>S: Manager → Delivery
-  U->>S: GET /api/runs/:id
+  participant API as "@zero/api"
+  participant O as "@zero/orchestrator"
+  participant PW as "@zero/executor (Playwright)"
+  U->>API: POST /api/runs
+  API->>O: publish runs.requested
+  O->>O: BA → Manual → Automation
+  O->>PW: publish execution.requested
+  PW-->>O: results + screenshots
+  O->>O: Manager → Delivery
+  U->>API: GET /api/runs/:id
 ```
 
 ## Quality bar
@@ -83,4 +86,4 @@ sequenceDiagram
 - Every node should map to a real path, stage, or API — no vague “backend”
 - Note optional pieces (Postgres, a11y/perf stages, CMS capture) as optional
 - If embedding in HTML, keep diagrams readable on mobile (short labels)
-- When updating docs, sync the same diagram story across chat, `AGENTS.md`, and `architecture.html` if the user asked to publish
+- When updating docs, sync the same diagram story across chat, `AGENTS.md`, and `web/public/architecture.html` if the user asked to publish

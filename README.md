@@ -2,9 +2,9 @@
 
 Architect-level QA orchestration workflow in one UI.
 
-**Repos:** 1 Git repository ([Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)) · **2 npm packages** in-tree (`ai-qa-orchestrator` + `zer0-client`) · **MIT** ([LICENSE](./LICENSE))
+**Repos:** 1 Git repository ([Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)) · **npm workspaces** (`services/*`, `packages/*`, `web`) · **MIT** ([LICENSE](./LICENSE))
 
-**Dev docs (humans + AI):** [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) · [docs/OPEN_SOURCE.md](./docs/OPEN_SOURCE.md) · [docs/README.md](./docs/README.md)
+**Dev docs (humans + AI):** [Developer guide](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) · [Architecture V1](./support/zero-docs/docs/v1/ARCHITECTURE.md) · [Docker](./support/zero-docs/docs/v1/DOCKER.md) · [Architecture V2](./support/zero-docs/docs/v2/ARCHITECTURE.md) · [Open source](./support/zero-docs/docs/v1/OPEN_SOURCE.md) · [Docs index](./support/zero-docs/docs/README.md) · [Docs site](./support/zero-docs/README.md)
 
 Pipeline:
 
@@ -20,18 +20,19 @@ Pipeline:
 npm install
 npx playwright install chromium
 npm run build
-npm start
+npm start              # API only (services/api/server.js)
+npm run start:all      # local all-in-one: API + orchestrator + executor
 ```
 
 Run each line on its own. If you paste with trailing `# comments`, zsh (default `INTERACTIVE_COMMENTS` off) will forward the `#` as an argument to `vite build` and the build fails with `Could not resolve entry module "#/index.html"`. Fix once with `setopt interactive_comments`.
 
-When the server starts, it will log: **Open the UI at: http://localhost:3000** (or the next free port if 3000 is in use). Open that URL in your browser to use the pipeline.
+When the API starts, it will log: **API listening on http://localhost:3001 (UI: http://localhost:3000)**. Open the UI URL in your browser to use the pipeline. Under S7 the SPA (`zero-web`, nginx `:3000`) and the API (`zero-api`, Express `:3001`) are two separate origins. For a full local pipeline without Compose, use `npm run start:all` and open the Vite dev server at `http://localhost:5173` (fetches hit the API on `:3001` via `VITE_API_BASE_URL`).
 
-**Docker (full stack):** `docker compose up --build` — monolith app on `:3000`, docs site on `:5174`, agent-workflow status on `:5175`, plus Postgres, Redis, and MinIO (console `:9001`). Infra only: `docker compose up -d postgres redis minio`. If host `:5432` is taken: `POSTGRES_PORT=15432 docker compose up -d postgres` then `DATABASE_URL=postgres://zero:zero@localhost:15432/zero`.
+**Docker (full stack):** `docker compose up --build` — web, API, orchestrator, and executor on Compose, docs site on `:5174`, agent-workflow status on `:5175`, plus Postgres and Redis. Infra only: `docker compose up -d postgres redis`. Optional MinIO (S3 drill): `docker compose --profile s3 up -d minio minio-init` (console `:9001`). If host `:5432` is taken: `POSTGRES_PORT=15432 docker compose up -d postgres` then `DATABASE_URL=postgres://zero:zero@localhost:15432/zero`.
 
 **Tests:** `npm test` — health smoke, one pipeline start, and (when Postgres is reachable) run persist/reload.
 
-If the UI does not load: ensure you ran `npm run build` from the project root so `public/index.html` and `public/assets/` are up to date.
+If the UI does not load: ensure you ran `npm run build` from the project root so `dist/web/index.html` and `dist/web/assets/` are up to date.
 
 **Show browser:** Check "Show browser (run in front of me so I can validate)" when starting a run to open a visible browser window on your machine. You can also set `RUN_HEADED=true` in the environment to always run with a visible browser.
 
@@ -58,7 +59,7 @@ Separate from the pipeline. Captures the **Stream** tab (signal / preview), **no
 - **Single URL:** optional one-off capture.
 - **Show browser:** one session for the whole bulk run — log in once on the first page, then each URL is opened in order.
 
-Images: `artifacts/cms-captures/` (prefix `cms-signal-stream-`).
+Images: `dist/artifacts/cms-captures/` (prefix `cms-signal-stream-`).
 
 ## Postgres Persistence (recommended for script reuse)
 
@@ -68,15 +69,17 @@ Example:
 
 ```bash
 set DATABASE_URL=postgres://postgres:password@localhost:5432/qa_orchestrator
-npm start
+npm run start:all
 ```
 
-Stored entities:
+Stored entities (DDL in `@zero/db`; ER + column catalog in [`support/zero-docs/docs/v1/DATABASE.md`](support/zero-docs/docs/v1/DATABASE.md)):
 
 - full run lifecycle (`qa_runs`)
 - manual test cases + generated automation script + manager report (`qa_assets`)
 - **element_locators** – per-host reusable locators (from element logs + learned at runtime); used when generating Playwright scripts
 - **element_logs** – raw element log snapshots (URL + elements) for traceability
+- **projects** / **stored_scripts** / **recordings** – IDE-style helpers (no `/projects` routes yet)
+- **provider_keys** / **agent_settings** – encrypted LLM keys and per-agent model/prompt
 
 When Postgres is enabled, the framework merges **profile selectors + in-memory learned selectors + DB-stored locators** so generated scripts reuse stable locators across runs.
 
@@ -97,19 +100,21 @@ Built-in channel profiles currently include `Gray OTT`, `TVNZ+`, `Aha OTT`, `Hot
 
 ## API
 
-- `POST /api/runs` (multipart/form-data) starts a run
-- `GET /api/runs` lists recent runs
-- `GET /api/runs/:id` fetches status + artifacts
-- `POST /api/runs/:id/rerun-failed` reruns only failed execution checks
-- `GET /api/runs/:id/assets` fetches persisted scripts/test cases for reuse
-- `GET /api/runs/:id/download` downloads final PDF report with screenshots
-- `GET /api/runs/:id/download?format=json` downloads raw JSON payload
-- **`POST /api/element-log`** (JSON body) – submit element log; stores locators in Postgres by host so the framework can build scripts from them. Body: `{ "url": "https://...", "elements": [ { "key": "playCta", "selector": "button.play-btn" }, ... ] }`. Requires Postgres.
-- **`GET /api/locators?host=...`** – returns stored locators for a host (for reuse in script generation)
+S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns its routes natively.
+
+- `POST /runs` (multipart/form-data) starts a run
+- `GET /runs` lists recent runs
+- `GET /runs/:id` fetches status + artifacts
+- `POST /runs/:id/rerun-failed` reruns only failed execution checks
+- `GET /runs/:id/assets` fetches persisted scripts/test cases for reuse
+- `GET /runs/:id/download` downloads final PDF report with screenshots
+- `GET /runs/:id/download?format=json` downloads raw JSON payload
+- **`POST /element-log`** (JSON body) – submit element log; stores locators in Postgres by host so the framework can build scripts from them. Body: `{ "url": "https://...", "elements": [ { "key": "playCta", "selector": "button.play-btn" }, ... ] }`. Requires Postgres.
+- **`GET /locators?host=...`** – returns stored locators for a host (for reuse in script generation)
 
 ## Framework: element logs and reusable scripts
 
-1. **Element log** – Use the "Element log" tab or `POST /api/element-log` with a JSON payload: `url` + `elements` array. Each element can have `key` (e.g. `playCta`, `contentCard`, `loginCta`), `selector`, optional `xpath`/`role`/`label`. The framework normalizes keys and stores them in `element_locators` by host.
+1. **Element log** – Use the "Element log" tab or `POST /element-log` with a JSON payload: `url` + `elements` array. Each element can have `key` (e.g. `playCta`, `contentCard`, `loginCta`), `selector`, optional `xpath`/`role`/`label`. The framework normalizes keys and stores them in `element_locators` by host.
 2. **Script generation** – When generating the automation bundle, the server merges (1) built-in profile selectors, (2) in-memory learned selectors from the current run, and (3) **Postgres-stored locators** for the run’s host. The generated Playwright script is built from this merged set so scripts reuse your stored locators.
 3. **Reuse** – After execution, selectors that worked are persisted to Postgres (when configured). You can also submit element logs from external tools (e.g. DOM analysis or AI) so the same framework builds scripts from them on the next run.
 
@@ -117,10 +122,10 @@ PostgreSQL is required for element logging and for locator reuse across runs; wi
 
 ## Python ML Training for Agents
 
-Separate per-agent ML training pipeline is available in `ml-training/`.
+Separate per-agent ML training pipeline is available in `support/ml-training/`.
 
 - trains independent quality models for BA, Manual QA, Automation QA, Manager
 - scores generated outputs and suggests rewrite instructions
 - designed for feedback-loop retraining using accepted/rejected artifacts
 
-See `ml-training/README.md`.
+See `support/ml-training/README.md`.

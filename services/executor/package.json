@@ -1,0 +1,20 @@
+{
+  "name": "@zero/executor",
+  "version": "0.0.0",
+  "private": true,
+  "main": "worker.js",
+  "description": "Playwright job worker: consumes execution.requested. Owns Chromium.",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "@zero/analyzer": "*",
+    "@zero/cloud": "*",
+    "@zero/db": "*",
+    "@zero/domain": "*",
+    "@zero/locators": "*",
+    "dotenv": "^17.3.1",
+    "pg": "^8.13.1",
+    "playwright": "1.58.2"
+  }
+}

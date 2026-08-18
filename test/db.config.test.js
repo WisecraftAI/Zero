@@ -1,4 +1,5 @@
-const { isDatabaseConfigured, sanitizeRunInput } = require("@zero/db");
+const { isDatabaseConfigured, sanitizeRunInput, runPendingMigrations } = require("@zero/db");
+const schema = require("@zero/db/schema");
 
 describe("isDatabaseConfigured", () => {
   it("is false when neither DATABASE_URL nor PGHOST is set", () => {
@@ -31,5 +32,14 @@ describe("sanitizeRunInput", () => {
     expect(clean.tcFileContent).toBe("[stored-in-artifacts]");
     expect(clean.login.password).toBeUndefined();
     expect(clean.login.usernameMasked).toBe("u***");
+  });
+});
+
+describe("@zero/db schema exports", () => {
+  it("exposes DDL constants and migration helpers", () => {
+    expect(schema.TABLE_QA_RUNS).toMatch(/CREATE TABLE IF NOT EXISTS qa_runs/);
+    expect(schema.TABLE_QA_ASSETS).toMatch(/CREATE TABLE IF NOT EXISTS qa_assets/);
+    expect(typeof schema.runPendingMigrations).toBe("function");
+    expect(typeof runPendingMigrations).toBe("function");
   });
 });

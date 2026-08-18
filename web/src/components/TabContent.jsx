@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiUrl } from '../apiBase';
 import './TabContent.css';
 
 function escapeHtml(str) {
@@ -516,7 +517,7 @@ function ElementLogPanel() {
     }
     setResult('Submitting…');
     try {
-      const res = await fetch('/api/element-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await fetch(apiUrl('/element-log'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       setResult(res.ok ? `Saved. Host: ${data.host}, count: ${data.count}` : (data.error || 'Failed'));
     } catch (e) {
@@ -527,7 +528,7 @@ function ElementLogPanel() {
   const loadLocators = async () => {
     if (!host.trim()) { setLocators('Enter host.'); return; }
     try {
-      const res = await fetch(`/api/locators?host=${encodeURIComponent(host)}`);
+      const res = await fetch(apiUrl(`/locators?host=${encodeURIComponent(host)}`));
       const data = await res.json();
       setLocators(JSON.stringify(data, null, 2));
     } catch (e) {

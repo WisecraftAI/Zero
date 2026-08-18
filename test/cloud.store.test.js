@@ -26,7 +26,7 @@ describe("local ObjectStore", () => {
   it("presignPut / presignGet include HMAC query params", async () => {
     const putUrl = await store.presignPut("runs/r1/inputs/tc.csv", 60);
     const getUrl = await store.presignGet("runs/r1/inputs/tc.csv", 60);
-    expect(putUrl).toMatch(/\/api\/cloud\/local\?/);
+    expect(putUrl).toMatch(/\/cloud\/local\?/);
     expect(putUrl).toMatch(/op=put/);
     expect(getUrl).toMatch(/op=get/);
     expect(getUrl).toMatch(/token=/);

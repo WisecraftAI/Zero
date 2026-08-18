@@ -10,9 +10,9 @@ const json = (relativePath) => JSON.parse(read(relativePath));
 
 describe("packaging boundaries", () => {
   it("keeps API and orchestrator independent from the executor package", () => {
-    const apiDeps = json("apps/api/package.json").dependencies || {};
+    const apiDeps = json("services/api/package.json").dependencies || {};
     const orchestratorDeps =
-      json("apps/orchestrator/package.json").dependencies || {};
+      json("services/orchestrator/package.json").dependencies || {};
 
     expect(apiDeps).not.toHaveProperty("@zero/executor");
     expect(apiDeps).not.toHaveProperty("@zero/orchestrator");
@@ -22,7 +22,7 @@ describe("packaging boundaries", () => {
   });
 
   it("keeps worker boot and Chromium out of the HTTP API", () => {
-    const server = read("apps/api/server.js");
+    const server = read("services/api/server.js");
 
     expect(server).not.toMatch(/@zero\/(?:executor|orchestrator)/);
     expect(server).not.toMatch(
@@ -32,14 +32,14 @@ describe("packaging boundaries", () => {
 
   it("uses workspace-scoped dependency installs for all runtime images", () => {
     const apiDocker = read("Dockerfile");
-    const orchestratorDocker = read("apps/orchestrator/Dockerfile");
-    const executorDocker = read("apps/executor/Dockerfile");
+    const orchestratorDocker = read("services/orchestrator/Dockerfile");
+    const executorDocker = read("services/executor/Dockerfile");
 
     expect(apiDocker).toMatch(/--workspace @zero\/api/);
     expect(orchestratorDocker).toMatch(/--workspace @zero\/orchestrator/);
     expect(executorDocker).toMatch(/--workspace @zero\/executor/);
-    expect(apiDocker).not.toMatch(/COPY apps \.\/apps/);
-    expect(orchestratorDocker).not.toMatch(/COPY apps \.\/apps/);
+    expect(apiDocker).not.toMatch(/COPY services \.\/services/);
+    expect(orchestratorDocker).not.toMatch(/COPY services \.\/services/);
   });
 
   it("has no legacy root boot shims", () => {
@@ -50,5 +50,29 @@ describe("packaging boundaries", () => {
     expect(fs.existsSync(path.join(ROOT, "workers", "orchestrator.js"))).toBe(
       false
     );
+  });
+
+  it("keeps Playwright crawl and script builders out of the HTTP API image", () => {
+    const apiDeps = json("services/api/package.json").dependencies || {};
+    const orchestratorDeps =
+      json("services/orchestrator/package.json").dependencies || {};
+
+    expect(apiDeps).not.toHaveProperty("@zero/analyzer");
+    expect(apiDeps).not.toHaveProperty("@zero/builders");
+    expect(orchestratorDeps).not.toHaveProperty("@zero/analyzer");
+    expect(orchestratorDeps).not.toHaveProperty("playwright");
+  });
+
+  it("resolves Chromium only in the executor workspace", () => {
+    const executorDeps = json("services/executor/package.json").dependencies || {};
+    expect(executorDeps).toHaveProperty("@zero/analyzer");
+    expect(executorDeps).toHaveProperty("playwright");
+  });
+
+  it("streams run detail over SSE with poll fallback only", () => {
+    const app = read("web/src/App.jsx");
+    expect(app).toMatch(/useRunStream/);
+    expect(app).toMatch(/mergeRunStreamState/);
+    expect(app).not.toMatch(/setInterval\(fetchRun,\s*1500\)/);
   });
 });

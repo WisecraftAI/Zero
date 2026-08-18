@@ -1,23 +1,16 @@
 {
+  "$note": "S7 split zero-web out of zero-api. This vercel.json now describes an API-only deployment. The SPA (dist/web/) belongs in a separate Vercel project pointed at web/ and configured with VITE_API_BASE_URL for the API origin. If you need the old combined deploy, add: { \"src\": \"/(.*)\", \"dest\": \"dist/web/$1\" } and rebuild dist/web/ inside this project.",
   "version": 2,
   "builds": [
     {
-      "src": "apps/api/server.js",
+      "src": "services/api/server.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "apps/api/server.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "public/$1"
+      "dest": "services/api/server.js"
     }
   ]
 }

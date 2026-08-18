@@ -1,19 +1,20 @@
 'use strict';
 
 /**
- * Local ObjectStore — filesystem under artifacts/cloud-store + HMAC-ish tokens.
- * Presigned URLs are http(s) paths served by the API (/api/cloud/local/...),
- * not real S3. Enough for M2 local-first development.
+ * Local ObjectStore — filesystem under dist/artifacts/cloud-store + HMAC-ish tokens.
+ * Presigned URLs are http(s) paths served by the API service at /cloud/local?...
+ * (S7 dropped the /api prefix). ZERO_PUBLIC_BASE_URL is the API origin, not the
+ * SPA origin — the browser PUTs/GETs objects directly against the API.
  */
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { localStoreDir } = require('@zero/domain').outputRoots;
 
-const ROOT = process.env.ZERO_LOCAL_STORE_DIR
-  || path.join(process.cwd(), 'artifacts', 'cloud-store');
+const ROOT = localStoreDir();
 const SECRET = process.env.ZERO_LOCAL_STORE_SECRET || 'zero-local-dev-store';
-const PUBLIC_BASE = (process.env.ZERO_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const PUBLIC_BASE = (process.env.ZERO_PUBLIC_BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
 
 function ensureRoot() {
   fs.mkdirSync(ROOT, { recursive: true });
@@ -51,7 +52,7 @@ function makeUrl(op, key, ttlSec = 900) {
   const exp = Math.floor(Date.now() / 1000) + ttlSec;
   const token = sign(key, op, exp);
   const q = new URLSearchParams({ key, op, exp: String(exp), token });
-  return `${PUBLIC_BASE}/api/cloud/local?${q}`;
+  return `${PUBLIC_BASE}/cloud/local?${q}`;
 }
 
 const objectStore = {

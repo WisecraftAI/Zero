@@ -83,7 +83,8 @@
 .chip.pending   { background: var(--surface-3); color: var(--text-3); border: 1px solid var(--border); }
 .chip.running   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
 .chip.running::before { animation: blink 1s infinite; }
-.chip.completed { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
+.chip.completed,
+.chip.done     { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
 .chip.failed    { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border); }
 .chip.skipped   { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-border); }
 

@@ -3,5 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "main": "index.js",
-  "description": "Shared contracts: stageKeys, appProfiles. No I/O."
+  "description": "Shared contracts: stageKeys, appProfiles. No I/O.",
+  "exports": {
+    ".": "./index.js",
+    "./execution": "./execution.js",
+    "./outputRoots": "./outputRoots.js",
+    "./schemas": "./lib/schemas.js"
+  }
 }

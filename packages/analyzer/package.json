@@ -2,8 +2,13 @@
   "name": "@zero/analyzer",
   "version": "0.0.0",
   "private": true,
-  "main": "urlAnalyzerPro.js",
+  "main": "index.js",
   "description": "Optional URL crawl that seeds BA when notes are short.",
+  "exports": {
+    ".": "./index.js",
+    "./urlAnalyzer": "./urlAnalyzer.js",
+    "./urlAnalyzerPro": "./urlAnalyzerPro.js"
+  },
   "dependencies": {
     "@zero/locators": "*"
   }
