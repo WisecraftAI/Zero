@@ -9,7 +9,7 @@ Markdown lead briefings live next to the interactive docs site under `support/ze
 
 | Doc | Version | Read when |
 |-----|---------|-----------|
-| [v1/DEVELOPER_GUIDE.md](./v1/DEVELOPER_GUIDE.md) | V1 | Onboarding — lead briefing for humans & AI |
+| [v1/DEVELOPER_GUIDE.md](./v1/DEVELOPER_GUIDE.md) | V1 | **New PC setup** + lead briefing for humans & AI (§2 Day-0) |
 | [v1/ARCHITECTURE.md](./v1/ARCHITECTURE.md) | V1 | **Current runtime** (what ships today) |
 | [v1/DATABASE.md](./v1/DATABASE.md) | V1 | **Postgres ER / schema** — tables, FKs, JSONB, indexes (`@zero/db`) |
 | [v1/DOCKER.md](./v1/DOCKER.md) | V1 | **Docker / Compose** — images, ports, hybrid mode |

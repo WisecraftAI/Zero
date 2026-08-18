@@ -42,7 +42,7 @@ export interface PackageDoc {
 export const PACKAGES_DOC: PackageDoc[] = [
   {
     "id": "domain",
-    "generatedAt": "2026-08-18T00:48:33.148Z",
+    "generatedAt": "2026-08-18T04:07:58.105Z",
     "pkg": "@zero/domain",
     "version": "0.0.0",
     "description": "Shared contracts: stageKeys, appProfiles. No I/O.",
@@ -53,8 +53,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./outputRoots": "./outputRoots.js",
       "./schemas": "./lib/schemas.js"
     },
-    "fileCount": 9,
-    "loc": 397,
+    "fileCount": 10,
+    "loc": 441,
     "dependencies": [],
     "workspaceDeps": [],
     "entries": [
@@ -87,23 +87,29 @@ export const PACKAGES_DOC: PackageDoc[] = [
         "modules": [
           {
             "file": "lib/execution.js",
-            "loc": 50,
+            "loc": 51,
+            "exports": []
+          },
+          {
+            "file": "lib/executionModes.js",
+            "loc": 40,
             "exports": [
-              "EXECUTION_REQUESTED",
-              "EXECUTION_COMPLETED",
-              "requestExecution"
+              "EXECUTION_MODES",
+              "resolveExecutionMode"
             ]
           },
           {
             "file": "lib/index.js",
-            "loc": 16,
+            "loc": 19,
             "exports": [
               "stageKeys",
               "optionalStageKeys",
               "appProfiles",
               "RUNS_REQUESTED",
               "outputRoots",
-              "validateRunInput"
+              "validateRunInput",
+              "EXECUTION_MODES",
+              "resolveExecutionMode"
             ]
           },
           {
@@ -144,14 +150,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
         ]
       }
     ],
-    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js",
+    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js",
     "tests": [
       "test/domain.test.js"
     ]
   },
   {
     "id": "db",
-    "generatedAt": "2026-08-18T00:48:33.164Z",
+    "generatedAt": "2026-08-18T04:07:58.112Z",
     "pkg": "@zero/db",
     "version": "0.0.0",
     "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators.",
@@ -357,7 +363,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "locators",
-    "generatedAt": "2026-08-18T00:48:33.167Z",
+    "generatedAt": "2026-08-18T04:07:58.114Z",
     "pkg": "@zero/locators",
     "version": "0.0.0",
     "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
@@ -534,7 +540,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "builders",
-    "generatedAt": "2026-08-18T00:48:33.170Z",
+    "generatedAt": "2026-08-18T04:07:58.115Z",
     "pkg": "@zero/builders",
     "version": "0.0.0",
     "description": "Playwright spec and Java/Selenium emitters.",
@@ -544,12 +550,13 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./scriptBuilder": "./scriptBuilder.js",
       "./javaSeleniumBuilder": "./javaSeleniumBuilder.js",
       "./playwright": "./lib/playwright/index.js",
+      "./playwright/discoveredFlows": "./lib/playwright/discoveredFlows.js",
       "./selenium": "./lib/selenium/index.js",
       "./shared/selectors": "./lib/shared/selectors.js",
       "./shared/text": "./lib/shared/text.js"
     },
-    "fileCount": 18,
-    "loc": 675,
+    "fileCount": 19,
+    "loc": 895,
     "dependencies": [
       "@zero/locators"
     ],
@@ -593,6 +600,18 @@ export const PACKAGES_DOC: PackageDoc[] = [
             ]
           },
           {
+            "file": "lib/playwright/discoveredFlows.js",
+            "loc": 214,
+            "exports": [
+              "MAX_FLOWS",
+              "pickCriticalFlows",
+              "normalizeFlowSteps",
+              "executeFlowStep",
+              "buildDiscoveredFlowTests",
+              "runDiscoveredFlows"
+            ]
+          },
+          {
             "file": "lib/playwright/ecommerceSpec.js",
             "loc": 159,
             "exports": [
@@ -618,12 +637,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/playwright/index.js",
-            "loc": 12,
+            "loc": 18,
             "exports": [
               "buildPlaywrightSpec",
               "buildPlaywrightSpecFromTestCases",
               "buildEcommerceSpec",
-              "buildExecutionSteps"
+              "buildExecutionSteps",
+              "buildDiscoveredFlowTests",
+              "runDiscoveredFlows"
             ]
           },
           {
@@ -721,14 +742,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
         ]
       }
     ],
-    "tree": "packages/builders/\n├─ index.js\n├─ javaSeleniumBuilder.js\n├─ scriptBuilder.js\n├─ lib/\n│  ├─ playwright/channelSpec.js\n│  ├─ playwright/ecommerceSpec.js\n│  ├─ playwright/executionSteps.js\n│  ├─ playwright/helpers.js\n│  ├─ playwright/index.js\n│  ├─ playwright/testCasesSpec.js\n│  ├─ selenium/ecommerceSelenium.js\n│  ├─ selenium/index.js\n│  ├─ selenium/javaClass.js\n│  ├─ selenium/javaTest.js\n│  ├─ selenium/locatorBy.js\n│  ├─ selenium/selectorConstants.js",
+    "tree": "packages/builders/\n├─ index.js\n├─ javaSeleniumBuilder.js\n├─ scriptBuilder.js\n├─ lib/\n│  ├─ playwright/channelSpec.js\n│  ├─ playwright/discoveredFlows.js\n│  ├─ playwright/ecommerceSpec.js\n│  ├─ playwright/executionSteps.js\n│  ├─ playwright/helpers.js\n│  ├─ playwright/index.js\n│  ├─ playwright/testCasesSpec.js\n│  ├─ selenium/ecommerceSelenium.js\n│  ├─ selenium/index.js\n│  ├─ selenium/javaClass.js\n│  ├─ selenium/javaTest.js\n│  ├─ selenium/locatorBy.js",
     "tests": [
       "test/builders.test.js"
     ]
   },
   {
     "id": "cloud",
-    "generatedAt": "2026-08-18T00:48:33.173Z",
+    "generatedAt": "2026-08-18T04:07:58.116Z",
     "pkg": "@zero/cloud",
     "version": "0.0.0",
     "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
@@ -801,4 +822,4 @@ export const PACKAGES_DOC: PackageDoc[] = [
     ]
   }
 ];
-export const PACKAGES_DOC_GENERATED_AT = "2026-08-18T00:48:33.174Z";
+export const PACKAGES_DOC_GENERATED_AT = "2026-08-18T04:07:58.117Z";

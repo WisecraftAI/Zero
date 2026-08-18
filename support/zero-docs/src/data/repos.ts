@@ -64,7 +64,7 @@ export const REPOS: readonly RepoDef[] = [
     path: 'services/api/',
     today: 'services/api/server.js',
     purpose: 'Stateless HTTP intake. Auth, validate, persist metadata, presign uploads, publish runs.requested, stream SSE. Never launches Chromium.',
-    patterns: ['Ports & adapters', 'Middleware pipeline', 'Transactional outbox', 'Config-once (zod env)'],
+    patterns: ['Ports & adapters', 'Middleware pipeline', 'Publish-after-persist (no outbox yet)', 'Env-driven config'],
     skill: '/zero-api',
     prompt: 'support/agent-workflow/prompts/repos/api.md',
     status: 'done',

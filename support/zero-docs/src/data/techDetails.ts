@@ -77,7 +77,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     outbound: [
       { kind: 'http', label: 'POST /runs', detail: 'Start a run; gets back { runId, uploads[] } then PUTs each file to its presigned URL. (S7 dropped the /api prefix.)' },
       { kind: 'http', label: 'GET /runs · GET /runs/:id', detail: 'List past runs and poll one run’s status and assets.' },
-      { kind: 'sse', label: 'GET /runs/:id/stream', detail: 'Live stage ticks — state · artifact · done · error (the UI still polls today).' },
+      { kind: 'sse', label: 'GET /runs/:id/stream', detail: 'Live stage ticks — state · artifact · done · error (EventSource primary; 3s poll fallback after SSE failures).' },
       { kind: 'http', label: 'GET /runs/:id/download', detail: 'Fetch the generated report bundle or a signed download URL.' },
       { kind: 'http', label: '/provider-keys · /agent-settings', detail: 'Save encrypted provider keys and per-agent model choices.' },
       { kind: 'blob', label: 'PUT <presigned url>', detail: 'Upload tcFile / recordingFile directly to the object store — bytes never transit the API.' },
@@ -97,7 +97,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     design: [
       'Ports & adapters — routes are thin; real work sits behind `@zero/*` packages.',
       'Middleware pipeline — helmet, cors, compression, morgan, rate-limit, auth, then validation.',
-      'Transactional outbox — persist the run row and publish `runs.requested` together, return 202.',
+      'Publish-after-persist — upsert the run row, then publish `runs.requested`, return 202 (transactional outbox is still target).',
       'Config-once — env is read and validated at boot; `server.js` is the composition root wiring `src/routes/*`.',
     ],
     diagram: {
@@ -370,7 +370,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       'The record-keeper. The only workspace that knows DDL. A Postgres pool, table names, and the run store: `qa_runs`, `qa_assets`, `element_locators`, `projects`, `provider_keys`, `agent_settings`, and friends. When `DATABASE_URL` / `PGHOST` is set it upserts; otherwise callers fall back to an in-memory Map plus `dist/artifacts/<runId>/run.json`.',
     design: [
       'Repository — callers use a small run-store API, never raw SQL.',
-      'Tables via `initAllTables` (CREATE TABLE IF NOT EXISTS) today; a migrate CLI is future work.',
+      'Tables via `initAllTables` + `runPendingMigrations()` on boot (`packages/db/migrations/`); a standalone migrate CLI is still future work.',
       'Fallback by design — no DB configured means file + memory, not an error.',
     ],
     diagram: {

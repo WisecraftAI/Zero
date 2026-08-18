@@ -12,23 +12,24 @@ export function PerApp() {
 
       <h3>Web UI · folder web/ · npm @zero/web · skill /zero-web</h3>
       <Diagram ariaLabel="web tier">
-{`browser → nginx:8080 (SPA + /api proxy) → React 18 app
+{`browser → nginx:3000 (static SPA only) → React 18 app
                                              │
-                                             ├─ useRuns / useRun / useUpload / useRunStream
+                                             ├─ apiBase.js (VITE_API_BASE_URL)
+                                             ├─ useRunStream (EventSource + poll fallback)
                                              ▼
-                                       api:3000 (fetch + SSE)`}
+                                       api:3001 (fetch + SSE)`}
       </Diagram>
 
       <h3>HTTP API · folder services/api/ · npm @zero/api · skill /zero-api</h3>
       <Diagram ariaLabel="api tier">
-{`requestId → helmet → cors → rateLimit → auth (OIDC) → validate (zod) → route
-                                                                        │
-                            ┌───────────────────────────────────────────┼─────────────────┐
-                            ▼                                           ▼                 ▼
-                          routes/runs · locators · sse · health   Cache.subscribe    Queue.publish(runs.requested)
-                            │
-                            ▼
-                          @zero/db · @zero/cloud (presign)`}
+{`requestId → helmet → cors → rateLimit → auth → route
+                                              │
+                ┌─────────────────────────────┼─────────────────┐
+                ▼                             ▼                 ▼
+          src/routes/                   Cache.subscribe    Queue.publish(runs.requested)
+          runs · locators · health · …        │
+                ▼
+          @zero/db · @zero/cloud (presign)`}
       </Diagram>
 
       <h3>Orchestrator worker · folder services/orchestrator/ · npm @zero/orchestrator · skill /zero-orchestrator</h3>
@@ -36,7 +37,7 @@ export function PerApp() {
 {`Queue.subscribe('runs.requested')
       │
       ▼
-   DAG walker (dag.js) → for stage of stageKeys:
+   processRun.js + pipeline.js → for stage of stageKeys:
                               agent(stage) → LLM / templates
                               persist artifact
                               cache.publish(state)

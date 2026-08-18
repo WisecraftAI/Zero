@@ -8,7 +8,8 @@ export function Tests() {
       <h2>Test strategy · per workspace</h2>
       <p className="sub">
         Pyramid, not iceberg. Fast unit tests where possible, one honest end-to-end that boots
-        the compose stack.
+        the compose stack. Root runner today is <strong>Jest</strong> (
+        <code>npm test</code> / <code>npm run test:smoke</code>).
       </p>
 
       <ProvidersTable
@@ -20,16 +21,16 @@ export function Tests() {
           ['packages/analyzer',   'unit',           'jest',                'test/analyzer.test.js · proFlows', 'node'],
           ['packages/db',         'unit + integration','jest + pg',       'test/db.config · db.persist', 'compose (postgres)'],
           ['packages/cloud',      'contract',       'jest',                'test/cloud.*.test.js', 'node'],
-          ['services/api',            'integration',    'vitest + supertest',  '75 % routes',       'node + fakes'],
-          ['services/orchestrator',   'integration',    'vitest + fake queue', 'DAG paths',         'node'],
-          ['services/executor',       'integration',    'playwright test',     '3 golden flows',    'compose (playwright img)'],
-          ['web',                 'component + a11y','vitest + testing-library + axe','views & forms', 'jsdom'],
-          ['e2e',                 'smoke',          'bash + curl + jq',    '1 run start→completed', 'docker compose'],
+          ['services/api',            'integration',    'jest',                'HTTP / health / runs smoke', 'node + fakes'],
+          ['services/orchestrator',   'integration',    'jest',                'pipeline / processRun paths', 'node'],
+          ['services/executor',       'integration',    'jest + playwright',   'job kinds / minimal mode', 'node / compose'],
+          ['web',                 'component',      'manual + build',      'views & forms (Vite build)', 'browser'],
+          ['e2e',                 'smoke',          'bash + curl + jq',    '1 run start→completed (target)', 'docker compose'],
         ]}
       />
 
       <h3>Fake adapters — why services stay fast</h3>
-      <CodeBlock lang="ts" label="services/api/test/helpers/fakeCloud.js">
+      <CodeBlock lang="ts" label="test helpers · fake cloud shape">
 {`const store = new Map();
 const subs  = new Map();
 module.exports = {
@@ -47,29 +48,30 @@ module.exports = {
 };`}
       </CodeBlock>
 
-      <h3>Golden e2e</h3>
+      <h3>Golden e2e (target · S7 ports)</h3>
       <CodeBlock lang="bash" label="e2e/smoke.sh">
 {`set -euo pipefail
-API=http://localhost:3000
+API=http://localhost:3001
 
-runId=$(curl -sf -X POST $API/api/runs \\
+runId=$(curl -sf -X POST $API/runs \\
   -F 'url=https://example.com' -F 'profile=Generic' \\
   -F 'tcFile=@fixtures/tiny.csv' | jq -r .runId)
 
 for _ in $(seq 1 60); do
-  status=$(curl -sf $API/api/runs/$runId | jq -r .status)
+  status=$(curl -sf $API/runs/$runId | jq -r .status)
   [ "$status" = completed ] && break
   [ "$status" = failed    ] && { echo "run failed"; exit 1; }
   sleep 2
 done
 [ "$status" = completed ] || { echo "timed out"; exit 1; }
 
-curl -sfI "$(curl -sf $API/api/runs/$runId/download | jq -r .url)" | head -1`}
+curl -sfI "$(curl -sf "$API/runs/$runId/download?format=json&url=1" | jq -r .url)" | head -1`}
       </CodeBlock>
 
       <Note tone="info">
         Apps get a cloud bundle injected in tests — no <code>ZERO_CLOUD</code> switch, no real
-        network. That&apos;s why the api integration suite finishes in seconds.
+        network. Root smoke today is <code>npm run test:smoke</code>; a Compose{' '}
+        <code>e2e/smoke.sh</code> against four app services is still a Ship Checklist gap.
       </Note>
     </section>
   );

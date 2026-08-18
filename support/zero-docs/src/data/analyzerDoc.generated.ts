@@ -36,13 +36,13 @@ export interface AnalyzerDoc {
 }
 
 export const ANALYZER_DOC: AnalyzerDoc = {
-  "generatedAt": "2026-08-18T00:48:33.041Z",
+  "generatedAt": "2026-08-18T04:07:58.068Z",
   "pkg": "@zero/analyzer",
   "version": "0.0.0",
   "description": "Optional URL crawl that seeds BA when notes are short.",
   "main": "index.js",
-  "fileCount": 26,
-  "loc": 3449,
+  "fileCount": 28,
+  "loc": 4015,
   "dependencies": [
     "@zero/locators"
   ],
@@ -91,7 +91,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
       "modules": [
         {
           "file": "lib/constants.js",
-          "loc": 243,
+          "loc": 257,
           "exports": [
             "WEBSITE_TYPES",
             "ELEMENT_CATEGORIES",
@@ -141,6 +141,20 @@ export const ANALYZER_DOC: AnalyzerDoc = {
           "loc": 168,
           "exports": [
             "analyzeFormsDeep"
+          ]
+        },
+        {
+          "file": "lib/crawl/multiPage.js",
+          "loc": 250,
+          "exports": [
+            "normalizeCrawlUrl",
+            "shouldSkipCrawlTarget",
+            "parseRawLinks",
+            "crawlLinkedPages",
+            "mergeElements",
+            "elementDedupeKey",
+            "readLinksFromDom",
+            "readPageSummaryFromDom"
           ]
         },
         {
@@ -280,6 +294,16 @@ export const ANALYZER_DOC: AnalyzerDoc = {
           ]
         },
         {
+          "file": "lib/generate/majorFunctionalCases.js",
+          "loc": 216,
+          "exports": [
+            "generateMajorFunctionalCases",
+            "mergeMajorWithGenerated",
+            "priorityRank",
+            "WEBSITE_TYPES"
+          ]
+        },
+        {
           "file": "lib/generate/proBrd.js",
           "loc": 454,
           "exports": [
@@ -310,14 +334,14 @@ export const ANALYZER_DOC: AnalyzerDoc = {
       "modules": [
         {
           "file": "lib/strategies/light.js",
-          "loc": 159,
+          "loc": 171,
           "exports": [
             "analyzeUrl"
           ]
         },
         {
           "file": "lib/strategies/pro.js",
-          "loc": 149,
+          "loc": 223,
           "exports": [
             "analyzeUrlPro"
           ]

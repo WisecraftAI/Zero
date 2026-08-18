@@ -57,7 +57,7 @@ The API accepts metadata, hands back signed upload URLs, records the run as `que
 |---|-----|-----------|---------|-------|
 | 1 | Client → API GW → API | `POST /runs` — metadata only (S7 dropped `/api` prefix) | http | `@zero/api` |
 | 2 | API → Object store | presign PUT for `tcFile` / `recordingFile` | object store | `@zero/cloud` |
-| 3 | API → Client | `201 { runId, uploadUrls }` | http | `@zero/api` |
+| 3 | API → Client | `202 { runId, uploads[] }` | http | `@zero/api` |
 | 4 | Client → Object store | PUT files directly — bypasses the API | object store | `@zero/web` |
 | 5 | API → Postgres | `INSERT qa_runs` (status = queued) | postgres | `@zero/db` |
 | 6 | API → Event bus | publish `runs.requested { runId }` | event bus | `@zero/cloud` |
@@ -152,11 +152,14 @@ Prioritized against the live code, not the marketing surface.
 15. **apiKeyAuth / Swagger** — Documented enterprise features that are stubs; either finish or gate behind feature flags.
 16. **CORS** — Non-production allows all origins; production still allows `*.vercel.app` / `*.up.railway.app` wildcards — narrow to known frontends.
 
-### Suggested productionization sequence
+### Suggested ops / product sequence (M1–M7 · S0–S7 · Q1–Q4 done)
 
-1. ~~Unlock Postgres~~ (M1) — next: object store + signed URLs (M2), then queue/orchestrator (M3).
-2. Add auth + artifact access control.
-3. Extract `processRun` to a queued worker with `maxConcurrency`.
-4. Split “script generation / reports” product path from “true E2E verdict” path in UI copy and Manager logic.
-5. Wire or defer LLM agents; ship Dockerfile + health probes + backup for DB/artifacts.
-6. Add CI: lint, unit tests, one headed/headless smoke against a static fixture site.
+Capability, packaging, and autonomous product tracks are complete. Remaining work is ops maturity and product polish:
+
+1. Hermetic Compose smoke (`e2e/smoke.sh`) in CI against web `:3000` + API `:3001`.
+2. Observability — dashboards for `queue_lag` / `executor_slots_used`, runbook + SLOs.
+3. OIDC login UI (API keys / JWT already work; no browser login screen yet).
+4. Crash-resume walker that skips completed stages in `qa_runs.stages_json`.
+5. Standalone migrate CLI (boot already runs `runPendingMigrations()`).
+6. Wire `enableSecurity` through API intake (UI checkbox exists; only a11y/perf are parsed today), or remove the control.
+7. Narrow production CORS wildcards; finish or gate stub Swagger enterprise features.

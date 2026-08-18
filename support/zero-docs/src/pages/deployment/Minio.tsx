@@ -7,19 +7,19 @@ import { ProvidersTable } from '@/components/ui/ProvidersTable';
 export function DeployMinio() {
   return (
     <>
-      <h3>MinIO · S3-compatible object store in Compose</h3>
+      <h3>MinIO · S3-compatible object store (Compose profile s3)</h3>
       <p className="sub">
-        MinIO is the local stand-in for AWS S3, GCS, Azure Blob, and R2. Compose starts it on every
-        full stack so you can exercise presigned uploads, screenshot blobs, and report files the same
-        way you would in production — without paying for cloud storage while developing.
+        MinIO is the local stand-in for AWS S3, GCS, Azure Blob, and R2. Start it with{' '}
+        <code>docker compose --profile s3 up -d minio minio-init</code> to exercise presigned
+        uploads, screenshot blobs, and report files the same way you would in production — without
+        paying for cloud storage while developing.
       </p>
 
       <Note tone="warn">
-        <strong>Default Compose does not write to MinIO.</strong> The shared{' '}
+        <strong>Default Compose does not start or write to MinIO.</strong> The shared{' '}
         <code>x-app-env</code> block sets <code>ZERO_CLOUD=local</code>, so artifacts land in the
         HMAC local object store under <code>dist/artifacts/cloud-store</code> (served via{' '}
-        <code>GET /cloud/local</code>). MinIO still starts (health checks, hybrid testing, and S3
-        adapter drills) but stays idle until you opt into the S3 path below.
+        <code>GET /cloud/local</code>). MinIO stays idle until you opt into the S3 path below.
       </Note>
 
       <h3>What MinIO stores when enabled</h3>
@@ -41,13 +41,13 @@ export function DeployMinio() {
       </CardGrid>
 
       <Diagram ariaLabel="MinIO vs local object store">
-{`  ZERO_CLOUD=local (Compose default)
+{`  ZERO_CLOUD=local (Compose default — MinIO not started)
        │
        ├─ Object store → dist/artifacts/cloud-store  +  /cloud/local signed URLs
-       ├─ Queue/cache  → REDIS_URL (or in-process when unset)
-       └─ MinIO        → running, not used for blobs
+       └─ Queue/cache  → REDIS_URL (or in-process when unset)
 
-  ZERO_CLOUD=aws  +  S3_ENDPOINT=http://minio:9000  (S3 drill / hybrid)
+  ZERO_CLOUD=aws  +  S3_ENDPOINT=http://minio:9000
+  (after: docker compose --profile s3 up -d minio minio-init)
        │
        ├─ Object store → MinIO bucket zero-artifacts  (@zero/cloud AWS S3 client)
        ├─ Queue/cache  → still REDIS_URL in Compose (SQS optional in real AWS)
@@ -56,14 +56,14 @@ export function DeployMinio() {
 
       <h3>Compose services</h3>
       <ProvidersTable
-        caption="MinIO sidecars in docker-compose.yml"
+        caption="MinIO sidecars in docker-compose.yml (profiles: [s3] — not in default up)"
         headers={['Service', 'Image', 'Ports', 'Role']}
         rows={[
           [
             'minio',
             'minio/minio',
             '9000 S3 API · 9001 console',
-            'S3-compatible storage; data in volume miniodata',
+            'S3-compatible storage; data in volume miniodata; start with --profile s3',
           ],
           [
             'minio-init',
@@ -76,7 +76,8 @@ export function DeployMinio() {
 
       <h3>Console access</h3>
       <CodeBlock lang="bash" label="MinIO console">
-{`# After: docker compose up --build
+{`# Opt-in MinIO sidecars
+docker compose --profile s3 up -d minio minio-init
 open http://localhost:9001
 
 # Default credentials (Compose only — never use in production)

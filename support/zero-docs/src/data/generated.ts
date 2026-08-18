@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-18T03:47:23.369Z",
+  "generatedAt": "2026-08-18T04:07:58.034Z",
   "totals": {
     "modules": 10,
     "fileCount": 197,
-    "loc": 27377
+    "loc": 27383
   },
   "modules": [
     {
@@ -137,6 +137,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "workspaceDeps": [
         "@zero/analyzer",
+        "@zero/builders",
         "@zero/cloud",
         "@zero/db",
         "@zero/domain",
@@ -294,7 +295,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 19,
-      "loc": 889,
+      "loc": 895,
       "filesByExt": {
         ".js": 19
       },
@@ -356,7 +357,7 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-18T03:47:23.369Z",
+  "generatedAt": "2026-08-18T04:07:58.034Z",
   "northStar": "Autonomous any-URL QA (Q1–Q4) · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
   "current": null,

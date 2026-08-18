@@ -5,7 +5,7 @@ const path = require("path");
 const { chromium, resolveHeadless } = require("./browser");
 const { getSelectors, detectDomain, getDomainConfig } = require("@zero/locators/ecommerceSelectors");
 const { resolveExecutionMode, EXECUTION_MODES } = require("@zero/domain");
-const { buildDiscoveredFlowTests } = require("@zero/builders/lib/playwright/discoveredFlows");
+const { buildDiscoveredFlowTests } = require("@zero/builders/playwright/discoveredFlows");
 
 function createJobs(deps) {
   const cloud = deps.cloud;

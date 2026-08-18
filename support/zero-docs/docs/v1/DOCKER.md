@@ -277,7 +277,7 @@ Browse buckets in the console only after enabling `ZERO_CLOUD=aws` + `S3_ENDPOIN
 
 - [v1/ARCHITECTURE.md](./ARCHITECTURE.md) — runtime topology  
 - [v1/COST.md](./COST.md) — deployment cost estimates (infra floors, LLM caps, executor sizing)  
-- [v1/DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) — local `npm` workflow  
+- [v1/DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) — new PC Day-0 + local `npm` workflow  
 - [../v2/ARCHITECTURE.md](../v2/ARCHITECTURE.md) — production gaps  
 - Root [AGENTS.md](../../../../AGENTS.md) — Compose one-liners  
 - Root [docker-compose.yml](../../../../docker-compose.yml) — source of truth for services  

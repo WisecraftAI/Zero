@@ -4,6 +4,8 @@ Architect-level QA orchestration workflow in one UI.
 
 **Repos:** 1 Git repository ([Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)) · **npm workspaces** (`services/*`, `packages/*`, `web`) · **MIT** ([LICENSE](./LICENSE))
 
+**New PC / onboarding:** open the [Developer guide](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) (§2 Day-0) — prerequisites, clone, `.env`, Docker vs hybrid vs `npm run start:all`, verify, first tasks.
+
 **Dev docs (humans + AI):** [Developer guide](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) · [Architecture V1](./support/zero-docs/docs/v1/ARCHITECTURE.md) · [Docker](./support/zero-docs/docs/v1/DOCKER.md) · [Architecture V2](./support/zero-docs/docs/v2/ARCHITECTURE.md) · [Open source](./support/zero-docs/docs/v1/OPEN_SOURCE.md) · [Docs index](./support/zero-docs/docs/README.md) · [Docs site](./support/zero-docs/README.md)
 
 Pipeline:

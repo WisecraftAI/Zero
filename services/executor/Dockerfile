@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY services/executor ./services/executor
 COPY packages/analyzer ./packages/analyzer
+COPY packages/builders ./packages/builders
 COPY packages/cloud ./packages/cloud
 COPY packages/db ./packages/db
 COPY packages/domain ./packages/domain

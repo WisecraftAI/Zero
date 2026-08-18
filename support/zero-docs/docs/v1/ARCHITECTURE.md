@@ -17,8 +17,8 @@ React web/ ──npm run build──▶ dist/web/
         │
         ▼  POST /runs → queue runs.requested
 ┌──────────────────┐                 ┌────────────────────────────┐
-│  React 18 SPA    │──poll /runs/:id─▶│  Express  @zero/api        │
-│  zero-web  :3000 │                 │  zero-api  :3001               │
+│  React 18 SPA    │─SSE /runs/:id/stream─▶│  Express  @zero/api     │
+│  zero-web  :3000 │  (poll fallback)       │  zero-api  :3001          │
 │  Agents · Keys   │                 └──────┬───────────┬──────────┘
 └──────────────────┘                        │           │
         │                                   ▼           ▼

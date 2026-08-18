@@ -1,6 +1,6 @@
 # ZER0 Postgres schema — V1 (current runtime)
 
-Ground truth: `packages/db/lib/schema/` + `packages/db/lib/index.js` (`@zero/db`). This is **what `initAllTables` creates today**. There is no `migrations/` folder and no migrate CLI; tables are `CREATE TABLE IF NOT EXISTS` plus a few `ADD COLUMN IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` statements.
+Ground truth: `packages/db/lib/schema/` + `packages/db/lib/index.js` (`@zero/db`). This is **what `initAllTables` creates today**. A `packages/db/migrations/` folder ships (`001_initial.sql`); boot calls `runPendingMigrations()` and records versions in `schema_migrations`. There is still **no standalone migrate CLI** — DDL also uses `CREATE TABLE IF NOT EXISTS` plus a few `ADD COLUMN IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` statements.
 
 Postgres is **optional**. It activates when `DATABASE_URL` or `PGHOST` is set and reachable. Otherwise callers use an in-memory `Map` plus `dist/artifacts/<runId>/run.json`. Login passwords are never stored here (`sanitizeRunInput` strips them; they stay in the process-local `runSecrets` map).
 
@@ -261,7 +261,8 @@ Index: `idx_qa_assets_run(run_id)`.
 | Screenshots | Object store + local cache under `dist/artifacts/` |
 | In-memory learned selectors | `selectorMemory` (process) until upserted to `element_locators` |
 | Recording sessions | In-memory Maps unless a row is written to `recordings` |
-| Outbox / migrate version | Not created yet (V3 still wants `outbox_events` + `migrations/`) |
+| Outbox (`outbox_events`) | Not created yet — publish happens after persist, not in the same transaction |
+| Migrate version | `schema_migrations` via `runPendingMigrations()` on boot; no standalone migrate CLI |
 
 ---
 

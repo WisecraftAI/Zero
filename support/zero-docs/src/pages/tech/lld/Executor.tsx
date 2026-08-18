@@ -20,39 +20,34 @@ export function LldExecutor() {
         stubTitle="the single biggest scale risk"
         works={[
           { label: <><code>playwright.chromium.launch</code></>, detail: <>with <code>--no-sandbox --disable-dev-shm-usage</code> in <code>services/executor/</code></> },
-          { label: 'Own Playwright image', detail: <>compose <code>executor</code> · <code>services/executor/Dockerfile</code> · <code>shm_size: 1gb</code></> },
+          { label: 'Own Playwright image', detail: <>compose <code>executor</code> · <code>services/executor/Dockerfile</code> · <code>shm_size: 1gb</code> · base v1.58.2</> },
           { label: 'Standalone worker', detail: <><code>main.js</code> consumes <code>execution.requested</code> without requiring the HTTP API</> },
           { label: 'Minimal mode', detail: 'URL load + body wait + screenshot (reliable)' },
-          { label: 'Full mode', detail: 'keyword/selector navigation (brittle)' },
+          { label: 'discovered_flows / full', detail: 'crawl-derived multi-step flows; full keyword/selector nav (brittle)' },
           { label: 'a11y / perf / security / analyzer', detail: 'same worker, job.kind on the queue' },
+          { label: 'Locator upsert', detail: 'writes element_locators when Postgres is configured' },
         ]}
         stub={[
           { label: 'Local compatibility launcher', detail: <><code>npm run start:all</code> deliberately co-locates services; <code>npm start</code> is API-only</> },
-          { label: 'Optional passes not split into src/passes/', detail: 'still functions inside jobs.js' },
-          { label: 'Selectors still memory-first', detail: 'DB upsert exists; process Map is still the hot path' },
+          { label: 'Flat module layout', detail: 'jobs live in jobs.js / browser.js — not yet split into src/passes/' },
+          { label: 'Memory hot path when DB off', detail: 'process Map for learned selectors; Postgres upsert when DATABASE_URL is set' },
         ]}
       />
 
       <h3>Module map</h3>
-      <p className={styles.purpose}>On disk now: <code>services/executor/Dockerfile</code>, <code>main.js</code> (no HTTP), <code>jobs.js</code>, <code>worker.js</code>.</p>
+      <p className={styles.purpose}>
+        On disk now: flat layout — <code>services/executor/Dockerfile</code>, <code>main.js</code>{' '}
+        (no HTTP), <code>worker.js</code>, <code>jobs.js</code>, <code>browser.js</code>,{' '}
+        <code>cmsCapture.js</code>.
+      </p>
       <Diagram ariaLabel="executor module map">
 {`services/executor/
-├─ Dockerfile                    mcr.../playwright:v1.52-jammy · pwuser · shm 1g
-└─ src/
-   ├─ worker.js                  queue.subscribe('execution.requested', runJob)
-   ├─ config.js                  MAX_CONCURRENT_JOBS · timeouts
-   ├─ semaphore.js               await-based slot manager
-   ├─ runJob.js                  new context → play steps → upload → publish completed
-   ├─ browser.js                 launch flags, per-job context factory
-   ├─ steps/
-   │  ├─ navigate.js · click.js · type.js · waitFor.js · screenshot.js
-   │  └─ trace.js                start/stop tracing per step
-   ├─ passes/
-   │  ├─ accessibility.js        @axe-core/playwright
-   │  ├─ performance.js          coverage + web vitals
-   │  └─ security.js             headers · cookies · content heuristics
-   └─ locators/
-      └─ upsert.js               batch INSERT ON CONFLICT into element_locators`}
+├─ Dockerfile                    mcr.../playwright:v1.58.2-jammy · pwuser
+├─ main.js                       boot · queue.subscribe('execution.requested')
+├─ worker.js                     concurrency / attempt caps
+├─ jobs.js                       run kinds: execution · a11y · perf · security · analyzer
+├─ browser.js                    launch flags, per-job context factory
+└─ cmsCapture.js                 CMS Stream screenshot helpers`}
       </Diagram>
 
       <h3>Key sequence · one TC batch</h3>

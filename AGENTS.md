@@ -2,6 +2,8 @@
 
 Architect-level QA orchestration UI: optional Web Analyzer (multi-page crawl) → optional domain inference (LLM when low confidence) → BA → Manual QA → Automation QA → Playwright execution → optional a11y/perf/security → Manager/Delivery reports. Supports **any public URL** (autonomous mode) or guided runs with Figma/notes/CSV. Generates reusable Playwright + Java/Selenium scripts. BA / Manual / Automation / Manager call Claude, OpenAI, or Gemini when a decrypted provider key exists (`@zero/orchestrator/llm`); otherwise they stay on templates.
 
+**Human onboarding (new PC):** [`support/zero-docs/docs/v1/DEVELOPER_GUIDE.md`](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) §2 Day-0 — prerequisites, `.env`, Docker / hybrid / `start:all`, verify.
+
 ## Quick start
 
 ```bash

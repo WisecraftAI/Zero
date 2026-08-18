@@ -15,9 +15,9 @@ export function ChecklistPage() {
         </p>
 
         <FlawItem severity="gate" tag="SHIP-1" title="Compose starts on a fresh clone">
-          <code>docker compose up --build</code> boots split <code>api</code> /{' '}
-          <code>orchestrator</code> / <code>executor</code> images + Postgres / Redis / MinIO. Docs
-          :5174 · workflow :5175. Split web/API/orchestrator/executor images are{' '}
+          <code>docker compose up --build</code> boots split <code>web</code> / <code>api</code> /{' '}
+          <code>orchestrator</code> / <code>executor</code> images + Postgres / Redis. MinIO is
+          opt-in via <code>--profile s3</code>. Docs :5174 · workflow :5175. Split images are{' '}
           <StatusBadge status="done" />.
         </FlawItem>
         <FlawItem severity="gate" tag="SHIP-2" title="Smoke tests in CI">

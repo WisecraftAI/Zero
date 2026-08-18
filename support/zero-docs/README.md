@@ -10,7 +10,7 @@ Markdown lead briefings (moved from the old root `docs/` folder):
 
 | Path | Version | Content |
 |------|---------|---------|
-| [`docs/v1/`](./docs/v1/) | V1 | Current runtime — `ARCHITECTURE.md`, `DATABASE.md` (Postgres ER/schema), `DEVELOPER_GUIDE.md`, `DOCKER.md`, `OPEN_SOURCE.md` |
+| [`docs/v1/`](./docs/v1/) | V1 | Current runtime — `DEVELOPER_GUIDE.md` (**new PC / Day-0**), `ARCHITECTURE.md`, `DATABASE.md`, `DOCKER.md`, `OPEN_SOURCE.md` |
 | [`docs/v2/`](./docs/v2/) | V2 | Target vision + production gaps — `ARCHITECTURE.md` |
 | [`docs/README.md`](./docs/README.md) | — | Index |
 
@@ -97,6 +97,7 @@ Repo catalog and milestone scores live in `src/data/repos.ts` and `src/data/migr
 Regenerate live package docs from disk (run before `npm run build` or via `prebuild`):
 
 ```bash
+# from support/zero-docs/ — or use the same script names at the repo root
 npm run docs            # LLD workspace facts → src/data/generated.ts
 npm run analyser-doc    # packages/analyzer → src/data/analyzerDoc.generated.ts
 npm run packages-doc    # domain · db · locators · builders · cloud → src/data/packagesDoc.generated.ts

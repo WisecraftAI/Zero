@@ -14,56 +14,56 @@ export function LldApi() {
       <RepoIdentity id="api" />
       <p className={styles.purpose}>
         Terminate HTTP, validate, persist metadata, presign uploads, publish to the queue, stream
-        state. Chromium is not in this package. Routes are already split.
+        state. Chromium is not in this package. S7 dropped the <code>/api</code> prefix — routes are
+        native on <code>:3001</code>.
       </p>
 
       <Honesty
         worksTitle="on disk now (services/api/)"
         stubTitle="remaining API debt"
         works={[
-          { label: 'Route modules', detail: <>under <code>services/api/src/routes/</code> (runs, recordings, locators, settings, cms, keys, health, spa)</> },
+          { label: 'Route modules', detail: <>under <code>services/api/src/routes/</code> (runs, recordings, locators, settings, cms, keys, health)</> },
           { label: 'No playwright dependency', detail: <>removed from <code>@zero/api</code>; <code>server.js</code> does not call <code>chromium.launch</code></> },
+          { label: 'No SPA in API image', detail: <>S7: nginx <code>zero-web</code> serves <code>dist/web/</code>; API is HTTP-only</> },
           { label: 'helmet, rate-limit, cors, morgan', detail: <>via <code>services/api/middleware.js</code></> },
-          { label: 'Swagger UI', detail: <>at <code>/api-docs</code> — real OpenAPI spec</> },
+          { label: 'Swagger UI', detail: <>at <code>/api-docs</code> — OpenAPI name, not a path prefix</> },
           { label: 'Winston', detail: <>structured logs → <code>dist/logs/</code></> },
-          { label: 'Multer', detail: 'multipart upload' },
-          { label: 'PDF via pdfkit, XLSX via xlsx', detail: 'artifacts render correctly' },
+          { label: 'Multer + JSON uploads[]', detail: 'legacy multipart still accepted; M2 presign path preferred' },
+          { label: 'SSE', detail: <> <code>GET /runs/:id/stream</code> in <code>runs.js</code>; UI uses EventSource</> },
           { label: 'Postgres (M1)', detail: <>upserts <code>qa_runs</code> / <code>qa_assets</code> via <code>@zero/db</code></> },
         ]}
         stub={[
-          { label: 'No dedicated services/api/Dockerfile', detail: 'root Dockerfile is the API image (node:20, no Chromium)' },
-          { label: 'Large composition file', detail: <><code>server.js</code> still owns intake persistence and route wiring, but no worker code</> },
-          { label: 'Multipart still accepted', detail: 'legacy POST /api/runs streams files; JSON + uploads[] is the M2 path' },
+          { label: 'Composition root still large', detail: <><code>server.js</code> owns intake persistence and route wiring</> },
+          { label: 'No transactional outbox', detail: 'publish happens after persist; no outbox_events table' },
           { label: 'Local auth default off', detail: <>set <code>ZERO_AUTH=on</code> + <code>ZERO_API_KEYS</code> to require verified identity</> },
-          { label: 'SSE unused by UI', detail: <>endpoint exists at <code>/api/runs/:id/stream</code>; Web UI still polls</> },
+          { label: 'enableSecurity not parsed', detail: 'UI checkbox exists; runs.js only maps enableAccessibility / enablePerformance' },
+          { label: 'No /ready endpoint', detail: <>liveness is <code>/health</code> · detailed is <code>/health/detailed</code></> },
         ]}
       />
 
       <h3>Module map</h3>
-      <p className={styles.purpose}>On disk now: <code>services/api/server.js</code> composition root plus <code>src/routes/</code>. Chromium is not launched here.</p>
+      <p className={styles.purpose}>
+        On disk now: <code>services/api/server.js</code> composition root plus{' '}
+        <code>src/routes/</code>. Chromium is not launched here.
+      </p>
       <Diagram ariaLabel="api module map">
 {`services/api/
-├─ Dockerfile                    node:20-alpine, ~180 MB, non-root
-└─ src/
-   ├─ server.js                  ~80 lines: config → wireDeps → app.listen
-   ├─ config.js                  zod.parse(process.env), frozen export
-   ├─ deps.js                    build cloud bundle, db pool, logger, once
-   ├─ http/
-   │  ├─ middleware.js           requestId · helmet · cors · rateLimit · logger
-   │  ├─ errorHandler.js         maps typed errors → { code, message, requestId }
-   │  ├─ auth.js                 OIDC verifier (jose) · attaches req.user
-   │  └─ validate.js             zod schema → 400 with field errors
-   ├─ routes/
-   │  ├─ runs.js                 POST · GET · GET /:id · download · rerun-failed
-   │  ├─ stream.js               GET /:id/stream (SSE, subscribes cache)
-   │  ├─ locators.js             GET · POST /element-log
-   │  ├─ recordings.js           create · put · list · delete
-   │  ├─ cms.js                  capture-cms-screenshot(-bulk)
-   │  ├─ provider-keys.js        list · put · delete   now actually used by orch
-   │  ├─ agent-settings.js       CRUD                  now actually used by orch
-   │  └─ health.js               /health · /ready
-   └─ sse/
-      └─ hub.js                  cache.subscribe(state.<runId>) → SSE fan-out`}
+├─ server.js                     composition root · app.listen(PORT||3001)
+├─ middleware.js                 requestId · helmet · cors · rateLimit · logger
+├─ auth.js                       API key / JWT · attaches req.user
+├─ swagger.js                    /api-docs
+├─ logger.js · encryption.js · apiKeyManager.js
+└─ src/routes/
+   ├─ runs.js                    POST · GET · GET /:id · stream · download · commit · rerun-failed
+   ├─ locators.js                GET · POST /element-log
+   ├─ recordings.js              create · put · list · delete
+   ├─ cms.js                     capture-cms-screenshot(-bulk)
+   ├─ keys.js                    provider-keys
+   ├─ settings.js                agent-settings
+   └─ health.js                  /health · /health/detailed
+
+# cloud routes mount from @zero/cloud:
+# GET|PUT /cloud/local`}
       </Diagram>
 
       <h3>Data touched</h3>
@@ -75,7 +75,7 @@ export function LldApi() {
           ['Postgres',     <><code>element_locators</code></>,   'SELECT by host (locator lookup)'],
           ['Postgres',     <><code>provider_keys</code></>,      'SELECT / INSERT (encrypted at rest)'],
           ['Object store', <><code>runs/&lt;id&gt;/inputs/*</code></>, 'presignPut'],
-          ['Object store', <><code>runs/&lt;id&gt;/reports/*</code></>,'presignGet (302 signed url on download)'],
+          ['Object store', <><code>runs/&lt;id&gt;/reports/*</code></>,'presignGet (signed url on download)'],
           ['Queue',        <><code>runs.requested</code></>,     'publish { runId, tenantId, traceparent }'],
           ['Cache',        <><code>state.&lt;runId&gt;</code></>,     'subscribe (SSE)'],
         ]}
@@ -84,21 +84,21 @@ export function LldApi() {
       <h3>Key sequence · POST /runs</h3>
       <Mermaid ariaLabel="api create-run sequence" chart={API_CREATE_SEQUENCE_MERMAID} />
 
-      <Note tone="info">
-        <strong>Outbox pattern:</strong> INSERT <code>qa_runs</code> + INSERT{' '}
-        <code>outbox_events</code> in the same transaction. A background poller publishes and
-        marks published. Guarantees "if we accepted the run, the queue has it" — no distributed
-        transactions.
+      <Note tone="warn">
+        <strong>Outbox is target, not shipped:</strong> today the API upserts <code>qa_runs</code>{' '}
+        then publishes <code>runs.requested</code>. A transactional{' '}
+        <code>outbox_events</code> table + poller is still a gap — a crash between persist and
+        publish can leave a queued row without a message.
       </Note>
 
       <h3>Config &amp; failure</h3>
       <ul className={styles.list}>
         <li>
-          <strong>Config:</strong> <code>PORT · DATABASE_URL · ZERO_CLOUD · OIDC_ISSUER · OIDC_AUDIENCE · KEY_ENC_SECRET · MAX_UPLOAD_BYTES · RATE_LIMIT_PER_MIN</code>.
+          <strong>Config:</strong> <code>PORT · DATABASE_URL · ZERO_CLOUD · ZERO_AUTH · ZERO_API_KEYS · KEY_ENC_SECRET · MAX_UPLOAD_BYTES · RATE_LIMIT_PER_MIN</code>.
         </li>
-        <li><strong>Refuse to boot:</strong> when <code>KEY_ENC_SECRET</code> is the dev default in <code>NODE_ENV=production</code>.</li>
-        <li><strong>Queue down:</strong> 503 to client; do <em>not</em> leave a row without an outbox event.</li>
-        <li><strong>DB down:</strong> <code>/ready</code> red; LB drains; liveness stays green.</li>
+        <li><strong>Refuse to boot:</strong> when <code>KEY_ENC_SECRET</code> is missing in <code>NODE_ENV=production</code>.</li>
+        <li><strong>Queue down:</strong> publish may fail after the row exists — no outbox retry yet.</li>
+        <li><strong>DB down:</strong> falls back to memory + <code>dist/artifacts/</code>; <code>/health/detailed</code> reports reachability.</li>
       </ul>
     </>
   );

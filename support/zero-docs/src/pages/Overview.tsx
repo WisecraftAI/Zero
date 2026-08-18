@@ -133,7 +133,10 @@ export function OverviewPage() {
         <p className="sub">Six steps, from browser open to shippable report.</p>
         <Pipeline>
           <PipelineStage id="01" title="Open the UI">
-            <code>npm start</code> then <code>http://localhost:3000</code>. Dashboard shows past runs.
+            Compose UI at <code>http://localhost:3000</code>, or local Vite via{' '}
+            <code>npm run client</code> → <code>http://localhost:5173</code> (API on{' '}
+            <code>:3001</code> via <code>npm start</code> / <code>npm run start:all</code>).
+            Dashboard shows past runs.
           </PipelineStage>
           <PipelineStage id="02" title="Create a new run">
             Enter a <strong>target URL</strong>. For guided mode, add any of: TC file (
@@ -142,8 +145,9 @@ export function OverviewPage() {
             enough.
           </PipelineStage>
           <PipelineStage id="03" title="Choose options">
-            Enable accessibility, performance, or security passes. Add login credentials
-            (runtime-only). Toggle &quot;show browser&quot; for a headed Chromium.
+            Enable accessibility or performance passes. Security checkbox is in the UI but not
+            parsed by API intake yet. Add login credentials (runtime-only). Toggle &quot;show
+            browser&quot; for a headed Chromium.
           </PipelineStage>
           <PipelineStage id="04" title="Watch the agents">
             Stages tick through — Web Analyzer → BA → Manual → Automation → Execution → optional
@@ -196,8 +200,9 @@ export function OverviewPage() {
             worker for local dev.
           </li>
           <li>
-            <strong>Reports:</strong> pdfkit Manager PDF + Delivery JSON. SSE exists at{' '}
-            <code>/runs/:id/stream</code>; the React client still polls.
+            <strong>Reports:</strong> pdfkit Manager PDF + Delivery JSON. SSE at{' '}
+            <code>/runs/:id/stream</code> is primary (<code>useRunStream.js</code>); the React
+            client falls back to 3s polling after SSE failures.
           </li>
         </ol>
       </section>
@@ -274,6 +279,12 @@ export function OverviewPage() {
           including <code>DATABASE.md</code> for the Postgres ER) and <code>docs/v2</code> (vision +
           remaining gaps). Packaging is complete — the deep reading is Architecture + Tech Stack:
         </p>
+        <Note tone="info">
+          <strong>New developer on a new PC?</strong> Follow{' '}
+          <code>support/zero-docs/docs/v1/DEVELOPER_GUIDE.md</code> §2 Day-0 (prerequisites, clone,{' '}
+          <code>.env</code>, Docker vs hybrid vs <code>npm run start:all</code>, verify). Then use the{' '}
+          <a href="#deployment">Deployment</a> tab for the same run paths in the interactive site.
+        </Note>
         <ol className="compact">
           <li><strong>Overview</strong> — this tab: product purpose, audience, and how people use it.</li>
           <li><strong>Architecture</strong> — system parts: tiers, sequence, providers, workspaces, Docker, M1–M7 / S0–S7 / Q1–Q4 scores.</li>

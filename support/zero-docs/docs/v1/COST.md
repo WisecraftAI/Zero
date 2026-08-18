@@ -12,7 +12,7 @@ Interactive breakdown: docs site **Deployment → Cost** tab (`:5174`, jump `#de
 |------|------------------|-------------------------|-------|
 | **Local dev** | $0 | $0–5 LLM | `npm start` / `npm run start:all` on your laptop |
 | **Docker Compose** | $0 cloud | $0–5 LLM | All containers on one host; budget ~8 GB RAM |
-| **Hybrid** | $0 cloud | $0–5 LLM | Postgres / Redis / MinIO in Docker; app on host |
+| **Hybrid** | $0 cloud | $0–5 LLM | Postgres / Redis in Docker (MinIO optional via `--profile s3`); app on host |
 | **AWS** | ~$60–120 | ~$80–200 | RDS db.t4g.micro + NAT + ElastiCache + Fargate tiers |
 | **GCP** | ~$50–100 | ~$70–180 | Cloud SQL f1-micro + Memorystore + Cloud Run |
 | **Azure** | ~$55–110 | ~$75–190 | Flexible Server B1ms + Cache for Redis + Container Apps |

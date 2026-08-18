@@ -33,13 +33,13 @@ export function DeployCost() {
             'Hybrid',
             '$0 cloud',
             '$0–5 LLM',
-            'Postgres / Redis / MinIO in Docker; app on host — same cloud cost as Compose.',
+            'Postgres / Redis in Docker (MinIO via --profile s3); app on host — same cloud cost as Compose.',
           ],
           [
             'AWS',
             '~$60–120',
             '~$80–200',
-            'Floor: RDS db.t4g.micro (~$12) + NAT gateway (~$32) + ElastiCache cache.t3.micro (~$12) + Secrets Manager + S3/SQS pennies. Add Fargate for three tiers.',
+            'Floor: RDS db.t4g.micro (~$12) + NAT gateway (~$32) + ElastiCache cache.t3.micro (~$12) + Secrets Manager + S3/SQS pennies. Add Fargate for web + API + orchestrator + executor.',
           ],
           [
             'GCP',

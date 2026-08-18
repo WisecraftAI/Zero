@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@zero/analyzer": "*",
+    "@zero/builders": "*",
     "@zero/cloud": "*",
     "@zero/db": "*",
     "@zero/domain": "*",

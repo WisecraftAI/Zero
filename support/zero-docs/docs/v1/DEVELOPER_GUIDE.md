@@ -1,6 +1,6 @@
 # ZER0 Developer Guide
 
-> Lead briefing for humans and AI agents. Read this first, then `support/zero-docs/docs/v2/ARCHITECTURE.md` for production gaps, then touch code.
+> **New hire on a new PC?** Start at [§2 Day-0 setup](#2-day-0-setup-new-pc--every-engineer), then skim [§10 Sample local exercise](#10-sample-local-exercise-first-30-minutes). Everyone else: read this briefing first, then `support/zero-docs/docs/v2/ARCHITECTURE.md` for production gaps, then touch code.
 
 **Repo count:** **1 Git repository** — [Wisecarft/Zero](https://github.com/Wisecarft/Zero.git)  
 **Packages inside that one repo:** **npm workspaces** (`services/*`, `packages/*`, `web`) + **1 optional Python folder** (not separate Git remotes)
@@ -70,43 +70,174 @@ Templates run first so the pipeline **always completes**; `@zero/orchestrator/ll
 
 ---
 
-## 2. Day-0 setup (every engineer)
+## 2. Day-0 setup (new PC / every engineer)
+
+End-to-end path for a fresh machine. Pick **one** run mode in [§2.4](#24-how-to-run-pick-one); you do not need all three.
+
+### 2.1 Prerequisites
+
+| Tool | Why | Notes |
+|------|-----|--------|
+| **Git** | Clone the repo | Any recent Git is fine |
+| **Node.js 20+** | Runtime for API, workers, Vite | Images use **Node 20** (`node:20-bookworm`). Docs site pins `engines.node >= 20.11.0`. Root `package.json` does not declare `engines` yet — treat **20.x LTS** as the team default |
+| **npm** | Workspaces install | Ships with Node |
+| **Docker Desktop** (or Docker Engine + Compose v2) | Full stack / Postgres / Redis | Required for Compose; optional if you stay memory-only with `npm run start:all` |
+| **Playwright Chromium** | Local executor + Web Analyzer on host | `npx playwright install chromium` after `npm install` (Compose executor image already has browsers) |
+
+Optional but useful:
+
+- **Postgres + Redis** — via Compose (`docker compose up -d postgres redis`) or your own installs; not required for a first smoke run
+- A free **Gemini** (or OpenAI / Anthropic) key later — pipeline works on templates without keys
+
+Check versions:
+
+```bash
+node -v    # expect v20.x
+npm -v
+git --version
+docker compose version   # if using Docker
+```
+
+### 2.2 Clone + install
 
 ```bash
 git clone https://github.com/Wisecarft/Zero.git
 cd Zero
-cp .env.example .env          # optional; set DATABASE_URL when using Postgres
+cp .env.example .env
 npm install
 npx playwright install chromium
-npm run build                 # Vite web/ → dist/web/
-npm start                     # API only (services/api/server.js); default :3001 since S7
 ```
 
-**Local all-in-one** (API + orchestrator + executor, no Redis required):
+Run each command on its **own line** (see [zsh gotcha](#zsh-gotcha) below).
+
+### 2.3 Configure `.env`
+
+Copying `.env.example` → `.env` is enough to boot. All variables are optional for local memory mode.
+
+Common edits on a new PC:
+
+| Variable | When to set |
+|----------|-------------|
+| `PORT=3001` | Default API port (already in example) |
+| `ZERO_CLOUD=local` | Default; keep unless you are drilling AWS/GCP adapters |
+| `ZERO_PUBLIC_BASE_URL=http://localhost:3001` | Signed URL origin for local cloud adapter |
+| `DATABASE_URL=postgres://zero:zero@localhost:5432/zero` | Hybrid / Compose Postgres (matches `docker-compose.yml`) |
+| `REDIS_URL=redis://localhost:6379` | When Redis is up (queue / SSE pub-sub) |
+| `VITE_API_BASE_URL=http://localhost:3001` | Bake into the SPA at **build** time if the API is not on `:3001` |
+| `ZERO_LLM=off` | Force templates only (demos / no keys) |
+| `KEY_ENC_SECRET` / `ZERO_AUTH=on` | Only when testing auth; local UI stays open by default |
+
+Honest persistence note: when `DATABASE_URL` or `PGHOST` is set and reachable, Postgres activates via `@zero/db`. If unset or unreachable, runs still work via in-memory `Map` + `dist/artifacts/<runId>/run.json`. Schema / ER: [DATABASE.md](./DATABASE.md). Never commit `.env`.
+
+### 2.4 How to run (pick one)
+
+#### Option A — Docker full stack (closest to production shape)
 
 ```bash
+docker compose up --build
+```
+
+| URL | What |
+|-----|------|
+| http://localhost:3000 | Web UI (`zero-web`, nginx) |
+| http://localhost:3000/health | Web nginx liveness |
+| http://localhost:3001/health | API (`zero-api`) |
+| http://localhost:5174 | Docs site |
+| http://localhost:5175/status | Agent-workflow status |
+
+Operator detail: [DOCKER.md](./DOCKER.md). Port conflicts: `WEB_PORT=3080 API_PORT=3081 POSTGRES_PORT=15432 REDIS_PORT=16379 docker compose up --build`.
+
+#### Option B — Hybrid (infra in Docker, app on host)
+
+Best when you want hot-reload on the host but real Postgres/Redis:
+
+```bash
+docker compose up -d postgres redis
+# in .env (or export):
+# DATABASE_URL=postgres://zero:zero@localhost:5432/zero
+# REDIS_URL=redis://localhost:6379
+npm install
+npx playwright install chromium
+npm run build
 npm run start:all
 ```
 
-**Dev UI (hot reload):** the SPA no longer shares a port with the API. Keep the API on `:3001`, then in another terminal:
+If host `:5432` is taken: `POSTGRES_PORT=15432 docker compose up -d postgres` and point `DATABASE_URL` at `localhost:15432`.
+
+#### Option C — Local all-in-one (no Docker required)
+
+API + orchestrator + executor in one process tree (`scripts/local-stack.js`). Redis not required for a basic run:
+
+```bash
+npm run build                 # Vite web/ → dist/web/
+npm run start:all             # API :3001 + workers
+```
+
+API-only (no pipeline workers — runs will not progress past intake):
+
+```bash
+npm start                     # services/api/server.js only → :3001
+```
+
+**Dev UI (hot reload):** keep workers on `:3001`, then in another terminal:
 
 ```bash
 npm run client                # Vite :5173; fetches use VITE_API_BASE_URL (default http://localhost:3001)
 ```
 
-Under Compose the SPA runs as its own nginx container (`zero-web`) on `:3000`; the API is `zero-api` on `:3001`.
+Under Compose the SPA is nginx on `:3000`; under Option C without a separate nginx, use Vite `:5173` (or serve `dist/web/` however you prefer). The API never shares the SPA port after S7.
 
-**Health:** `GET http://localhost:3001/health` (API) · `GET http://localhost:3000/health` (web nginx liveness)
-**Architecture page:** served by the docs site — `http://localhost:5174` Architecture tab
-**Swagger:** `http://localhost:3001/api-docs`
+### 2.5 Verify the stack
+
+```bash
+curl -s http://localhost:3001/health
+curl -s http://localhost:3000/health    # Compose web only
+curl -s http://localhost:3001/health/detailed
+```
+
+Also open:
+
+- **UI** — http://localhost:3000 (Compose) or http://localhost:5173 (`npm run client`)
+- **Swagger** — http://localhost:3001/api-docs
+- **Docs** — http://localhost:5174 (Compose `docs` service, or `cd support/zero-docs && npm install && npm run dev`)
+- **Smoke tests** — from repo root: `npm test` (health + one pipeline start; Postgres persist when reachable)
+
+You are green when `/health` returns OK and the New Run form loads.
+
+### 2.6 First tasks (where to look)
+
+| Goal | Start here |
+|------|------------|
+| Change the UI | `web/src/**` → `npm run build` or `npm run client` |
+| HTTP routes / auth / SSE | `services/api/src/routes/` |
+| Pipeline / agents / LLM | `services/orchestrator/` (`processRun`, stage agents) |
+| Playwright jobs | `services/executor/` |
+| Shared contracts / stages | `packages/domain` |
+| Crawl / URL analysis | `packages/analyzer` |
+| Locators / script text | `packages/locators`, `packages/builders` |
+| Agent coding contract | root [`AGENTS.md`](../../../../AGENTS.md) |
+| Sample CSV inputs | `support/samples/` |
+
+Cursor skills: `/zero-web`, `/zero-api`, `/zero-orchestrator`, `/zero-executor`, and package skills under `.agents/skills/`. Run `/init` if pro skills are missing.
 
 ### zsh gotcha
 
 Run install/build/start as **separate lines**. Pasting `# comments` on the same line can break Vite if `INTERACTIVE_COMMENTS` is off. Fix: `setopt interactive_comments`.
 
-### Honest env note
+### Troubleshooting (basics)
 
-`.env.example` documents `DATABASE_URL` / Railway URLs. When `DATABASE_URL` or `PGHOST` is set and reachable, Postgres activates via `@zero/db`. If unset or unreachable, runs still work via in-memory `Map` + `dist/artifacts/<runId>/run.json`. Schema, ER diagram, and column catalog: [DATABASE.md](./DATABASE.md).
+| Symptom | Likely fix |
+|---------|------------|
+| UI blank / missing assets | Run `npm run build` from repo root so `dist/web/` exists |
+| `Could not resolve entry module "#/index.html"` | zsh ate a `#` comment — rerun build on its own line |
+| Health OK but runs stuck | You used `npm start` (API only) — use `npm run start:all` or Compose so orchestrator + executor run |
+| Port already in use | Override `PORT` / Compose `*_PORT` env vars (see `.env.example`) |
+| Postgres connection errors | Unset `DATABASE_URL` for memory mode, or start Compose postgres and match the URL |
+| Playwright / browser missing on host | `npx playwright install chromium` |
+| CORS / API fetch from Vite | Confirm `VITE_API_BASE_URL` points at `http://localhost:3001` and rebuild if you changed it |
+| Auth failures after flipping `ZERO_AUTH=on` | Need `ZERO_API_KEYS` or JWT + `KEY_ENC_SECRET` — leave auth off for local day-0 |
+
+More Docker-specific notes: [DOCKER.md](./DOCKER.md).
 
 ---
 
@@ -294,7 +425,7 @@ Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**. Ordered
 |-----|----------|---------|
 | [README.md](../../../../README.md) | Operator | Run locally, modes, APIs |
 | [AGENTS.md](../../../../AGENTS.md) | Coding agents | Conventions + pipeline facts |
-| **This file** | Engineers + AI | Lead briefing, ownership, DoD |
+| **This file** | Engineers + AI | New PC Day-0, ownership, DoD |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) (V1) | Leads / platform | Current runtime (what ships) |
 | [../v2/ARCHITECTURE.md](../v2/ARCHITECTURE.md) (V2) | Leads / platform | Target vision + production gaps |
 | [OPEN_SOURCE.md](./OPEN_SOURCE.md) | Legal / onboarding | License + dependency inventory |
@@ -315,7 +446,7 @@ Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**. Ordered
 
 **Path B — guided CSV:**
 
-1. Use a public URL + `amazon_test_cases.csv` (or another sample CSV).  
+1. Use a public URL + `support/samples/amazon_test_cases.csv` (or another sample CSV).  
 2. Leave execution on default (`minimal`).  
 3. Download JSON; skim generated Java from Automation tab.
 
