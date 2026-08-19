@@ -57,7 +57,7 @@ function main() {
     const order = [
       'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7',
       'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7',
-      'Q1', 'Q2', 'Q3', 'Q4',
+      'Q1', 'Q2', 'Q3', 'Q4', 'Q5',
     ];
     if (order.indexOf(requested) > order.indexOf(data.earliestUnfinished)) {
       console.warn(

@@ -4,6 +4,7 @@ const { analyzePageStructure } = require('../crawl/pageStructure');
 const { analyzeFormsDeep } = require('../crawl/forms');
 const { detectAntiBot, detectDynamicContent } = require('../crawl/signals');
 const { detectWebsiteType } = require('../classify/websiteType');
+const { detectSubDomain } = require('../classify/subDomain');
 const { detectUserFlows } = require('../flows/proFlows');
 const { generateBRD } = require('../generate/proBrd');
 const { generateTestCases } = require('../generate/proTestCases');
@@ -33,6 +34,8 @@ async function analyzeUrlPro(page, url, options = {}) {
     source: 'URL Analyzer Pro',
     version: '2.0',
     websiteType: null,
+    subDomain: null,
+    subDomainCandidates: [],
     pageStructure: null,
     elements: [],
     forms: [],
@@ -49,10 +52,13 @@ async function analyzeUrlPro(page, url, options = {}) {
     dynamicContent: false
   };
 
+  let navigated = false;
+
   try {
     console.log(`[URL Analyzer Pro] Analyzing: ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(3000);
+    navigated = true;
 
     result.websiteType = await detectWebsiteType(page, url);
     console.log(
@@ -183,6 +189,35 @@ async function analyzeUrlPro(page, url, options = {}) {
       });
     }
 
+    const navLabels = [];
+    const paths = [];
+    for (const crawled of result.crawledPages) {
+      (crawled.navLabels || []).forEach((label) => navLabels.push(label));
+      if (crawled.path) paths.push(crawled.path);
+    }
+    const formPurposes = result.forms.map((form) => form.purpose).filter(Boolean);
+
+    const subDomainResult = await detectSubDomain(page, url, result.websiteType, {
+      navLabels,
+      paths,
+      formPurposes,
+    });
+    result.subDomain = subDomainResult.subDomain;
+    result.subDomainCandidates = subDomainResult.candidates;
+
+    if (result.subDomain) {
+      console.log(
+        `[URL Analyzer Pro] Sub-domain: ${result.subDomain.name} (${Math.round(result.subDomain.confidence * 100)}% confidence)`
+      );
+      result.observations.push({
+        type: 'info',
+        category: 'Detection',
+        message: `Sub-domain identified as: ${result.subDomain.name}`,
+        confidence: result.subDomain.confidence,
+        indicators: result.subDomain.matchedIndicators
+      });
+    }
+
     result.brd = generateBRD(result);
     const generatedCases = generateTestCases(result);
     const majorFunctionalCases = generateMajorFunctionalCases(result);
@@ -196,6 +231,7 @@ async function analyzeUrlPro(page, url, options = {}) {
       message: `Website analysis completed in ${result.analysisTime}ms`,
       stats: {
         websiteType: result.websiteType.typeName,
+        subDomain: result.subDomain?.name || null,
         elementsFound: result.elements.length,
         formsFound: result.forms.length,
         userFlowsDetected: result.userFlows.length,
@@ -213,6 +249,10 @@ async function analyzeUrlPro(page, url, options = {}) {
   } catch (error) {
     console.error(`[URL Analyzer Pro] Error: ${error.message}`);
     result.error = error.message;
+    // A failure before the first successful navigation means nothing at all was
+    // learned about the site. Callers must not present that as a real analysis.
+    result.fatal = !navigated;
+    result.analysisTime = Date.now() - startTime;
     result.warnings.push(`Analysis error: ${error.message}`);
   }
 

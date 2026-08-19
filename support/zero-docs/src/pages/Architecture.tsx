@@ -7,12 +7,12 @@ import { BlueprintPage } from './Blueprint';
 import { V3Page } from './v3';
 
 const JUMP = [
-  { href: '#tiers',      label: 'Tiers' },
-  { href: '#sequence',   label: 'Sequence', hot: true },
-  { href: '#v3-repos',   label: 'Workspaces' },
+  { href: '#tiers', label: 'Tiers' },
+  { href: '#sequence', label: 'Sequence', hot: true },
+  { href: '#v3-repos', label: 'Workspaces' },
   { href: '#tech-schema', label: 'Schema' },
-  { href: '#v3-docker',  label: 'Docker' },
-  { href: '#v3-smell',   label: 'Gates' },
+  { href: '#v3-docker', label: 'Docker' },
+  { href: '#v3-smell', label: 'Gates' },
 ] as const;
 
 /** Both tracks in one strip — the detail lived in the milestone specs, not here. */
@@ -25,11 +25,12 @@ function Score() {
 
   return (
     <section className="section" id="arch-score">
-      <h2>Milestone score · capability M1–M7 · packaging S0–S7 · product Q1–Q4</h2>
+      <h2>Milestone score · capability M1–M7 · packaging S0–S7 · product Q1–Q5</h2>
       <p className="sub">
-        Scored against <code>support/agent-workflow/progress.json</code> and the live tree. All three
-        tracks are complete; this table is the audit trail, not a plan. Specs live in{' '}
-        <code>support/agent-workflow/milestones/</code>.
+        Scored against <code>support/agent-workflow/progress.json</code> and the live tree.
+        Capability and packaging are closed, and so is Q1–Q4; <code>Q5</code> is open and has no
+        code behind it yet — its plan is on <a href="#next-milestone">Next Milestone</a>. Specs live
+        in <code>support/agent-workflow/milestones/</code>.
       </p>
       <ProvidersTable
         caption="Run npm run workflow:status to re-probe all tracks against the current branch."
@@ -43,8 +44,8 @@ function Score() {
         ])}
       />
       <Note tone="info">
-        Only <code>M5</code> is <StatusBadge status="partial" /> — API keys and JWT are verified, but
-        there is no OIDC login UI. Remaining production work is ops maturity, tracked on{' '}
+        Only <code>M5</code> is <StatusBadge status="partial" /> — API keys and JWT are verified,
+        but there is no OIDC login UI. Remaining production work is ops maturity, tracked on{' '}
         <a href="#checklist">Ship Checklist</a>.
       </Note>
     </section>
@@ -57,16 +58,18 @@ export function ArchitecturePage() {
       <section className="section" id="arch-intro">
         <h2>Architecture · AI orchestration system</h2>
         <p className="sub">
-          How the agent pipeline is deployed: stateless API intake, long-lived orchestrator workers
-          that call LLMs and walk the DAG, and ephemeral Playwright executors. Capability M1–M7,
-          packaging S0–S7, and product Q1–Q4 are <StatusBadge status="done" />.
+          How the agent pipeline is deployed: SPA on nginx <code>:3000</code>, stateless API on{' '}
+          <code>:3001</code> (no <code>/api</code> prefix), long-lived orchestrator workers that
+          call LLMs and walk the DAG, and ephemeral Playwright executors. Capability M1–M7,
+          packaging S0–S7, and product Q1–Q4 are <StatusBadge status="done" />; product{' '}
+          <code>Q5</code> is open.
         </p>
         <Note tone="info">
-          For per-workspace LLD, libraries, LOC, design patterns, and generated module trees, use{' '}
-          <a href="#tech-stack">Tech Stack</a>. Postgres ER and column catalog:{' '}
-          <a href="#tech-schema">Tech → Schema · ER</a> (markdown twin{' '}
-          <code>docs/v1/DATABASE.md</code>). For product purpose and how people use ZER0, stay on{' '}
-          <a href="#overview">Overview</a>.
+          Markdown twins: <code>docs/v1/ARCHITECTURE.md</code> (what ships) and{' '}
+          <code>docs/v2/ARCHITECTURE.md</code> (target + remaining ops/IDE gaps). Per-workspace LLD:{' '}
+          <a href="#tech-stack">Tech Stack</a>. Postgres ER:{' '}
+          <a href="#tech-schema">Tech → Schema · ER</a> (<code>docs/v1/DATABASE.md</code>). Product
+          purpose: <a href="#overview">Overview</a>.
         </Note>
       </section>
 

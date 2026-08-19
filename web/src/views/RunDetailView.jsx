@@ -39,6 +39,12 @@ function fmtDate(ts) {
   catch { return String(ts).slice(0, 16); }
 }
 
+function fmtConfidence(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return `${Math.round(num * 100)}% confidence`;
+}
+
 /* ─── Main component ─────────────────────────────────────── */
 export default function RunDetailView({ run, runId, onRerunFailed, onBack, streamTransport }) {
   const [activeTab, setActiveTab] = useState('requirements');
@@ -409,16 +415,84 @@ function PerformanceTab({ run }) {
 function WebAnalysisTab({ run }) {
   const data = run.artifacts?.webAnalysis;
   if (!data) return <Awaiting msg="Web Analyzer runs automatically when no test document is provided." />;
+
+  const classification = data.domainClassification || {};
+  const domainLabel = classification.domain || data.metadata?.domainName || data.siteOverview?.type || null;
+  const subDomainLabel = classification.subDomain || data.metadata?.subDomain || null;
+  const domainConfidence = fmtConfidence(classification.domainConfidence ?? data.metadata?.websiteTypeConfidence);
+  const subDomainConfidence = fmtConfidence(classification.subDomainConfidence ?? data.metadata?.subDomainConfidence);
+  const classificationSource = classification.source || data.metadata?.classificationSource || null;
+  const analysisFailed = Boolean(data.analysisFailed || data.error);
+  const warnings = data.warnings || [];
+  const focusAreas = data.subDomainTestPriorities || [];
+  const focusFlows = data.subDomainCriticalFlows || [];
+
   return (
     <div className="agent-report">
+      {analysisFailed && (
+        <Section title="Analysis Failed">
+          <ul className="issue-list">
+            <li className="issue issue--error">{data.error || 'Web analysis could not load the target URL.'}</li>
+          </ul>
+          <p className="signoff-text">
+            No site data was collected, so the domain could not be determined and test cases fall back to
+            generic templates. Confirm the URL is reachable from the executor, then re-run.
+          </p>
+        </Section>
+      )}
       <Section title="Site Overview">
         <div className="site-overview">
           <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
-          <p><strong>Type:</strong> {data.siteOverview?.type || '—'}</p>
-          <p><strong>Domain:</strong> {data.metadata?.domain || '—'} ({data.metadata?.siteName})</p>
-          <p><strong>Pages Discovered:</strong> {data.siteOverview?.pagesDiscovered || 0}</p>
+          <p><strong>URL:</strong> {data.siteOverview?.url || data.metadata?.url || '—'}</p>
+        </div>
+        <div className="vitals-grid">
+          <div className="vital-card">
+            <div className="vital-label">Domain</div>
+            <div className="vital-value">{domainLabel || 'Not determined'}</div>
+            {domainConfidence && <div className="agent-counts">{domainConfidence}</div>}
+          </div>
+          <div className="vital-card">
+            <div className="vital-label">Sub-domain</div>
+            <div className="vital-value">{subDomainLabel || 'Not determined'}</div>
+            {subDomainLabel && (
+              <div className="agent-counts">
+                {[subDomainConfidence, classificationSource && `via ${classificationSource}`]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
+          </div>
+          <div className="vital-card">
+            <div className="vital-label">Pages Discovered</div>
+            <div className="vital-value">{data.siteOverview?.pagesDiscovered || 0}</div>
+          </div>
         </div>
       </Section>
+      {!analysisFailed && warnings.length > 0 && (
+        <Section title="Analyzer Warnings">
+          <ul className="issue-list">
+            {warnings.slice(0, 8).map((w, i) => (
+              <li key={i} className="issue issue--warning">{w}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {(focusAreas.length > 0 || focusFlows.length > 0) && (
+        <Section title="Sub-domain Test Focus">
+          {focusAreas.length > 0 && (
+            <>
+              <h4>Priority Areas</h4>
+              <ul className="feature-list">{focusAreas.map((a, i) => <li key={i}>{a}</li>)}</ul>
+            </>
+          )}
+          {focusFlows.length > 0 && (
+            <>
+              <h4>Critical Flows</h4>
+              <ul className="critical-list">{focusFlows.map((f, i) => <li key={i}>{f}</li>)}</ul>
+            </>
+          )}
+        </Section>
+      )}
       {data.baInsights && (
         <Section title="BA Insights">
           <p className="insight-summary">{data.baInsights.summary}</p>

@@ -1,12 +1,12 @@
 # ZER0 Architecture — V2 (target + gaps)
 
-**AI QA orchestration — target vision and production gaps.** IDE-style project workflow: upload TCs → record → AI agent analysis → locators → Java scripts in SQL → Manager agent → execution → Delivery report.
+**AI QA orchestration — target vision and remaining production gaps.** Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5 (domain + sub-domain classification) is open**. What otherwise remains is IDE-style product surface and ops maturity.
 
-For what ships today, see [../v1/ARCHITECTURE.md](../v1/ARCHITECTURE.md).
+For what ships today, see [../v1/ARCHITECTURE.md](../v1/ARCHITECTURE.md). Day-0: [../v1/DEVELOPER_GUIDE.md](../v1/DEVELOPER_GUIDE.md) §2. Compose: [../v1/DOCKER.md](../v1/DOCKER.md).
 
 Interactive blueprint: `/architectureV2.html` (source: `web/public/architectureV2.html`). Live docs site Architecture tab: `support/zero-docs` (`:5174`).
 
-**Implement via:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status`).
+**Verify via:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status` — `progress.json` `current: "Q5"`).
 
 ---
 
@@ -20,6 +20,8 @@ Intended tables/APIs (helpers partially in `@zero/db`; **no `/projects` routes i
 - APIs: `POST/GET /projects`, `POST …/recordings`, `GET …/scripts`, runs with `projectId`
 
 Why Java: exportable Selenium suites for real CI; in-app execution can stay Playwright while Java is the reusable artifact.
+
+**Shipped product path (Q1–Q4):** URL-only autonomous runs already crawl → optional domain inference → major cases → `discovered_flows` → Manager. Two gaps remain: the IDE project/recording/SQL-script surface above, and **Q5** — the taxonomy is one level deep, so every site sharing a domain gets the same test plan.
 
 ---
 
@@ -66,6 +68,8 @@ The API accepts metadata, hands back signed upload URLs, records the run as `que
 ### B · Plan — steps 8–19
 
 The orchestrator rebuilds every input from durable storage — the message carried only a run id — then runs BA, Manual QA, and Automation QA. No browser starts in this phase.
+
+Runtime note (not separate hop numbers): when Web Analyzer is on, the orchestrator may crawl and optionally run **domainInference** before BA. Those are product-stage gates (Q1/Q4), still inside the orchestrator process; Chromium for crawl is delegated like other browser work. The numbered hops below stay the durable-boundary contract.
 
 | # | Hop | Operation | Crosses | Owner |
 |---|-----|-----------|---------|-------|
@@ -119,7 +123,7 @@ Aggregate the batch results, write the Manager and Delivery reports, mark the ru
 
 ### Conformance today
 
-Under the default `ZERO_CLOUD=local`, steps 1–6, 8, and 19–27 execute inside one process — the boundaries are function calls through `@zero/cloud` rather than network hops. That is the intended shape: S4/S5 gave the executor and orchestrator their own images, **S7 split the SPA out into its own nginx image (`zero-web`, `:3000`) and dropped the `/api` route prefix from the API service (`zero-api`, `:3001`)**, and switching `ZERO_CLOUD` to `aws`, `gcp`, `azure`, or `vercel` makes the remaining hops real without touching agent code. Vendor SDKs stay inside `packages/cloud/`.
+Under the default `ZERO_CLOUD=local`, steps 1–6, 8, and 19–27 execute inside one process — the boundaries are function calls through `@zero/cloud` rather than network hops. That is the intended shape: S4/S5 gave the executor and orchestrator their own images, **S7 split the SPA out into its own nginx image (`zero-web`, `:3000`) and dropped the `/api` route prefix from the API service (`zero-api`, `:3001`)**, and switching `ZERO_CLOUD` to `aws`, `gcp`, `azure`, or `vercel` makes the remaining hops real without touching agent code. Vendor SDKs stay inside `packages/cloud/` (GATE-9). Primary IaC lives under `infra/aws` and `infra/gcp`.
 
 ---
 
@@ -129,11 +133,11 @@ Prioritized against the live code, not the marketing surface.
 
 ### P0 — blockers
 
-1. **~~Re-enable real persistence~~ (done — M1)** — Postgres activates when `DATABASE_URL`/`PGHOST` is set; `qa_runs` / `qa_assets` DDL lives in `@zero/db`. Remaining durability gaps: recordings / selector memory / multi-instance Maps (partially addressed by M2–M3).
-2. **~~Real authentication & authorization~~ (done — M5)** — Verified API keys / JWT; tenant-scoped runs and artifacts. Remaining: full hosted OIDC JWKS fetch (PEM/`OIDC_PUBLIC_KEY` works today); UI has no login screen yet (`ZERO_AUTH=off` locally).
+1. **~~Re-enable real persistence~~ (done — M1)** — Postgres activates when `DATABASE_URL`/`PGHOST` is set; `qa_runs` / `qa_assets` DDL + `migrations/` via `@zero/db`. Remaining durability gaps: recordings / selector memory / multi-instance Maps (partially addressed by M2–M3).
+2. **~~Real authentication & authorization~~ (done — M5 partial)** — Verified API keys / JWT; tenant-scoped runs and artifacts. Remaining: full hosted OIDC JWKS fetch (PEM/`OIDC_PUBLIC_KEY` works today); UI has no login screen yet (`ZERO_AUTH=off` locally).
 3. **Do not serve secrets or raw artifacts publicly** — `/artifacts` static serving is removed (M2). Recording CORS is allowlisted (M5). Login passwords stay in process memory. Production requires `KEY_ENC_SECRET`.
-4. **~~Job isolation for Playwright~~ (done — M4)** — execution is queue-triggered (`execution.requested`) with concurrency/retry caps. Split API / execution processes across machines with Compose or `ZERO_CLOUD=aws|gcp` (M7). `npm start` is API-only; `npm run start:all` co-locates for local dev. Optional a11y/perf/security and Web Analyzer still launch Chromium from the executor path.
-5. **Honest execution semantics** — Default minimal mode always “passes” URL load checks. Product/Go-NoGo reports must not be treated as E2E proof without `EXECUTION_MODE=full` or external runners.
+4. **~~Job isolation for Playwright~~ (done — M4)** — execution is queue-triggered (`execution.requested`) with concurrency/retry caps. Split API / execution across machines with Compose or `ZERO_CLOUD=aws|gcp|azure|vercel` (M7). `npm start` is API-only; `npm run start:all` co-locates for local dev. Web Analyzer / optional a11y/perf/security use the executor Chromium path.
+5. **Honest execution semantics** — Default `minimal` mode always “passes” URL load checks. Prefer `discovered_flows` for URL-only auto. Product Go/No-Go must not be treated as full E2E proof without `EXECUTION_MODE=full` or external runners.
 
 ### P1 — reliability & ops
 
@@ -152,14 +156,15 @@ Prioritized against the live code, not the marketing surface.
 15. **apiKeyAuth / Swagger** — Documented enterprise features that are stubs; either finish or gate behind feature flags.
 16. **CORS** — Non-production allows all origins; production still allows `*.vercel.app` / `*.up.railway.app` wildcards — narrow to known frontends.
 
-### Suggested ops / product sequence (M1–M7 · S0–S7 · Q1–Q4 done)
+### Suggested ops / product sequence (M1–M7 · S0–S7 · Q1–Q4 done · Q5 open)
 
-Capability, packaging, and autonomous product tracks are complete. Remaining work is ops maturity and product polish:
+Capability and packaging are complete. The product track is active at **Q5 — domain + sub-domain classification** (`milestones/Q5-domain-subdomain.md`; plan on the zero-docs **Next Milestone** tab). Alongside it, remaining work is ops maturity and IDE product polish:
 
 1. Hermetic Compose smoke (`e2e/smoke.sh`) in CI against web `:3000` + API `:3001`.
 2. Observability — dashboards for `queue_lag` / `executor_slots_used`, runbook + SLOs.
-3. OIDC login UI (API keys / JWT already work; no browser login screen yet).
+3. OIDC login UI (API keys / JWT already work; no browser login screen yet) — closes M5 → full done.
 4. Crash-resume walker that skips completed stages in `qa_runs.stages_json`.
 5. Standalone migrate CLI (boot already runs `runPendingMigrations()`).
-6. Wire `enableSecurity` through API intake (UI checkbox exists; only a11y/perf are parsed today), or remove the control.
+6. Wire `enableSecurity` through API intake (`runs.js` only maps a11y/perf today), or remove the UI control.
 7. Narrow production CORS wildcards; finish or gate stub Swagger enterprise features.
+8. IDE surface — `/projects`, recordings → Postgres, stored Java scripts API (P2 #13).

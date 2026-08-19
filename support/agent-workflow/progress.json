@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "northStar": "Autonomous any-URL QA (Q1–Q4) · packaging S0–S7 · capability M1–M7",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · packaging S0–S7 · capability M1–M7",
   "track": "product",
-  "current": null,
+  "current": "Q5",
   "acceptanceFloor": "M4",
   "milestones": {
     "M1": {
@@ -93,6 +93,13 @@
       "status": "done",
       "spec": "milestones/Q4-ai-domain-inference.md",
       "completedAt": "2026-08-18T01:45:00.000Z"
+    },
+    "Q5": {
+      "id": "Q5",
+      "name": "Domain + sub-domain classification",
+      "status": "not-done",
+      "spec": "milestones/Q5-domain-subdomain.md",
+      "completedAt": null
     }
   },
   "history": [
@@ -180,6 +187,11 @@
       "at": "2026-08-18T01:45:00.000Z",
       "event": "milestone_done",
       "note": "Q2–Q4 product track complete: majorFunctionalCases generation, discovered_flows Playwright execution, domainInference LLM gate on low confidence. Product track Q1–Q4 all green."
+    },
+    {
+      "at": "2026-08-18T07:20:00.000Z",
+      "event": "milestone_opened",
+      "note": "Q5 domain + sub-domain classification opened by approved requirement: the Web Analyzer must resolve a domain and a sub-domain from the URL, and that pair must drive case generation. Closes the seam left after Q4 — WEBSITE_TYPES is flat, inferred priorities are written but never read, and majorFunctionalCases is generated before inference runs. Plan published in the zero-docs Next Milestone tab."
     }
   ]
 }

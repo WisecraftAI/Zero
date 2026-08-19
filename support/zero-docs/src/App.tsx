@@ -12,6 +12,7 @@ import { PackagesPage } from './pages/Packages';
 import { DeploymentPage } from './pages/Deployment';
 import { MakeRealPage } from './pages/MakeReal';
 import { ChecklistPage } from './pages/Checklist';
+import { NextMilestonePage } from './pages/NextMilestone';
 
 function pinChrome() {
   const chrome = document.getElementById('docs-chrome');
@@ -37,7 +38,12 @@ export function App() {
   return (
     <>
       <Chrome>
-        <Tabs tabs={TABS} active={active} onSelect={onSelect} ariaLabel="ZER0 documentation views" />
+        <Tabs
+          tabs={TABS}
+          active={active}
+          onSelect={onSelect}
+          ariaLabel="ZER0 documentation views"
+        />
       </Chrome>
 
       <div className="wrap">
@@ -61,13 +67,14 @@ export function App() {
           id={`panel-${active}`}
           aria-labelledby={`tab-${active}`}
         >
-          {active === 'overview'     && <OverviewPage />}
+          {active === 'overview' && <OverviewPage />}
           {active === 'architecture' && <ArchitecturePage />}
-          {active === 'tech-stack'   && <TechStackPage />}
-          {active === 'packages'     && <PackagesPage />}
-          {active === 'deployment'   && <DeploymentPage />}
-          {active === 'make-real'    && <MakeRealPage />}
-          {active === 'checklist'    && <ChecklistPage />}
+          {active === 'tech-stack' && <TechStackPage />}
+          {active === 'packages' && <PackagesPage />}
+          {active === 'deployment' && <DeploymentPage />}
+          {active === 'make-real' && <MakeRealPage />}
+          {active === 'checklist' && <ChecklistPage />}
+          {active === 'next-milestone' && <NextMilestonePage />}
         </main>
 
         <Footer />

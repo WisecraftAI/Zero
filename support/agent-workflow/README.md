@@ -6,7 +6,7 @@ Two tracks plus product. Same loop. Do not invent a different cloud shape.
 |-------|-----|--------|
 | Capability | M1–M7 | Probes green. Do not re-implement. |
 | Packaging | S0–S7 | Done. |
-| **Product** | **Q1–Q4** | **Autonomous any-URL QA — done.** |
+| **Product** | **Q1–Q5** | **Q1–Q4 done. `Q5` domain + sub-domain classification is open — this is the active track.** |
 
 Ground truth:
 
@@ -53,7 +53,7 @@ support/agent-workflow/
 ├── milestones/
 │   ├── M1-durable-store.md … M7-multi-cloud.md
 │   ├── S0-containerize.md … S7-web-image.md
-│   └── Q1-deep-crawl.md … Q4-ai-domain-inference.md
+│   └── Q1-deep-crawl.md … Q5-domain-subdomain.md
 ├── prompts/
 │   ├── target-arch.md        capability north-star (done)
 │   ├── packaging.md          packaging north-star (S3–S6)
@@ -64,16 +64,15 @@ support/agent-workflow/
     └── status-server.js
 ```
 
-## Product order (autonomous any-URL QA) — complete
-
-All Q1–Q4 probes green:
+## Product order (autonomous any-URL QA) — Q5 open
 
 1. **Q1** Deep crawl — multi-page site map · `/zero-analyzer` ✓
 2. **Q2** Domain-driven major functional cases · `/zero-analyzer`, `/zero-orchestrator` ✓
 3. **Q3** Execute discovered flows · `/zero-executor` ✓
 4. **Q4** AI inference gate on low confidence · `/zero-orchestrator` ✓
+5. **Q5** Domain + sub-domain classification · `/zero-analyzer`, `/zero-orchestrator` — **current**
 
-Prompt: `prompts/autonomous-qa.md`
+Prompt: `prompts/autonomous-qa.md` · Spec: `milestones/Q5-domain-subdomain.md`
 
 ## Packaging order (strict)
 
@@ -86,7 +85,7 @@ Prompt: `prompts/autonomous-qa.md`
 7. **S6** Azure / Vercel + GATE-9 — done · skill `/zero-cloud`
 8. **S7** Web image split + `/api` prefix drop — done · skill `/zero-web`
 
-Capability, packaging, and product tracks are complete. Run status/verify after boundary changes; begin a new milestone only when an explicitly approved requirement is added.
+Capability and packaging are complete. The product track is active at `Q5`. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
 
 Each workspace has three names: **Folder** · **npm package** · **Cursor skill**. See `prompts/repos/README.md`.
 

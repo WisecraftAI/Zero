@@ -3,7 +3,7 @@
 
 /**
  * Probe the repo for Target-architecture milestone completion.
- * Capability track M1–M7, packaging track S0–S7, product track Q1–Q4.
+ * Capability track M1–M7, packaging track S0–S7, product track Q1–Q5.
  * When M* is green, earliest unfinished is the first failing S*, then Q*.
  *
  * Usage: node support/agent-workflow/scripts/detect-milestone.js [--json]
@@ -15,7 +15,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
 const ORDER = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
 const PACKAGING_ORDER = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
-const PRODUCT_ORDER = ['Q1', 'Q2', 'Q3', 'Q4'];
+const PRODUCT_ORDER = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'];
 
 function read(rel) {
   try {
@@ -481,6 +481,24 @@ const checks = {
       details: { domainInferencePrompt: hasPrompt, confidenceGate: gated, domainInferenceTest: hasTest },
     };
   },
+
+  Q5() {
+    const constants = read('packages/analyzer/lib/constants.js');
+    const detector = read('packages/analyzer/lib/classify/subDomain.js');
+    const llm = read('services/orchestrator/llm/index.js');
+    const cases = read('packages/analyzer/lib/generate/majorFunctionalCases.js');
+
+    const subTypeTaxonomy = /subTypes\s*:/.test(constants);
+    const subDomainDetector = detector.length > 0 && /classification/.test(detector);
+    const promptV2 = /domainSubdomain/.test(llm) && /PROMPT_VERSIONS/.test(llm);
+    const casesUseSubDomain = /subDomain/.test(cases);
+    const subDomainTest = read('test/domain-subdomain.test.js').length > 0;
+
+    return {
+      pass: subTypeTaxonomy && subDomainDetector && promptV2 && casesUseSubDomain && subDomainTest,
+      details: { subTypeTaxonomy, subDomainDetector, promptV2, casesUseSubDomain, subDomainTest },
+    };
+  },
 };
 
 function loadProgress() {
@@ -556,7 +574,7 @@ function main() {
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
     }
     console.log('');
-    console.log('Product track · Q1–Q4 (autonomous any-URL QA)');
+    console.log('Product track · Q1–Q5 (autonomous any-URL QA)');
     for (const id of PRODUCT_ORDER) {
       const r = results[id];
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);

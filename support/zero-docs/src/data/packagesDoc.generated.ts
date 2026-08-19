@@ -42,7 +42,7 @@ export interface PackageDoc {
 export const PACKAGES_DOC: PackageDoc[] = [
   {
     "id": "domain",
-    "generatedAt": "2026-08-18T04:07:58.105Z",
+    "generatedAt": "2026-08-18T07:23:25.186Z",
     "pkg": "@zero/domain",
     "version": "0.0.0",
     "description": "Shared contracts: stageKeys, appProfiles. No I/O.",
@@ -157,7 +157,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "db",
-    "generatedAt": "2026-08-18T04:07:58.112Z",
+    "generatedAt": "2026-08-18T07:23:25.193Z",
     "pkg": "@zero/db",
     "version": "0.0.0",
     "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators.",
@@ -363,7 +363,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "locators",
-    "generatedAt": "2026-08-18T04:07:58.114Z",
+    "generatedAt": "2026-08-18T07:23:25.195Z",
     "pkg": "@zero/locators",
     "version": "0.0.0",
     "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
@@ -540,7 +540,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "builders",
-    "generatedAt": "2026-08-18T04:07:58.115Z",
+    "generatedAt": "2026-08-18T07:23:25.196Z",
     "pkg": "@zero/builders",
     "version": "0.0.0",
     "description": "Playwright spec and Java/Selenium emitters.",
@@ -749,7 +749,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "cloud",
-    "generatedAt": "2026-08-18T04:07:58.116Z",
+    "generatedAt": "2026-08-18T07:23:25.198Z",
     "pkg": "@zero/cloud",
     "version": "0.0.0",
     "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
@@ -822,4 +822,4 @@ export const PACKAGES_DOC: PackageDoc[] = [
     ]
   }
 ];
-export const PACKAGES_DOC_GENERATED_AT = "2026-08-18T04:07:58.117Z";
+export const PACKAGES_DOC_GENERATED_AT = "2026-08-18T07:23:25.198Z";

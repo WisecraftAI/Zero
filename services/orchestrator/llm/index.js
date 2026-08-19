@@ -38,10 +38,15 @@ const PROMPT_VERSIONS = {
       '{"hints":["..."]}. No markdown.'
   },
   domainInference: {
-    version: "domainInference.v1",
+    version: "domainInference.v2",
     system:
-      "You infer website domain purpose from crawl JSON only. Reply with JSON only: " +
-      '{"domainLabel":"...","confidence":0.0,"testPriorities":["..."],"criticalFlows":["..."],"summary":"..."}. No markdown.'
+      "You infer the business domain and sub-domain of a website from crawl JSON only. " +
+      "domainLabel is the broad industry (for example Banking and Financial Services). " +
+      "subDomainLabel is the specific line of business inside it (for example Insurance). " +
+      "When context.subDomainOptions is non-empty you must choose subDomainLabel from that list, " +
+      "or return null if none apply. Reply with JSON only: " +
+      '{"domainLabel":"...","confidence":0.0,"subDomainLabel":"...","subDomainConfidence":0.0,' +
+      '"testPriorities":["..."],"criticalFlows":["..."],"summary":"..."}. No markdown.'
   }
 };
 
@@ -430,6 +435,12 @@ function applyEnrichment(agent, target, parsed) {
     if (Array.isArray(parsed.criticalFlows)) {
       target.inferredCriticalFlows = parsed.criticalFlows.map(String).slice(0, 6);
     }
+    if (parsed.subDomainLabel) {
+      target.inferredSubDomain = String(parsed.subDomainLabel).slice(0, 120);
+    }
+    if (Number.isFinite(Number(parsed.subDomainConfidence))) {
+      target.inferredSubDomainConfidence = Math.max(0, Math.min(1, Number(parsed.subDomainConfidence)));
+    }
     if (target.inferredDomain) {
       target.websiteType = target.inferredDomain;
       if (target.inferredConfidence != null) {
@@ -438,6 +449,14 @@ function applyEnrichment(agent, target, parsed) {
           target.inferredConfidence
         );
       }
+    }
+    if (target.inferredSubDomain) {
+      target.subDomain = target.inferredSubDomain;
+      target.subDomainConfidence = Math.max(
+        Number(target.subDomainConfidence || 0),
+        Number(target.inferredSubDomainConfidence || 0)
+      );
+      target.subDomainSource = "llm";
     }
   }
 }

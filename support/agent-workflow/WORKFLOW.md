@@ -6,7 +6,7 @@ Two tracks, in order:
 
 1. **Capability** M1–M7 — probes are green. Do not re-implement.
 2. **Packaging** S0–S7 — done.
-3. **Product** Q1–Q4 — autonomous any-URL QA — done.
+3. **Product** Q1–Q5 — autonomous any-URL QA. Q1–Q4 done; **Q5 is open and is the active milestone**.
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌────────────┐
@@ -40,7 +40,7 @@ Read in order:
 npm run workflow:status
 ```
 
-Use the printed id (`M1`…`M7`, `S0`…`S7`, or `Q1`…`Q4`). Order: earliest failing **M** → **S** → **Q**. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement.
+Use the printed id (`M1`…`M7`, `S0`…`S7`, or `Q1`…`Q5`). Order: earliest failing **M** → **S** → **Q**. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement. Today the earliest unfinished is `Q5`.
 
 ## Step 2 — PLAN
 
@@ -86,7 +86,7 @@ Update `support/agent-workflow/progress.json` only after verify exits 0:
 
 - If user asked for a single step → stop and summarize what flipped.
 - If user asked to run autonomously / “make target real” → loop from DETECT.
-- If all M1–M7, S0–S7, and Q1–Q4 probes pass → stop and report complete.
+- If all M1–M7, S0–S7, and Q1–Q5 probes pass → stop and report complete.
 - Stop and ask when blocked (secrets, infra credentials, irreversible data loss).
 
 ## Hard stops (never bypass)

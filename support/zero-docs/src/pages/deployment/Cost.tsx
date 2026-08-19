@@ -68,6 +68,13 @@ export function DeployCost() {
         those numbers and what scales with usage.
       </Note>
 
+      <Note tone="warn">
+        <strong>Running a one-hour demo, not production?</strong> These floors assume the hardened
+        four-service topology with managed Postgres, Redis, and networking. The single-container demo
+        tier costs <strong>cents per demo-hour</strong> and ~$0/mo after teardown — see{' '}
+        <a href="#deploy-demo">Deployment → Demo deploy</a>.
+      </Note>
+
       <h3>Variable costs per run</h3>
       <ProvidersTable
         headers={['Component', 'Default behavior', 'Typical $/run', 'How to minimize']}

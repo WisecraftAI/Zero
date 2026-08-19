@@ -296,8 +296,15 @@ function consolidateRequirements(input) {
   const observations = input._observations || [];
 
   // Determine the actual website type from URL analysis
+  const domainClassification = input._domainClassification || null;
   const detectedWebsiteType = urlAnalysisInsights.websiteType || urlAnalysisInsights.siteType || null;
   const websiteTypeConfidence = urlAnalysisInsights.websiteTypeConfidence || 0;
+  const detectedSubDomain =
+    urlAnalysisInsights.subDomain || (domainClassification && domainClassification.subDomain) || null;
+  const subDomainConfidence =
+    urlAnalysisInsights.subDomainConfidence ??
+    (domainClassification && domainClassification.subDomainConfidence) ??
+    null;
   
   // Map detected website type to profile key
   let profileKey = 'default';
@@ -379,6 +386,18 @@ function consolidateRequirements(input) {
     ];
   }
 
+  // Sub-domain requirements (Banking → Insurance) are more specific than the
+  // broad domain templates above, so they lead.
+  const subDomainAreas = (domainClassification && domainClassification.testPriorities) || [];
+  const subDomainFlows = (domainClassification && domainClassification.criticalFlows) || [];
+  if (detectedSubDomain && (subDomainAreas.length || subDomainFlows.length)) {
+    requirementStatements = [
+      ...subDomainAreas.map((area) => `${area} must work correctly for a ${detectedSubDomain} journey.`),
+      ...subDomainFlows.map((flow) => `${flow} must complete end-to-end without blocking errors.`),
+      ...requirementStatements
+    ];
+  }
+
   // Add suggested requirements from URL Analysis
   if (suggestedRequirements.length > 0) {
     requirementStatements = [
@@ -427,6 +446,8 @@ function consolidateRequirements(input) {
       profile: effectiveProfileName,
       websiteType: detectedWebsiteType,
       websiteTypeConfidence,
+      subDomain: detectedSubDomain,
+      subDomainConfidence,
       generatedAt: new Date().toISOString(),
       source: hasUrlAnalysis ? "BA Agent + URL Analyzer Pro" : "BA Agent",
       sourceMode,
@@ -438,6 +459,7 @@ function consolidateRequirements(input) {
     channelContext: {
       hostname: hostFromUrl(input.ottUrl),
       targetDomain,
+      targetSubDomain: detectedSubDomain,
       audience,
       releaseIntent: "Regression + user critical paths",
       loginCredentialsProvided: Boolean(input.login && input.login.enabled)
@@ -716,6 +738,8 @@ function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
       generatedAt: new Date().toISOString(),
       source: "URL Analyzer Agent",
       profile,
+      domain: webAnalysis.domainClassification?.domain || requirements.metadata?.websiteType || null,
+      subDomain: webAnalysis.domainClassification?.subDomain || requirements.metadata?.subDomain || null,
       professionalMode: true,
       mode: "url_analysis",
       majorFunctionalCount: majorFunctionalCases.length,
@@ -906,6 +930,8 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
       failed: failures.length,
       skipped: skipped.length,
       profile: requirements.metadata.profile,
+      domain: requirements.metadata.websiteType || requirements.metadata.profile,
+      subDomain: requirements.metadata.subDomain || null,
       ottUrl: requirements.metadata.ottUrl
     },
     optionalAgentSummaries,

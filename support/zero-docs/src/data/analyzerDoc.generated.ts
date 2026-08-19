@@ -36,13 +36,13 @@ export interface AnalyzerDoc {
 }
 
 export const ANALYZER_DOC: AnalyzerDoc = {
-  "generatedAt": "2026-08-18T04:07:58.068Z",
+  "generatedAt": "2026-08-18T07:23:25.146Z",
   "pkg": "@zero/analyzer",
   "version": "0.0.0",
   "description": "Optional URL crawl that seeds BA when notes are short.",
   "main": "index.js",
-  "fileCount": 28,
-  "loc": 4015,
+  "fileCount": 31,
+  "loc": 4899,
   "dependencies": [
     "@zero/locators"
   ],
@@ -116,8 +116,40 @@ export const ANALYZER_DOC: AnalyzerDoc = {
       "role": "website-type detection",
       "modules": [
         {
+          "file": "lib/classify/domainTaxonomy.js",
+          "loc": 635,
+          "exports": [
+            "SUB_DOMAINS",
+            "getSubDomains",
+            "hasSubDomains",
+            "subDomainNames",
+            "resolveSubDomain"
+          ]
+        },
+        {
+          "file": "lib/classify/indicatorMatch.js",
+          "loc": 97,
+          "exports": [
+            "scoreIndicators",
+            "matchesIndicator",
+            "matchesUrlPattern",
+            "indicatorWeight",
+            "indicatorPattern",
+            "MULTI_WORD_WEIGHT",
+            "SINGLE_WORD_WEIGHT"
+          ]
+        },
+        {
+          "file": "lib/classify/subDomain.js",
+          "loc": 137,
+          "exports": [
+            "detectSubDomain",
+            "scoreSubDomains"
+          ]
+        },
+        {
           "file": "lib/classify/websiteType.js",
-          "loc": 89,
+          "loc": 104,
           "exports": [
             "detectWebsiteType"
           ]

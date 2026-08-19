@@ -9,6 +9,7 @@ const { stageKeys } = require("@zero/domain");
 const {
   shouldRunDomainInference,
   buildDomainInferenceContext,
+  applyClassificationToArtifact,
 } = require("./inferDomain");
 
 function createProcessRun(deps) {
@@ -106,14 +107,18 @@ function createProcessRun(deps) {
               domainInference: run.artifacts.webAnalysis.baInsights.metadata.llm,
             };
           }
-          await persistRun(run);
         }
+        // Runs whether or not inference fired, so the rule-based answer also
+        // reaches metadata/siteOverview and the reports built from them.
+        applyClassificationToArtifact(run.artifacts.webAnalysis);
+        await persistRun(run);
       }
 
       setStage(run, "ba", "running");
       // If web analysis was run, enhance requirements with its insights
       if (run.artifacts.webAnalysis && run.artifacts.webAnalysis.baInsights) {
         run.input._webAnalysisInsights = run.artifacts.webAnalysis.baInsights;
+        run.input._domainClassification = run.artifacts.webAnalysis.domainClassification || null;
         run.input._suggestedRequirements = run.artifacts.webAnalysis.suggestedRequirements;
         run.input._suggestedTestAreas = run.artifacts.webAnalysis.suggestedTestAreas;
         run.input._brdDocument = run.artifacts.webAnalysis.brdDocument;

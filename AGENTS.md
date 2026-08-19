@@ -34,6 +34,8 @@ npm run start:all
 
 Compose runs four independent, workspace-scoped images. The SPA lives in its own nginx image on `:3000`; the API listens on `:3001`. Playwright is installed only in the executor image. Locally, use `npm run start:all` when you need API + workers without Compose. Full operator guide: `support/zero-docs/docs/v1/DOCKER.md`.
 
+There is also an **optional** `Dockerfile.demo` (`zero-demo`, not in Compose): one container running `scripts/local-stack.js`, so API + orchestrator + executor share a process. That is the only way `ZERO_CLOUD=local` works without Redis — the local queue is in-process. Used for cheap cloud demos: `support/zero-docs/docs/v1/DEPLOY.md`.
+
 ```bash
 docker compose up --build
 # Web UI     http://localhost:3000
@@ -65,7 +67,7 @@ docker compose up --build workflow
 | `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
 | `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
 | `support/zero-docs/` | Docs site (`:5174`) + markdown under `docs/v1` (runtime) and `docs/v2` (target). See `support/zero-docs/README.md`. |
-| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done). Docker: `workflow` service on `:5175` |
+| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done), **Q5 open**. Docker: `workflow` service on `:5175` |
 | `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
 | `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
@@ -174,7 +176,7 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | Skill | Use for |
 |-------|---------|
 | `init` | Install stack-matched pro skills into `.cursor/skills` + `.agents/skills` |
-| `zero-target-arch` | **Verify** packaging S0–S7 and product Q1–Q4 (all done) via `support/agent-workflow/` |
+| `zero-target-arch` | Verify packaging S0–S7 and product Q1–Q4 (done), and **advance Q5** via `support/agent-workflow/` |
 | `zero-web` / `zero-api` / `zero-orchestrator` / `zero-executor` | Code one deployable (Web UI · HTTP API · Orchestrator worker · Playwright executor) |
 | `zero-cloud` / `zero-domain` / `zero-db` / `zero-locators` / `zero-builders` / `zero-analyzer` | Code one shared package |
 | `zero-architecture` | Zero-specific architecture explain / HTML publish |
@@ -191,7 +193,7 @@ Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Produ
 
 Autonomous path from runtime-today → Target architecture (`dist/web/architectureV2.html` after build, source in `web/public/`):
 
-- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: null`)
-- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q4` (or any M/S/Q id)
+- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: "Q5"` — domain + sub-domain classification, spec `milestones/Q5-domain-subdomain.md`, plan on the zero-docs **Next Milestone** tab)
+- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q5` (or any M/S/Q id)
 - Docker instance: `http://localhost:5175/status` (compose service `workflow`, repo mounted at `/repo`)
 - Cloud contracts: `@zero/cloud` (`ZERO_CLOUD=local` by default)

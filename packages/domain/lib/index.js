@@ -5,6 +5,7 @@ const { appProfiles } = require("./profiles");
 const outputRoots = require("./outputRoots");
 const { validateRunInput } = require("./schemas");
 const { EXECUTION_MODES, resolveExecutionMode } = require("./executionModes");
+const { normalizeTargetUrl } = require("./targetUrl");
 
 module.exports = {
   stageKeys,
@@ -15,4 +16,5 @@ module.exports = {
   validateRunInput,
   EXECUTION_MODES,
   resolveExecutionMode,
+  normalizeTargetUrl,
 };

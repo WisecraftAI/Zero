@@ -20,6 +20,7 @@
     "docs": "node support/zero-docs/scripts/generate-lld.mjs",
     "analyser-doc": "node support/zero-docs/scripts/generate-analyzer-doc.mjs",
     "packages-doc": "node support/zero-docs/scripts/generate-packages-doc.mjs",
+    "taxonomy-doc": "node support/zero-docs/scripts/generate-domain-test-plans.mjs",
     "docs:dev": "npm run dev -w @zero/docs",
     "workflow:status": "node support/agent-workflow/scripts/detect-milestone.js",
     "workflow:verify": "node support/agent-workflow/scripts/verify-milestone.js",

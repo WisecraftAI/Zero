@@ -71,13 +71,24 @@ export default function TabContent({ run, activeTab, placeholder }) {
   if (activeTab === 'webAnalysis') {
     const data = run.artifacts?.webAnalysis;
     if (!data) return <div className="tab-content-inner"><p className="empty">Web Analyzer not run. It auto-runs when no test document is provided.</p></div>;
+    const classification = data.domainClassification || {};
+    const domainLabel = classification.domain || data.metadata?.domainName || data.siteOverview?.type || null;
+    const subDomainLabel = classification.subDomain || data.metadata?.subDomain || null;
+    const analysisFailed = Boolean(data.analysisFailed || data.error);
     return (
       <div className="tab-content-inner">
+        {analysisFailed && (
+          <div className="manager-section">
+            <h3>Analysis Failed</h3>
+            <p>{data.error || 'Web analysis could not load the target URL.'}</p>
+            <p>No site data was collected, so the domain could not be determined.</p>
+          </div>
+        )}
         <div className="manager-section">
           <h3>Site Overview</h3>
           <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
-          <p><strong>Type:</strong> {data.siteOverview?.type || '—'}</p>
-          <p><strong>Domain:</strong> {data.metadata?.domain || '—'} ({data.metadata?.siteName})</p>
+          <p><strong>Domain:</strong> {domainLabel || 'Not determined'}</p>
+          <p><strong>Sub-domain:</strong> {subDomainLabel || 'Not determined'}</p>
           <p><strong>Pages Discovered:</strong> {data.siteOverview?.pagesDiscovered || 0}</p>
         </div>
         {data.features?.length > 0 && (

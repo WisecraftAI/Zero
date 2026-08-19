@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-18T04:07:58.034Z",
+  "generatedAt": "2026-08-18T07:23:25.110Z",
   "totals": {
     "modules": 10,
-    "fileCount": 197,
-    "loc": 27383
+    "fileCount": 200,
+    "loc": 28267
   },
   "modules": [
     {
@@ -317,10 +317,10 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 28,
-      "loc": 4015,
+      "fileCount": 31,
+      "loc": 4899,
       "filesByExt": {
-        ".js": 28
+        ".js": 31
       },
       "hasDockerfile": false,
       "hasTests": false,
@@ -357,10 +357,10 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-18T04:07:58.034Z",
-  "northStar": "Autonomous any-URL QA (Q1–Q4) · packaging S0–S7 · capability M1–M7",
+  "generatedAt": "2026-08-18T07:23:25.110Z",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
-  "current": null,
+  "current": "Q5",
   "acceptanceFloor": "M4",
   "allComplete": true,
   "tasks": [
@@ -657,5 +657,5 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
     "builders": [],
     "analyzer": []
   },
-  "latestNote": "milestone_done: Q2–Q4 product track complete: majorFunctionalCases generation, discovered_flows Playwright execution, domainInference LLM gate on low confidence. Product track Q1–Q4 all green."
+  "latestNote": "milestone_opened: Q5 domain + sub-domain classification opened by approved requirement: the Web Analyzer must resolve a domain and a sub-domain from the URL, and that pair must drive case generation. Closes the seam left after Q4 — WEBSITE_TYPES is flat, inferred priorities are written but never read, and majorFunctionalCases is generated before inference runs. Plan published in the zero-docs Next Milestone tab."
 };

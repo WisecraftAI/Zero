@@ -33,9 +33,32 @@ function flattenElements(allElements) {
 /**
  * Domain-driven major functional cases from crawl + type + flows (rules only).
  */
+/** Merge sub-domain entries ahead of domain entries, case-insensitively deduped. */
+function mergeAreas(subDomainAreas = [], domainAreas = []) {
+  const seen = new Set();
+  const merged = [];
+  for (const area of [...subDomainAreas, ...domainAreas]) {
+    const label = String(area || "").trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(label);
+  }
+  return merged;
+}
+
 function generateMajorFunctionalCases(analysis = {}) {
   const websiteType = analysis.websiteType || {};
-  const typeName = websiteType.typeName || "Website";
+  const subDomain = analysis.subDomain || null;
+  // Cases are titled by the most specific label available, so an insurance site
+  // reads "Insurance: Claim Registration" rather than "Website: Navigation".
+  const typeName = subDomain?.name || websiteType.typeName || "Website";
+  const subDomainAreaKeys = new Set(
+    [...(subDomain?.testPriorities || []), ...(subDomain?.criticalFlows || [])].map((a) =>
+      String(a).toLowerCase()
+    )
+  );
   const userFlows = analysis.userFlows || [];
   const crawledPages = analysis.crawledPages || [];
   const elements = flattenElements(analysis.elements || analysis.allElements);
@@ -76,19 +99,20 @@ function generateMajorFunctionalCases(analysis = {}) {
       });
     });
 
-  (websiteType.testPriorities || []).forEach((area) => {
+  mergeAreas(subDomain?.testPriorities, websiteType.testPriorities).forEach((area) => {
     if (testCases.length >= MAX_CASES) return;
     const key = String(area).toLowerCase();
     if ([...coveredModules].some((m) => m.includes(key) || key.includes(m))) return;
 
     coveredModules.add(key);
+    const fromSubDomain = subDomainAreaKeys.has(key);
     testCases.push({
       id: makeId(),
       module: area,
       scenario: `Verify ${area} functionality`,
       title: `${typeName}: ${area}`,
       type: "Functional",
-      priority: "High",
+      priority: fromSubDomain ? "Critical" : "High",
       preconditions: "Homepage loaded",
       testData: "N/A",
       steps: [
@@ -97,11 +121,15 @@ function generateMajorFunctionalCases(analysis = {}) {
         `Validate primary ${area} user action completes`,
       ],
       expectedResult: `${area} works as expected for this site type`,
-      traceability: "majorFunctionalCases:testPriority",
+      traceability: fromSubDomain
+        ? "majorFunctionalCases:subDomainPriority"
+        : "majorFunctionalCases:testPriority",
+      domain: websiteType.typeName || null,
+      subDomain: subDomain?.name || null,
     });
   });
 
-  (websiteType.criticalFlows || []).forEach((flowName) => {
+  mergeAreas(subDomain?.criticalFlows, websiteType.criticalFlows).forEach((flowName) => {
     if (testCases.length >= MAX_CASES) return;
     const key = String(flowName).toLowerCase();
     if (testCases.some((tc) => String(tc.scenario || "").toLowerCase().includes(key))) return;
@@ -121,7 +149,11 @@ function generateMajorFunctionalCases(analysis = {}) {
         `Confirm ${flowName} outcome matches site expectations`,
       ],
       expectedResult: `${flowName} succeeds end-to-end`,
-      traceability: "majorFunctionalCases:criticalFlow",
+      traceability: subDomainAreaKeys.has(key)
+        ? "majorFunctionalCases:subDomainCriticalFlow"
+        : "majorFunctionalCases:criticalFlow",
+      domain: websiteType.typeName || null,
+      subDomain: subDomain?.name || null,
     });
   });
 

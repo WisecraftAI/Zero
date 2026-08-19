@@ -84,9 +84,20 @@ Node alpine (or slim Node), packages for DAG + LLM. **No** browser.
 
 ### `services/executor/Dockerfile` (`zero-executor`)
 
-Base: `mcr.microsoft.com/playwright:v1.52.0-jammy`.  
+Base: `mcr.microsoft.com/playwright:v1.58.2-jammy` (matches the pinned `playwright` version in `@zero/executor`).  
 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` (browsers already in the base image).  
-Runs as `pwuser`. Needs `shm_size: 1gb` in Compose for Chromium.
+Runs as `pwuser`. Compose sets `shm_size: 1gb`, though `services/executor/browser.js` already launches Chromium with `--disable-dev-shm-usage`, so the real requirement is **≥2 GB RAM** per concurrent job.
+
+### `Dockerfile.demo` (`zero-demo`) — optional, not part of Compose
+
+Single-container image for **cheap cloud demos only**. Same Playwright base, but it copies `services/api`, `services/orchestrator`, and `services/executor` and runs `node scripts/local-stack.js`, so all three live in one process. That is what makes `ZERO_CLOUD=local` work with **no Redis and no Postgres** — the local queue is in-process, so a publisher and subscriber in different containers never see each other.
+
+```bash
+docker build -f Dockerfile.demo -t zero-demo .
+docker run --rm -p 3001:3001 -e KEY_ENC_SECRET=$(openssl rand -hex 32) zero-demo
+```
+
+`NODE_ENV` is deliberately left unset (unlike the API image, which bakes `production`). Per-cloud deploy steps: [DEPLOY.md](./DEPLOY.md).
 
 ### `support/agent-workflow/Dockerfile` (`workflow`)
 
@@ -276,7 +287,8 @@ Browse buckets in the console only after enabling `ZERO_CLOUD=aws` + `S3_ENDPOIN
 ## Related
 
 - [v1/ARCHITECTURE.md](./ARCHITECTURE.md) — runtime topology  
-- [v1/COST.md](./COST.md) — deployment cost estimates (infra floors, LLM caps, executor sizing)  
+- [v1/DEPLOY.md](./DEPLOY.md) — cheapest cloud demo per provider + teardown  
+- [v1/COST.md](./COST.md) — deployment cost estimates (demo tier, infra floors, LLM caps, executor sizing)  
 - [v1/DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) — new PC Day-0 + local `npm` workflow  
 - [../v2/ARCHITECTURE.md](../v2/ARCHITECTURE.md) — production gaps  
 - Root [AGENTS.md](../../../../AGENTS.md) — Compose one-liners  

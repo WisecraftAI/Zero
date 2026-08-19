@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useHashTab } from '@/hooks/useHashTab';
 import { DeployCloud } from './deployment/Cloud';
 import { DeployCost } from './deployment/Cost';
+import { DeployDemo } from './deployment/Demo';
 import { DeployMinio } from './deployment/Minio';
 
 const DEPLOY_TABS = [
@@ -14,6 +15,7 @@ const DEPLOY_TABS = [
   { id: 'deploy-compose', label: 'Docker Compose', tag: 'full stack' },
   { id: 'deploy-hybrid',  label: 'Hybrid',         tag: 'infra in Docker' },
   { id: 'deploy-minio',   label: 'MinIO',          tag: 'profile s3' },
+  { id: 'deploy-demo',    label: 'Demo deploy',    tag: 'cheapest cloud' },
   { id: 'deploy-cloud',   label: 'Cloud',          tag: 'providers' },
   { id: 'deploy-cost',    label: 'Cost',           tag: 'estimates' },
   { id: 'deploy-prod',    label: 'Production',     tag: 'hardening' },
@@ -247,9 +249,9 @@ export function DeploymentPage() {
       <section className="section" id="deploy-intro">
         <h2>Deployment · step by step</h2>
         <p className="sub">
-          Five paths, each broken into single, ordered steps: local dev, Docker Compose, hybrid
-        infra, cloud provider wiring, cost estimates, and a hardened production rollout. Status
-        badges mark what is done vs still target.
+          Each path is broken into single, ordered steps: local dev, Docker Compose, hybrid infra,
+        the cheapest cloud demo, provider wiring, cost estimates, and a hardened production rollout.
+        Status badges mark what is done vs still target.
         </p>
         <SubTabs tabs={DEPLOY_TABS} active={tab} onSelect={setTab} ariaLabel="Deployment paths" />
 
@@ -258,6 +260,7 @@ export function DeploymentPage() {
           {tab === 'deploy-compose' && <Compose />}
           {tab === 'deploy-hybrid'  && <Hybrid />}
           {tab === 'deploy-minio'   && <DeployMinio />}
+          {tab === 'deploy-demo'    && <DeployDemo />}
           {tab === 'deploy-cloud'   && <DeployCloud />}
           {tab === 'deploy-cost'    && <DeployCost />}
           {tab === 'deploy-prod'    && <Production />}

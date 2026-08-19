@@ -3,11 +3,13 @@
 const fs = require("fs/promises");
 const path = require("path");
 const PDFDocument = require("pdfkit");
+const { normalizeTargetUrl } = require("@zero/domain");
 
 module.exports = function registerRunsRoutes(app, ctx) {
   app.post("/runs", ctx.upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }]), async (req, res) => {
     try {
-      const ottUrl = String(req.body.ottUrl || "").trim();
+      const targetUrl = normalizeTargetUrl(req.body.ottUrl);
+      const ottUrl = targetUrl.url || "";
       const figmaUrl = String(req.body.figmaUrl || "").trim();
       const assertions = String(req.body.assertions || "").trim();
       const notes = String(req.body.notes || "").trim();
@@ -44,7 +46,7 @@ module.exports = function registerRunsRoutes(app, ctx) {
         executionMode = "url_analysis_auto";
       }
 
-      if (!ottUrl) return res.status(400).json({ error: "OTT URL is required" });
+      if (targetUrl.error) return res.status(400).json({ error: targetUrl.error });
       
       // Allow running with just URL in auto mode (URL Analyzer will generate test cases)
       const canRunWithAutoGeneration = testCaseInputMode === "auto" || executionMode === "url_analysis_auto";
