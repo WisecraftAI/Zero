@@ -132,8 +132,24 @@ export const PRODUCT = [
   },
   {
     id: 'Q5',
-    name: 'Domain + sub-domain classification',
+    name: 'Trustworthy site understanding and test-plan quality',
     status: 'not-done' as const,
-    note: 'Open. subTypes under all 14 WEBSITE_TYPES; the resolved pair drives case generation. See the Next Milestone tab.',
+    note: 'Reopened. Fixture benchmarks, one canonical classification contract, and behavioural release gates must prove better URL-only test plans.',
+  },
+] as const;
+
+/** UX milestones U1–U2 — operator console. Parallel to Q5. */
+export const UX = [
+  {
+    id: 'U1',
+    name: 'Professional operator UI/UX',
+    status: 'done' as const,
+    note: 'Token-driven accessible SPA shell and daily flows. Spec: milestones/U1-professional-ui-ux.md.',
+  },
+  {
+    id: 'U2',
+    name: 'Ultra-low-friction canvas',
+    status: 'done' as const,
+    note: 'Single-canvas New Run, hover rail, progressive disclosure. Spec: milestones/U2-low-friction-canvas.md.',
   },
 ] as const;

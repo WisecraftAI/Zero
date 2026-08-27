@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { apiUrl } from '../apiBase';
-import './CmsScreenshotCapture.css';
+import './CmsScreenshotCapture.scss';
 
 export default function CmsScreenshotCapture() {
   const [url, setUrl] = useState('');

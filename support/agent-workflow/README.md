@@ -1,12 +1,13 @@
 # ZER0 Target-Architecture Agent Workflow
 
-Two tracks plus product. Same loop. Do not invent a different cloud shape.
+Two tracks plus product plus UX. Same loop. Do not invent a different cloud shape.
 
 | Track | Ids | Status |
 |-------|-----|--------|
 | Capability | M1–M7 | Probes green. Do not re-implement. |
 | Packaging | S0–S7 | Done. |
-| **Product** | **Q1–Q5** | **Q1–Q4 done. `Q5` domain + sub-domain classification is open — this is the active track.** |
+| **Product** | **Q1–Q5** | **Q1–Q4 done. `Q5` trustworthy site understanding is reopened — this is the active product track.** |
+| **UX** | **U1–U2** | **Done.** Operator console + low-friction canvas — `/zero-web`. |
 
 Ground truth:
 
@@ -16,14 +17,15 @@ Ground truth:
 | `AGENTS.md` | Layout, pipeline, conventions |
 | `support/agent-workflow/progress.json` | Live status (`current`, `track`) |
 | `prompts/packaging.md` | North-star for S3–S7 |
-| `prompts/autonomous-qa.md` | North-star for Q1–Q4 (any-URL QA) |
+| `prompts/autonomous-qa.md` | North-star for Q1–Q5 (any-URL QA) |
+| `prompts/ui-ux.md` | North-star for U1–U2 (operator console) |
 | `prompts/target-arch.md` | North-star for M1–M7 (frozen) |
 | `prompts/repos/` | One coding contract per workspace |
 
 ## Quick start
 
 ```bash
-# 1. Where are we? Prints M1–M7, S0–S7, and Q1–Q4.
+# 1. Where are we? Prints M1–M7, S0–S7, Q1–Q5, and U1–U2.
 npm run workflow:status
 
 # 2. In Cursor:
@@ -48,15 +50,19 @@ docker compose up --build workflow
 support/agent-workflow/
 ├── README.md
 ├── WORKFLOW.md               DETECT → PLAN → IMPLEMENT → VERIFY → ADVANCE
-├── progress.json             M1–M7 + S0–S7 + Q1–Q4
+├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U2
 ├── agents/                   planner · implementer · verifier · repo-coder
 ├── milestones/
 │   ├── M1-durable-store.md … M7-multi-cloud.md
 │   ├── S0-containerize.md … S7-web-image.md
-│   └── Q1-deep-crawl.md … Q5-domain-subdomain.md
+│   ├── Q1-deep-crawl.md … Q5-domain-subdomain.md
+│   └── U1-professional-ui-ux.md
+│       U2-low-friction-canvas.md
 ├── prompts/
 │   ├── target-arch.md        capability north-star (done)
 │   ├── packaging.md          packaging north-star (S3–S6)
+│   ├── autonomous-qa.md      product north-star (Q1–Q5)
+│   ├── ui-ux.md              UX north-star (U1–U2)
 │   └── repos/                one prompt per workspace
 └── scripts/
     ├── detect-milestone.js   M* and S* probes
@@ -70,9 +76,16 @@ support/agent-workflow/
 2. **Q2** Domain-driven major functional cases · `/zero-analyzer`, `/zero-orchestrator` ✓
 3. **Q3** Execute discovered flows · `/zero-executor` ✓
 4. **Q4** AI inference gate on low confidence · `/zero-orchestrator` ✓
-5. **Q5** Domain + sub-domain classification · `/zero-analyzer`, `/zero-orchestrator` — **current**
+5. **Q5** Trustworthy site understanding and test-plan quality · `/zero-analyzer`, `/zero-orchestrator` — **current**
 
 Prompt: `prompts/autonomous-qa.md` · Spec: `milestones/Q5-domain-subdomain.md`
+
+## UX order — U1–U2 done (parallel to Q5)
+
+1. **U1** Professional operator UI/UX · `/zero-web` — landmarks, tokens, theme ✓
+2. **U2** Ultra-low-friction canvas · `/zero-web` — single-canvas New Run, hover rail ✓
+
+Prompt: `prompts/ui-ux.md` · Specs: `milestones/U1-professional-ui-ux.md`, `milestones/U2-low-friction-canvas.md`
 
 ## Packaging order (strict)
 
@@ -85,7 +98,7 @@ Prompt: `prompts/autonomous-qa.md` · Spec: `milestones/Q5-domain-subdomain.md`
 7. **S6** Azure / Vercel + GATE-9 — done · skill `/zero-cloud`
 8. **S7** Web image split + `/api` prefix drop — done · skill `/zero-web`
 
-Capability and packaging are complete. The product track is active at `Q5`. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
+Capability and packaging are complete. The product track is active at `Q5`. `U1`/`U2` UX probes are green. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
 
 Each workspace has three names: **Folder** · **npm package** · **Cursor skill**. See `prompts/repos/README.md`.
 

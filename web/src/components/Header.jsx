@@ -1,4 +1,4 @@
-import './Header.css';
+import './Header.scss';
 
 /* Wisecraft AI Brand Logo - Bird in speech bubble (matches official logo) */
 function WisecraftLogoIcon({ className, size = 36 }) {

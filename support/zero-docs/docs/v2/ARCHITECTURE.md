@@ -1,12 +1,12 @@
 # ZER0 Architecture — V2 (target + gaps)
 
-**AI QA orchestration — target vision and remaining production gaps.** Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5 (domain + sub-domain classification) is open**. What otherwise remains is IDE-style product surface and ops maturity.
+**AI QA orchestration — target vision and remaining production gaps.** Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5 (trustworthy site understanding and test-plan quality) is reopened**. UX **U1 (professional operator console) and U2 (ultra-low-friction canvas) are done**. What otherwise remains is IDE-style product surface and ops maturity.
 
 For what ships today, see [../v1/ARCHITECTURE.md](../v1/ARCHITECTURE.md). Day-0: [../v1/DEVELOPER_GUIDE.md](../v1/DEVELOPER_GUIDE.md) §2. Compose: [../v1/DOCKER.md](../v1/DOCKER.md).
 
 Interactive blueprint: `/architectureV2.html` (source: `web/public/architectureV2.html`). Live docs site Architecture tab: `support/zero-docs` (`:5174`).
 
-**Verify via:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status` — `progress.json` `current: "Q5"`).
+**Verify via:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status` — `progress.json` `current: "Q5"`; UX `U1`/`U2` are queued).
 
 ---
 
@@ -21,7 +21,7 @@ Intended tables/APIs (helpers partially in `@zero/db`; **no `/projects` routes i
 
 Why Java: exportable Selenium suites for real CI; in-app execution can stay Playwright while Java is the reusable artifact.
 
-**Shipped product path (Q1–Q4):** URL-only autonomous runs already crawl → optional domain inference → major cases → `discovered_flows` → Manager. Two gaps remain: the IDE project/recording/SQL-script surface above, and **Q5** — the taxonomy is one level deep, so every site sharing a domain gets the same test plan.
+**Shipped product path (Q1–Q4):** URL-only autonomous runs already crawl → optional domain inference → major cases → `discovered_flows` → Manager. Two gaps remain: the IDE project/recording/SQL-script surface above, and **Q5** — proving with offline benchmarks and an end-to-end contract that site understanding produces relevant, distinct test plans.
 
 ---
 
@@ -158,7 +158,7 @@ Prioritized against the live code, not the marketing surface.
 
 ### Suggested ops / product sequence (M1–M7 · S0–S7 · Q1–Q4 done · Q5 open)
 
-Capability and packaging are complete. The product track is active at **Q5 — domain + sub-domain classification** (`milestones/Q5-domain-subdomain.md`; plan on the zero-docs **Next Milestone** tab). Alongside it, remaining work is ops maturity and IDE product polish:
+Capability and packaging are complete. The product track is active at **Q5 — trustworthy site understanding and test-plan quality** (`milestones/Q5-domain-subdomain.md`; execution plan on the zero-docs **Next Milestone** tab). The UX track is **done** at **U1 — professional operator console** and **U2 — ultra-low-friction canvas**. Alongside them, remaining work is ops maturity and IDE product polish:
 
 1. Hermetic Compose smoke (`e2e/smoke.sh`) in CI against web `:3000` + API `:3001`.
 2. Observability — dashboards for `queue_lag` / `executor_slots_used`, runbook + SLOs.

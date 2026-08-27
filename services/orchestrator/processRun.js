@@ -5,7 +5,13 @@
 
 "use strict";
 
-const { stageKeys } = require("@zero/domain");
+const {
+  stageKeys,
+  RunStoppedError,
+  isRunStoppedError,
+  isRunCancelRequested,
+  markRunStopped,
+} = require("@zero/domain");
 const {
   shouldRunDomainInference,
   buildDomainInferenceContext,
@@ -34,22 +40,45 @@ function createProcessRun(deps) {
       dbHelpers
     } = deps;
 
+    const cache = deps.cache;
     const run = await getRun(id);
     if (!run) return;
     if (run.status === "awaiting_uploads") return;
+    if (run.status === "stopped") {
+      await persistRun(run);
+      return;
+    }
+
+    async function ensureNotStopped() {
+      if (
+        run.cancelRequested ||
+        run.status === "stopped" ||
+        run.status === "stopping" ||
+        (await isRunCancelRequested(cache, id))
+      ) {
+        throw new RunStoppedError();
+      }
+    }
+
+    async function save() {
+      await persistRun(run);
+      await ensureNotStopped();
+    }
 
     try {
+      await ensureNotStopped();
       run.status = "running";
-      await persistRun(run);
+      await save();
 
       if (request.rerunFailedOnly) {
+        await ensureNotStopped();
         setStage(run, "execution", "running");
         run.artifacts.executionReport = await enqueueExecution(run.id, {
           kind: "execution",
           rerunFailedOnly: true
         });
         setStage(run, "execution", "done");
-        await persistRun(run);
+        await save();
 
         setStage(run, "manager", "running");
         run.artifacts.managerReport = await applyLlm(
@@ -84,10 +113,11 @@ function createProcessRun(deps) {
 
       // Optional: Web Analyzer Agent (runs when no test document provided)
       if (run.stages.webAnalyzer) {
+        await ensureNotStopped();
         setStage(run, "webAnalyzer", "running");
         run.artifacts.webAnalysis = await enqueueExecution(run.id, { kind: "webAnalyzer" });
         setStage(run, "webAnalyzer", "done");
-        await persistRun(run);
+        await save();
       }
 
       if (run.artifacts.webAnalysis?.baInsights) {
@@ -111,9 +141,10 @@ function createProcessRun(deps) {
         // Runs whether or not inference fired, so the rule-based answer also
         // reaches metadata/siteOverview and the reports built from them.
         applyClassificationToArtifact(run.artifacts.webAnalysis);
-        await persistRun(run);
+        await save();
       }
 
+      await ensureNotStopped();
       setStage(run, "ba", "running");
       // If web analysis was run, enhance requirements with its insights
       if (run.artifacts.webAnalysis && run.artifacts.webAnalysis.baInsights) {
@@ -139,8 +170,9 @@ function createProcessRun(deps) {
       );
       run.input.tcFileBuffer = null;
       setStage(run, "ba", "done");
-      await persistRun(run);
+      await save();
 
+      await ensureNotStopped();
       setStage(run, "manualQa", "running");
       if (run.input.executionMode === "uploaded_tc_only") {
         // CSV file was uploaded
@@ -170,8 +202,9 @@ function createProcessRun(deps) {
         }
       );
       setStage(run, "manualQa", "done");
-      await persistRun(run);
+      await save();
 
+      await ensureNotStopped();
       setStage(run, "automationQa", "running");
       run.artifacts.automationBundle = await applyLlm(
         "automationQa",
@@ -180,38 +213,43 @@ function createProcessRun(deps) {
         { ottUrl: run.input.ottUrl, host: hostFromUrl(run.input.ottUrl) }
       );
       setStage(run, "automationQa", "done");
-      await persistRun(run);
+      await save();
 
+      await ensureNotStopped();
       setStage(run, "execution", "running");
       await persistRun(run);
       run.artifacts.executionReport = await enqueueExecution(run.id, { kind: "execution" });
       setStage(run, "execution", "done");
-      await persistRun(run);
+      await save();
 
       // Optional: Accessibility Agent
       if (run.input.enableAccessibility && run.stages.accessibility) {
+        await ensureNotStopped();
         setStage(run, "accessibility", "running");
         run.artifacts.accessibilityReport = await enqueueExecution(run.id, { kind: "accessibility" });
         setStage(run, "accessibility", "done");
-        await persistRun(run);
+        await save();
       }
 
       // Optional: Performance Agent
       if (run.input.enablePerformance && run.stages.performance) {
+        await ensureNotStopped();
         setStage(run, "performance", "running");
         run.artifacts.performanceReport = await enqueueExecution(run.id, { kind: "performance" });
         setStage(run, "performance", "done");
-        await persistRun(run);
+        await save();
       }
 
       // Optional: Security Agent
       if (run.input.enableSecurity && run.stages.security) {
+        await ensureNotStopped();
         setStage(run, "security", "running");
         run.artifacts.securityReport = await enqueueExecution(run.id, { kind: "security" });
         setStage(run, "security", "done");
-        await persistRun(run);
+        await save();
       }
 
+      await ensureNotStopped();
       setStage(run, "manager", "running");
       run.artifacts.managerReport = await applyLlm(
         "manager",
@@ -231,7 +269,7 @@ function createProcessRun(deps) {
         }
       );
       setStage(run, "manager", "done");
-      await persistRun(run);
+      await save();
 
       setStage(run, "delivery", "running");
       run.artifacts.deliveryReport = generateDeliveryReport(
@@ -256,6 +294,11 @@ function createProcessRun(deps) {
       await persistRun(run);
       await persistAssets(run);
     } catch (error) {
+      if (isRunStoppedError(error)) {
+        markRunStopped(run, setStage, stageKeys);
+        await persistRun(run);
+        return;
+      }
       run.status = "failed";
       run.error = error.message;
       for (const key of stageKeys) {

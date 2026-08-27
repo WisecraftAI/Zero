@@ -76,7 +76,7 @@ export function useRunStream(runId, { enabled, terminal, onPatch, onRefresh }) {
       try {
         const patch = JSON.parse(event.data);
         onPatchRef.current?.(patch);
-        if (patch.status === 'completed' || patch.status === 'failed') {
+        if (patch.status === 'completed' || patch.status === 'failed' || patch.status === 'stopped') {
           handleTerminal();
           return;
         }

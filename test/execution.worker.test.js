@@ -81,6 +81,26 @@ describe("execution farm", () => {
     expect(worker.stats().active).toBe(0);
   });
 
+  it("does not retry a job that was stopped by the operator", async () => {
+    const { RunStoppedError } = require("@zero/domain");
+    let attempts = 0;
+    const worker = startExecutionWorker({
+      queue,
+      maxConcurrent: 1,
+      maxAttempts: 3,
+      logger: { log() {}, warn() {}, error() {} },
+      async runJob() {
+        attempts += 1;
+        throw new RunStoppedError();
+      }
+    });
+    unsub = worker.unsubscribe;
+
+    await expect(requestExecution(queue, { runId: "stop-me" }, { timeoutMs: 2000 }))
+      .rejects.toMatchObject({ name: "RunStoppedError", code: "RUN_STOPPED" });
+    expect(attempts).toBe(1);
+  });
+
   it("exports the execution.requested topic", () => {
     expect(REQUESTED).toBe("execution.requested");
     expect(COMPLETED).toBe("execution.completed");

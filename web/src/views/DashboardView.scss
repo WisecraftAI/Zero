@@ -1,0 +1,279 @@
+.dash-view {
+  max-width: 100%;
+}
+
+.dash-hero {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  cursor: pointer;
+  transition: border-color var(--transition);
+
+  &:hover {
+    border-color: var(--border-md);
+  }
+
+  &--active {
+    background: var(--accent-bg);
+    border-color: var(--green-border);
+  }
+
+  &--active:hover {
+    border-color: var(--accent);
+  }
+
+  &--stopping {
+    border-color: var(--amber-border);
+  }
+
+  &--stopping:hover {
+    border-color: var(--amber);
+  }
+
+  &--stopping .dash-live-label {
+    color: var(--amber);
+  }
+
+  &--idle {
+    background: var(--surface);
+  }
+
+  &-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+}
+
+.dash-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dash-blink 1.2s infinite;
+  flex-shrink: 0;
+}
+
+.dash-live-label {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--accent);
+}
+
+.dash-idle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+}
+
+.dash-idle-label {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.dash-hero-headline {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dash-hero-sub {
+  font-size: .82rem;
+  color: var(--text-3);
+}
+
+.dash-hero-url {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dash-hero-id {
+  display: flex;
+  align-items: center;
+
+  code {
+    font-family: var(--font-mono);
+    font-size: .75rem;
+    color: var(--accent);
+  }
+}
+
+.dash-hero-stage {
+  font-size: .78rem;
+  color: var(--text-2);
+}
+
+.dash-hero-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dash-live-dot--stopping {
+  background: var(--amber);
+  animation: none;
+}
+
+.dash-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dash-stop-btn {
+  opacity: 1;
+}
+
+.stat-value--amber {
+  color: var(--amber)!important;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+
+  &-title {
+    font-size: .84rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  &-count {
+    font-size: .72rem;
+    font-weight: 600;
+    background: var(--surface-3);
+    color: var(--text-3);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+  }
+}
+
+.run-id-mono {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  color: var(--accent);
+}
+
+.dash-url-cell {
+  max-width: 260px;
+  font-size: .82rem;
+  color: var(--text-2);
+
+  span {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.dash-passrate-cell {
+  font-weight: 600;
+  color: var(--text);
+  font-size: .84rem;
+}
+
+.dash-date-cell {
+  font-size: .78rem;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.dash-view-btn {
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+tr:hover .dash-view-btn {
+  opacity: 1;
+}
+
+.dash-capabilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.dash-cap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  transition: border-color var(--transition);
+
+  &:hover {
+    border-color: var(--border-md);
+  }
+}
+
+.dash-cap-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--accent-bg);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.dash-cap-title {
+  font-size: .84rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.dash-cap-desc {
+  font-size: .78rem;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+@keyframes dash-blink {
+  0%,
+  to {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .3;
+  }
+}
+
+@keyframes dash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

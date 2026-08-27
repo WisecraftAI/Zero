@@ -1,0 +1,21 @@
+// Responsive helpers. Call sites pass the literal width so the breakpoint
+// stays greppable in the stylesheet that owns it.
+//
+//   @use '../styles/breakpoints' as bp;
+//   .sidebar { @include bp.below(768px) { ... } }
+
+// Below this width the sidebar stops holding layout space and becomes an
+// overlay rail. Shared by AppShell, Sidebar and NewRunView.
+$narrow: 768px;
+
+@mixin below($width) {
+  @media (max-width: $width) {
+    @content;
+  }
+}
+
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}

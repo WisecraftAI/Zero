@@ -48,7 +48,7 @@ export function runElapsedMs(run, now = Date.now()) {
   if (!run?.createdAt) return 0;
   const start = new Date(run.createdAt).getTime();
   if (Number.isNaN(start)) return 0;
-  if (run.status === 'running') return Math.max(0, now - start);
+  if (run.status === 'running' || run.status === 'stopping') return Math.max(0, now - start);
   const end = new Date(run.updatedAt || now).getTime();
   return Math.max(0, end - start);
 }

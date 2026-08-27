@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-18T07:23:25.110Z",
+  "generatedAt": "2026-08-27T15:57:02.067Z",
   "totals": {
     "modules": 10,
-    "fileCount": 200,
-    "loc": 28267
+    "fileCount": 211,
+    "loc": 32573
   },
   "modules": [
     {
@@ -77,7 +77,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 15,
-      "loc": 2983,
+      "loc": 3036,
       "filesByExt": {
         ".js": 15
       },
@@ -111,7 +111,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 8,
-      "loc": 2141,
+      "loc": 2396,
       "filesByExt": {
         ".js": 8
       },
@@ -145,7 +145,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 5,
-      "loc": 2786,
+      "loc": 2994,
       "filesByExt": {
         ".js": 5
       },
@@ -173,18 +173,19 @@ export const GENERATED_LLD: GeneratedLld = {
       "workspaceDeps": [],
       "devDeps": [
         "@vitejs/plugin-react",
+        "sass",
         "vite"
       ],
-      "fileCount": 49,
-      "loc": 10377,
+      "fileCount": 58,
+      "loc": 13831,
       "filesByExt": {
-        ".css": 21,
-        ".jsx": 21,
-        ".js": 7
+        ".jsx": 23,
+        ".scss": 26,
+        ".js": 9
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n├─ src/\n│  ├─ App.css\n│  ├─ App.jsx\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.css\n│  ├─ layouts/\n│  ├─ lib/"
+      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n├─ src/\n│  ├─ App.jsx\n│  ├─ App.scss\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.scss\n│  ├─ layouts/\n│  ├─ lib/"
     },
     {
       "id": "cloud",
@@ -225,14 +226,14 @@ export const GENERATED_LLD: GeneratedLld = {
       "runtimeDeps": [],
       "workspaceDeps": [],
       "devDeps": [],
-      "fileCount": 10,
-      "loc": 441,
+      "fileCount": 12,
+      "loc": 599,
       "filesByExt": {
-        ".js": 10
+        ".js": 12
       },
       "hasDockerfile": false,
       "hasTests": false,
-      "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js"
+      "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ runCancel.js\n│  ├─ schemas.js\n│  ├─ stages.js"
     },
     {
       "id": "db",
@@ -249,7 +250,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 15,
-      "loc": 849,
+      "loc": 851,
       "filesByExt": {
         ".js": 15
       },
@@ -318,7 +319,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 31,
-      "loc": 4899,
+      "loc": 5075,
       "filesByExt": {
         ".js": 31
       },
@@ -329,7 +330,7 @@ export const GENERATED_LLD: GeneratedLld = {
   ]
 };
 
-export type TaskTrack = 'capability' | 'packaging';
+export type TaskTrack = 'capability' | 'packaging' | 'product' | 'ux';
 export type TaskStatus = 'done' | 'partial' | 'not-done';
 
 export interface GeneratedTask {
@@ -357,12 +358,12 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-18T07:23:25.110Z",
-  "northStar": "Autonomous any-URL QA (Q1–Q5) · packaging S0–S7 · capability M1–M7",
+  "generatedAt": "2026-08-27T15:57:02.067Z",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
   "current": "Q5",
   "acceptanceFloor": "M4",
-  "allComplete": true,
+  "allComplete": false,
   "tasks": [
     {
       "id": "M1",
@@ -607,6 +608,126 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
         "web",
         "cloud"
       ]
+    },
+    {
+      "id": "Q1",
+      "name": "Deep crawl (multi-page site understanding)",
+      "track": "product",
+      "order": 0,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/Q1-deep-crawl.md",
+      "summary": "Expand the Web Analyzer so a URL-only run understands more than the landing page: follow primary navigation, crawl a bounded set of internal pages, and emit a structured site map for downstream test generation.",
+      "dependsOn": [
+        "M4"
+      ],
+      "workspaces": [
+        "executor",
+        "domain",
+        "analyzer"
+      ]
+    },
+    {
+      "id": "Q2",
+      "name": "Domain-driven major functional test cases",
+      "track": "product",
+      "order": 1,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/Q2-domain-test-generation.md",
+      "summary": "Turn crawl + domain type into **major functional test cases** automatically when the user provides URL only (no CSV, no manual rows). Rules and templates first — not LLM.",
+      "dependsOn": [
+        "Q1"
+      ],
+      "workspaces": [
+        "orchestrator",
+        "web",
+        "analyzer"
+      ]
+    },
+    {
+      "id": "Q3",
+      "name": "Execute discovered flows",
+      "track": "product",
+      "order": 2,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/Q3-flow-execution.md",
+      "summary": "Wire analyzer-generated flows into Playwright execution so URL-only runs **run** major functional checks, not just load the homepage and wait.",
+      "dependsOn": [
+        "Q2",
+        "M4"
+      ],
+      "workspaces": [
+        "executor",
+        "domain",
+        "locators",
+        "builders"
+      ]
+    },
+    {
+      "id": "Q4",
+      "name": "AI domain inference gate",
+      "track": "product",
+      "order": 3,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/Q4-ai-domain-inference.md",
+      "summary": "When rule-based domain detection is uncertain, call the LLM **once** with a structured crawl snapshot to infer site purpose and major functional test areas. Templates remain the fallback when no key or LLM fails.",
+      "dependsOn": [
+        "Q1",
+        "Q2",
+        "M6"
+      ],
+      "workspaces": [
+        "orchestrator",
+        "web"
+      ]
+    },
+    {
+      "id": "Q5",
+      "name": "Trustworthy site understanding and test-plan quality",
+      "track": "product",
+      "order": 4,
+      "status": "not-done",
+      "spec": "support/agent-workflow/milestones/Q5-domain-subdomain.md",
+      "summary": "Q5 is a **recovery milestone**. The first implementation added a large sub-domain",
+      "dependsOn": [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "M6"
+      ],
+      "workspaces": []
+    },
+    {
+      "id": "U1",
+      "name": "Professional operator UI/UX",
+      "track": "ux",
+      "order": 0,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/U1-professional-ui-ux.md",
+      "summary": "U1 is a **quality milestone for the SPA**. Tokens, a light/dark theme, and a FOWT-safe",
+      "dependsOn": [
+        "S7"
+      ],
+      "workspaces": [
+        "web"
+      ]
+    },
+    {
+      "id": "U2",
+      "name": "Ultra-low-friction canvas",
+      "track": "ux",
+      "order": 1,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/U2-low-friction-canvas.md",
+      "summary": "U2 is a **presentation milestone**. The operator’s primary job is: paste a URL, start a",
+      "dependsOn": [
+        "U1",
+        "Q5"
+      ],
+      "workspaces": [
+        "web",
+        "domain"
+      ]
     }
   ],
   "byWorkspace": {
@@ -622,17 +743,25 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "M1",
       "M3",
       "S3",
-      "S5"
+      "S5",
+      "Q2",
+      "Q4"
     ],
     "executor": [
       "M2",
       "M4",
       "S3",
-      "S4"
+      "S4",
+      "Q1",
+      "Q3"
     ],
     "web": [
       "S2",
-      "S7"
+      "S7",
+      "Q2",
+      "Q4",
+      "U1",
+      "U2"
     ],
     "cloud": [
       "M2",
@@ -644,7 +773,10 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
     ],
     "domain": [
       "S3",
-      "S5"
+      "S5",
+      "Q1",
+      "Q3",
+      "U2"
     ],
     "db": [
       "M1",
@@ -652,10 +784,16 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "S1"
     ],
     "locators": [
-      "M1"
+      "M1",
+      "Q3"
     ],
-    "builders": [],
-    "analyzer": []
+    "builders": [
+      "Q3"
+    ],
+    "analyzer": [
+      "Q1",
+      "Q2"
+    ]
   },
-  "latestNote": "milestone_opened: Q5 domain + sub-domain classification opened by approved requirement: the Web Analyzer must resolve a domain and a sub-domain from the URL, and that pair must drive case generation. Closes the seam left after Q4 — WEBSITE_TYPES is flat, inferred priorities are written but never read, and majorFunctionalCases is generated before inference runs. Plan published in the zero-docs Next Milestone tab."
+  "latestNote": "milestone_done: U1 operator shell (skip link, aria-current, type/space tokens, theme names) and U2 low-friction canvas (nrv--canvas, disclose, hover rail, always-on Run). Product current remains Q5."
 };

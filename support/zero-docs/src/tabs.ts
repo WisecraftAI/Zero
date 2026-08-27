@@ -62,4 +62,6 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   'next-ms-design': 'next-milestone',
   'next-ms-plan': 'next-milestone',
   'next-ms-wiring': 'next-milestone',
+  // Q5 execution-cockpit sub-tabs.
+  q5: 'next-milestone',
 };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import './RunsListView.css';
+import './RunsListView.scss';
+import StopRunButton from '../components/StopRunButton';
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -12,9 +13,9 @@ function truncate(str, n = 48) {
   return str.length > n ? str.slice(0, n) + '…' : str;
 }
 
-const STATUS_OPTIONS = ['all', 'running', 'completed', 'failed', 'pending'];
+const STATUS_OPTIONS = ['all', 'running', 'stopping', 'completed', 'failed', 'stopped', 'pending'];
 
-export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNewRun }) {
+export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNewRun, onStopRun }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -31,7 +32,7 @@ export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNe
 
   const total     = runs.length;
   const completed = runs.filter(r => r.status === 'completed').length;
-  const running   = runs.filter(r => r.status === 'running').length;
+  const running   = runs.filter(r => r.status === 'running' || r.status === 'stopping').length;
   const failed    = runs.filter(r => r.status === 'failed').length;
 
   return (
@@ -153,9 +154,12 @@ export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNe
                     </td>
                     <td className="run-date">{fmtDate(run.startedAt || run.createdAt)}</td>
                     <td>
-                      <button className="btn btn-ghost btn-sm runs-view-btn" onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}>
-                        View →
-                      </button>
+                      <div className="runs-row-actions">
+                        <StopRunButton run={run} onStop={onStopRun} className="runs-stop-btn" />
+                        <button className="btn btn-ghost btn-sm runs-view-btn" onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}>
+                          View →
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

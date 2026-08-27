@@ -289,7 +289,7 @@ Manage demand the way WebPageTest does — queue depth, per-key rate limits, and
 1. **Option A or B**, per [§4](#4-side-by-side). Recommendation is B.
 2. **How the UI authenticates** (blocker B4) — API key in the SPA, or a session layer.
 3. **Aurora at 0 ACU, or no database at all.** ZER0 already falls back to memory plus `run.json` in the object store. If nobody queries run history in SQL, S3 alone is cheaper and simpler — but you lose cross-run locator learning.
-4. **Whether to track this as a workflow milestone.** `support/agent-workflow/progress.json` has `current: "Q5"` (domain/sub-domain classification). This is infrastructure, not product capability, so it belongs in the packaging track as a new **S8** rather than folded into Q5 — otherwise `npm run workflow:verify -- --milestone Q5` stops meaning anything.
+4. **Whether to track this as a workflow milestone.** `support/agent-workflow/progress.json` has `current: "Q5"` (trustworthy site understanding and test-plan quality). This is infrastructure, not product capability, so it belongs in the packaging track as a new **S8** rather than folded into Q5 — otherwise `npm run workflow:verify -- --milestone Q5` stops meaning anything.
 
 ---
 

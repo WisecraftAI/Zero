@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { apiUrl, artifactUrl } from '../apiBase';
-import './TabContent.css';
+import './TabContent.scss';
 
 function escapeHtml(str) {
   if (str == null) return '';

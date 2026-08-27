@@ -2,7 +2,7 @@ import { JumpNav } from '@/components/layout/JumpNav';
 import { Note } from '@/components/ui/Note';
 import { ProvidersTable } from '@/components/ui/ProvidersTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { MILESTONES, PACKAGING, PRODUCT } from '@/data/migration';
+import { MILESTONES, PACKAGING, PRODUCT, UX } from '@/data/migration';
 import { BlueprintPage } from './Blueprint';
 import { V3Page } from './v3';
 
@@ -21,15 +21,18 @@ function Score() {
     ...MILESTONES.map((m) => ['capability', m.id, m.name, m.status, m.note] as const),
     ...PACKAGING.map((s) => ['packaging', s.id, s.name, s.status, s.note] as const),
     ...PRODUCT.map((q) => ['product', q.id, q.name, q.status, q.note] as const),
+    ...UX.map((u) => ['ux', u.id, u.name, u.status, u.note] as const),
   ];
 
   return (
     <section className="section" id="arch-score">
-      <h2>Milestone score · capability M1–M7 · packaging S0–S7 · product Q1–Q5</h2>
+      <h2>Milestone score · capability M1–M7 · packaging S0–S7 · product Q1–Q5 · UX U1–U2</h2>
       <p className="sub">
         Scored against <code>support/agent-workflow/progress.json</code> and the live tree.
-        Capability and packaging are closed, and so is Q1–Q4; <code>Q5</code> is open and has no
-        code behind it yet — its plan is on <a href="#next-milestone">Next Milestone</a>. Specs live
+        Capability and packaging are closed, and so is Q1–Q4. <code>Q5</code> is the open
+        product gate (plan on <a href="#next-milestone">Next Milestone</a>). <code>U1</code> and{' '}
+        <code>U2</code> UX gates are closed (specs <code>milestones/U1-professional-ui-ux.md</code>,{' '}
+        <code>milestones/U2-low-friction-canvas.md</code>). Specs live
         in <code>support/agent-workflow/milestones/</code>.
       </p>
       <ProvidersTable
@@ -62,7 +65,7 @@ export function ArchitecturePage() {
           <code>:3001</code> (no <code>/api</code> prefix), long-lived orchestrator workers that
           call LLMs and walk the DAG, and ephemeral Playwright executors. Capability M1–M7,
           packaging S0–S7, and product Q1–Q4 are <StatusBadge status="done" />; product{' '}
-          <code>Q5</code> is open.
+          <code>Q5</code> is open; UX <code>U1</code>–<code>U2</code> are done.
         </p>
         <Note tone="info">
           Markdown twins: <code>docs/v1/ARCHITECTURE.md</code> (what ships) and{' '}

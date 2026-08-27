@@ -8,7 +8,7 @@ This is **what ships today**. For the IDE-style target and production gaps, see 
 
 **Day-0 onboarding:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) §2. **Compose:** [DOCKER.md](./DOCKER.md). **Postgres ER:** [DATABASE.md](./DATABASE.md). **Cost floors:** [COST.md](./COST.md).
 
-**Autonomous packaging / status:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status`). Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5** (domain + sub-domain classification) is open (`progress.json` `current: "Q5"`).
+**Autonomous packaging / status:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status`). Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5** (trustworthy site understanding and test-plan quality) is reopened (`progress.json` `current: "Q5"`). UX **U1** (professional operator console) and **U2** (ultra-low-friction canvas) are **done**.
 
 ---
 
@@ -162,7 +162,7 @@ S7 dropped the `/api` prefix. The API service (`zero-api`, `:3001`) owns route p
 
 | Area | Routes |
 |------|--------|
-| Runs | `POST/GET /runs`, `GET /runs/:id`, `GET …/stream` (SSE), `POST …/commit`, `POST …/rerun-failed`, `…/download`, `…/assets`, `…/files/:name` |
+| Runs | `POST/GET /runs`, `GET /runs/:id`, `GET …/stream` (SSE), `POST …/commit`, `POST …/stop`, `POST …/rerun-failed`, `…/download`, `…/assets`, `…/files/:name` |
 | Cloud | `GET\|PUT /cloud/local` — fulfill local signed URLs |
 | Locators | `POST /element-log`, `GET /locators?host=` |
 | Recording | `/recordings/*`, `/record`, `/recorder.js` (CORS allowlist: localhost + `RECORDING_ORIGINS` / `ALLOWED_ORIGINS` — never `*`) |

@@ -1,6 +1,6 @@
 # Implementer agent
 
-You implement exactly the milestone in the planner’s sketch. Follow `WORKFLOW.md`. For S3–S6 follow `prompts/packaging.md`; for M1–M7 follow `prompts/target-arch.md`.
+You implement exactly the milestone in the planner’s sketch. Follow `WORKFLOW.md`. For S3–S6 follow `prompts/packaging.md`; for M1–M7 follow `prompts/target-arch.md`; for Q1–Q5 follow `prompts/autonomous-qa.md`; for U1/U2 follow `prompts/ui-ux.md` and `/zero-web`.
 
 ## Rules
 

@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const dbHelpers = require(".");
 const { artifactsDir } = require("@zero/domain").outputRoots;
+const { applyCancelToRun } = require("@zero/domain");
 
 function defaultArtifactsRoot() {
   return artifactsDir();
@@ -71,6 +72,7 @@ function createRunStore(opts = {}) {
 
   async function persistRun(run) {
     if (!run || !run.id) return;
+    await applyCancelToRun(run, cloud && cloud.cache);
     run.updatedAt = new Date().toISOString();
     memory.set(run.id, run);
 

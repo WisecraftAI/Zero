@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { apiUrl } from '../apiBase';
-import './LocatorsView.css';
+import './LocatorsView.scss';
 
 export default function LocatorsView() {
   const [logUrl, setLogUrl] = useState('');

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { apiUrl } from '../apiBase';
 import AiSetupBanner from '../components/AiSetupBanner';
 import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
-import './AgentsView.css';
+import './AgentsView.scss';
 
 const AGENTS = [
   {

@@ -3,8 +3,8 @@
 
 /**
  * Probe the repo for Target-architecture milestone completion.
- * Capability track M1–M7, packaging track S0–S7, product track Q1–Q5.
- * When M* is green, earliest unfinished is the first failing S*, then Q*.
+ * Capability track M1–M7, packaging track S0–S7, product track Q1–Q5, UX track U1–U2.
+ * When M* is green, earliest unfinished is the first failing S*, then Q*, then U*.
  *
  * Usage: node support/agent-workflow/scripts/detect-milestone.js [--json]
  */
@@ -16,6 +16,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 const ORDER = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
 const PACKAGING_ORDER = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
 const PRODUCT_ORDER = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'];
+const UX_ORDER = ['U1', 'U2'];
 
 function read(rel) {
   try {
@@ -499,6 +500,46 @@ const checks = {
       details: { subTypeTaxonomy, subDomainDetector, promptV2, casesUseSubDomain, subDomainTest },
     };
   },
+
+  U1() {
+    const shell = read('web/src/layouts/AppShell.jsx');
+    const sidebar = read('web/src/components/Sidebar.jsx');
+    const tokens = read('web/src/styles/_tokens.scss');
+    const themes = read('web/src/styles/_themes.scss');
+    const testFile = read('test/ui-ux-shell.test.js');
+    const skipLink = /skip-to-content|#main-content/.test(shell) && /id=["']main-content["']/.test(shell);
+    const ariaCurrent = /aria-current/.test(sidebar);
+    const typeScale = /--fs-/.test(tokens);
+    const spaceScale = /--space-/.test(tokens);
+    const lightTheme = /^\s*'light':/m.test(themes) && /\$root-theme:\s*'light'/.test(themes);
+    const hasTest = testFile.length > 0;
+    return {
+      pass: skipLink && ariaCurrent && typeScale && spaceScale && lightTheme && hasTest,
+      details: { skipLink, ariaCurrent, typeScale, spaceScale, lightTheme, hasTest },
+    };
+  },
+
+  U2() {
+    const newRun = read('web/src/views/NewRunView.jsx');
+    const newRunCss = read('web/src/views/NewRunView.scss');
+    const sidebarCss = read('web/src/components/Sidebar.scss');
+    const shellCss = read('web/src/layouts/AppShell.scss');
+    const testFile = read('test/ui-ux-friction.test.js');
+    const canvasClass = /nrv--canvas/.test(newRun);
+    const disclose = /nrv-disclose/.test(newRun);
+    // Nested under `.sidebar`, so these read as parent-referencing suffixes.
+    const hoverRail = /&:hover|&:focus-within/.test(sidebarCss);
+    const alwaysSubmit =
+      /type=["']submit["']/.test(newRun) &&
+      /btn-launch/.test(newRun) &&
+      !/step\s*<\s*STEPS\.length\s*-\s*1\s*\?\s*[\s\S]{0,200}type=["']submit["']/.test(newRun);
+    const overlayNarrow = /768px/.test(sidebarCss + shellCss + newRunCss);
+    const hasTest = testFile.length > 0 && /nrv--canvas/.test(testFile);
+    return {
+      pass: canvasClass && disclose && hoverRail && alwaysSubmit && overlayNarrow && hasTest,
+      details: { canvasClass, disclose, hoverRail, alwaysSubmit, overlayNarrow, hasTest },
+    };
+  },
 };
 
 function loadProgress() {
@@ -515,6 +556,7 @@ function main() {
   let earliestM = null;
   let earliestS = null;
   let earliestQ = null;
+  let earliestU = null;
 
   for (const id of ORDER) {
     const r = checks[id]();
@@ -531,18 +573,26 @@ function main() {
     results[id] = r;
     if (!r.pass && !earliestQ) earliestQ = id;
   }
+  for (const id of UX_ORDER) {
+    const r = checks[id]();
+    results[id] = r;
+    if (!r.pass && !earliestU) earliestU = id;
+  }
 
   const capabilityComplete = earliestM === null;
   const packagingComplete = earliestS === null;
   const productComplete = earliestQ === null;
-  const earliest = earliestM || earliestS || earliestQ;
+  const uxComplete = earliestU === null;
+  const earliest = earliestM || earliestS || earliestQ || earliestU;
   const track = earliestM
     ? 'capability'
     : earliestS
       ? 'packaging'
       : earliestQ
         ? 'product'
-        : 'complete';
+        : earliestU
+          ? 'ux'
+          : 'complete';
 
   const progress = loadProgress();
   const out = {
@@ -552,6 +602,7 @@ function main() {
     capabilityComplete,
     packagingComplete,
     productComplete,
+    uxComplete,
     acceptanceFloorMet:
       results.M1.pass && results.M2.pass && results.M3.pass && results.M4.pass,
     results,
@@ -580,6 +631,12 @@ function main() {
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
     }
     console.log('');
+    console.log('UX track · U1–U2 (operator console)');
+    for (const id of UX_ORDER) {
+      const r = results[id];
+      console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
+    }
+    console.log('');
     if (earliestM) {
       console.log(`Next milestone: ${earliestM} (capability)`);
       console.log(`Spec: support/agent-workflow/milestones/${earliestM}-*.md`);
@@ -591,8 +648,17 @@ function main() {
       console.log(`Next product step: ${earliestQ} (autonomous any-URL QA)`);
       console.log(`Spec: support/agent-workflow/milestones/${earliestQ}-*.md`);
       console.log('Prompt: support/agent-workflow/prompts/autonomous-qa.md');
+      if (earliestU) {
+        console.log(`Queued UX step: ${earliestU} (parallel; implement via /zero-web)`);
+        console.log(`Spec: support/agent-workflow/milestones/${earliestU}-*.md`);
+        console.log('Prompt: support/agent-workflow/prompts/ui-ux.md');
+      }
+    } else if (earliestU) {
+      console.log(`Next UX step: ${earliestU} (operator console)`);
+      console.log(`Spec: support/agent-workflow/milestones/${earliestU}-*.md`);
+      console.log('Prompt: support/agent-workflow/prompts/ui-ux.md');
     } else {
-      console.log('Capability, packaging, and product probes all passed.');
+      console.log('Capability, packaging, product, and UX probes all passed.');
     }
     console.log('Invoke: /zero-target-arch');
     console.log(

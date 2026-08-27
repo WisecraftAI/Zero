@@ -5,17 +5,18 @@ import {
   runElapsedMs,
   stageDurationMs
 } from '../lib/runProgress';
-import './RunProgressPanel.css';
+import './RunProgressPanel.scss';
 
 export default function RunProgressPanel({ run, streamTransport }) {
   const [now, setNow] = useState(() => Date.now());
 
   const isLive = run?.status === 'running';
+  const isStopping = run?.status === 'stopping';
   useEffect(() => {
-    if (!isLive) return undefined;
+    if (!isLive && !isStopping) return undefined;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [isLive]);
+  }, [isLive, isStopping]);
 
   if (!run) {
     return (
@@ -82,7 +83,7 @@ export default function RunProgressPanel({ run, streamTransport }) {
         </p>
       )}
 
-      {!isLive && run.status === 'completed' && (
+      {!isLive && !isStopping && run.status === 'completed' && (
         <p className="run-progress-msg run-progress-msg--done">
           Pipeline finished in <strong>{elapsed}</strong>
           {run.artifacts?.executionReport?.totals?.passRate != null && (
@@ -91,7 +92,20 @@ export default function RunProgressPanel({ run, streamTransport }) {
         </p>
       )}
 
-      {!isLive && run.status === 'failed' && (
+      {!isLive && isStopping && (
+        <p className="run-progress-msg">
+          <SpinIcon />
+          <span>Stopping pipeline…</span>
+        </p>
+      )}
+
+      {!isLive && run.status === 'stopped' && (
+        <p className="run-progress-msg run-progress-msg--fail">
+          Run stopped after <strong>{elapsed}</strong>
+        </p>
+      )}
+
+      {!isLive && !isStopping && run.status === 'failed' && (
         <p className="run-progress-msg run-progress-msg--fail">
           Run failed after <strong>{elapsed}</strong>
           {run.error ? ` · ${run.error}` : ''}

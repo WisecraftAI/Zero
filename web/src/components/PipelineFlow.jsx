@@ -3,7 +3,7 @@ import {
   normalizeStageStatus,
   stageDurationMs
 } from '../lib/runProgress';
-import './PipelineFlow.css';
+import './PipelineFlow.scss';
 
 const STAGE_META = {
   webAnalyzer:   { label: 'Web Analyzer', short: 'WEB', optional: true },
@@ -58,6 +58,7 @@ export default function PipelineFlow({ run, tick = Date.now() }) {
                 {status === 'completed' && <CheckIcon />}
                 {status === 'running' && <SpinDot />}
                 {status === 'failed' && '✕'}
+                {status === 'stopped' && '■'}
                 {status === 'pending' && (
                   <span className="pipeline-dot-label">{meta.short}</span>
                 )}

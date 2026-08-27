@@ -1,4 +1,4 @@
-import './Topbar.css';
+import './Topbar.scss';
 
 export default function Topbar({ title, breadcrumb, statusBadge, actions }) {
   return (

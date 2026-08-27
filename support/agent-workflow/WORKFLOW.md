@@ -6,7 +6,8 @@ Two tracks, in order:
 
 1. **Capability** M1–M7 — probes are green. Do not re-implement.
 2. **Packaging** S0–S7 — done.
-3. **Product** Q1–Q5 — autonomous any-URL QA. Q1–Q4 done; **Q5 is open and is the active milestone**.
+3. **Product** Q1–Q5 — autonomous any-URL QA. Q1–Q4 done; **Q5 is open and is the active product milestone**.
+4. **UX** U1–U2 — operator console. **Done**, parallel to Q5. Implement via `/zero-web` when the user asks for UI/UX. DETECT still prints Q5 first.
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌────────────┐
@@ -29,10 +30,11 @@ Read in order:
 2. `AGENTS.md` — conventions
 3. `support/agent-workflow/progress.json`
 4. If the user named a workspace → `prompts/repos/<name>.md` + `agents/repo-coder.md`
-5. Else the spec for the detected id: `milestones/M{N}-*.md`, `milestones/S{N}-*.md`, or `milestones/Q{N}-*.md`
+5. Else the spec for the detected id: `milestones/M{N}-*.md`, `milestones/S{N}-*.md`, `milestones/Q{N}-*.md`, or `milestones/U{N}-*.md`
 6. Capability north-star: `prompts/target-arch.md`
 7. Packaging north-star: `prompts/packaging.md`
 8. Product north-star: `prompts/autonomous-qa.md`
+9. UX north-star: `prompts/ui-ux.md`
 
 ## Step 1 — DETECT
 
@@ -40,7 +42,7 @@ Read in order:
 npm run workflow:status
 ```
 
-Use the printed id (`M1`…`M7`, `S0`…`S7`, or `Q1`…`Q5`). Order: earliest failing **M** → **S** → **Q**. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement. Today the earliest unfinished is `Q5`.
+Use the printed id (`M1`…`M7`, `S0`…`S7`, `Q1`…`Q5`, or `U1`/`U2`). Order: earliest failing **M** → **S** → **Q** → **U**. UI work may proceed on U1/U2 while Q5 is open if the user asked for UI/UX. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement. Today the earliest unfinished product step is `Q5`; UX is queued in parallel.
 
 ## Step 2 — PLAN
 
@@ -60,6 +62,7 @@ Act as **implementer** (`agents/implementer.md`):
 - Prefer `ZERO_CLOUD=local` adapters so `npm start` still works without AWS
 - Ask before destructive DB migrations or breaking `/runs` (S7) contracts
 - For S3–S6, follow `prompts/packaging.md` and the matching `/zero-*` skill
+- For U1/U2, follow `prompts/ui-ux.md` and `/zero-web`; do not change APIs or the pipeline
 
 ## Step 4 — VERIFY
 
@@ -75,10 +78,10 @@ Act as **verifier** (`agents/verifier.md`). Fix failures in-loop. Do not mark pr
 
 Update `support/agent-workflow/progress.json` only after verify exits 0:
 
-- Set that id `status` to `done` (under `milestones`, `packaging`, or `product`)
+- Set that id `status` to `done` (under `milestones`, `packaging`, `product`, or `ux`)
 - Set `completedAt` ISO timestamp
 - Set `current` to the next unfinished step on the active track
-- Set `track` to `capability` | `packaging` | `product`
+- Set `track` to `capability` | `packaging` | `product` | `ux`
 - Append a short note under `history`
 - Flip the matching row in `support/zero-docs/src/data/migration.ts` when status changes
 
@@ -86,7 +89,7 @@ Update `support/agent-workflow/progress.json` only after verify exits 0:
 
 - If user asked for a single step → stop and summarize what flipped.
 - If user asked to run autonomously / “make target real” → loop from DETECT.
-- If all M1–M7, S0–S7, and Q1–Q5 probes pass → stop and report complete.
+- If all M1–M7, S0–S7, Q1–Q5, and U1–U2 probes pass → stop and report complete.
 - Stop and ask when blocked (secrets, infra credentials, irreversible data loss).
 
 ## Hard stops (never bypass)

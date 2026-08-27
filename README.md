@@ -6,6 +6,8 @@ Architect-level QA orchestration workflow in one UI.
 
 **New PC / onboarding:** open the [Developer guide](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) (§2 Day-0) — prerequisites, clone, `.env`, Docker vs hybrid vs `npm run start:all`, verify, first tasks.
 
+**Day-to-day development:** [README.dev.md](./README.dev.md) — setup, run modes, ports, scripts, where to edit, verify, troubleshooting.
+
 **Dev docs (humans + AI):** [Developer guide](./support/zero-docs/docs/v1/DEVELOPER_GUIDE.md) · [Architecture V1](./support/zero-docs/docs/v1/ARCHITECTURE.md) · [Docker](./support/zero-docs/docs/v1/DOCKER.md) · [Architecture V2](./support/zero-docs/docs/v2/ARCHITECTURE.md) · [Open source](./support/zero-docs/docs/v1/OPEN_SOURCE.md) · [Docs index](./support/zero-docs/docs/README.md) · [Docs site](./support/zero-docs/README.md)
 
 Pipeline:
@@ -111,6 +113,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 - `POST /runs` (multipart/form-data) starts a run
 - `GET /runs` lists recent runs
 - `GET /runs/:id` fetches status + artifacts
+- `POST /runs/:id/stop` stops a queued or running pipeline
 - `POST /runs/:id/rerun-failed` reruns only failed execution checks
 - `GET /runs/:id/assets` fetches persisted scripts/test cases for reuse
 - `GET /runs/:id/download` downloads final PDF report with screenshots

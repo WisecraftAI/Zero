@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import './IntegrationsView.css';
+import './IntegrationsView.scss';
 
 const INTEGRATIONS = [
   {

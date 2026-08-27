@@ -76,7 +76,7 @@ Use API keys for authentication. Include the key in the \`x-api-key\` header.
             id: { type: "string", example: "1778589607382-20535" },
             status: { 
               type: "string", 
-              enum: ["pending", "running", "completed", "failed"],
+              enum: ["queued", "awaiting_uploads", "running", "stopping", "stopped", "completed", "failed"],
               example: "completed"
             },
             createdAt: { type: "string", format: "date-time" },

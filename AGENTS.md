@@ -63,11 +63,11 @@ docker compose up --build workflow
 | `services/executor/` | Playwright job worker (`execution.requested`) |
 | `packages/cloud` | Queue · object store · secrets · cache (`ZERO_CLOUD`) |
 | `packages/{db,domain,locators,builders,analyzer}` | Shared libs imported as `@zero/*` |
-| `web/` | React 18 + Vite SPA (`src/views`, `src/components`, `src/layouts`) |
+| `web/` | React 18 + Vite SPA (`src/views`, `src/components`, `src/layouts`, SCSS in `src/styles`) |
 | `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
 | `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
 | `support/zero-docs/` | Docs site (`:5174`) + markdown under `docs/v1` (runtime) and `docs/v2` (target). See `support/zero-docs/README.md`. |
-| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done), **Q5 open**. Docker: `workflow` service on `:5175` |
+| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done), **Q5 open**, **U1–U2 UI/UX done**. Docker: `workflow` service on `:5175` |
 | `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
 | `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
@@ -122,7 +122,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 - `POST /runs` — multipart start (`tcFile`, `recordingFile`) or JSON with `uploads: ["tcFile"]` → presigned PUTs
 - `POST /runs/:id/commit` — after presigned uploads, start the pipeline
-- `GET /runs`, `GET /runs/:id`, `GET /runs/:id/stream` (SSE), `POST /runs/:id/rerun-failed`
+- `GET /runs`, `GET /runs/:id`, `GET /runs/:id/stream` (SSE), `POST /runs/:id/stop`, `POST /runs/:id/rerun-failed`
 - `GET /runs/:id/assets`, `GET /runs/:id/files/:name`, `GET /runs/:id/download` (`?format=json&url=1` for a signed URL)
 - `GET|PUT /cloud/local` — fulfill local signed URLs
 - `POST /element-log`, `GET /locators?host=...`
@@ -135,6 +135,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
 - **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
+- **Styles**: SCSS (dart-sass via Vite). Each component keeps a sibling `.scss`; shared partials live in `web/src/styles/` — `_tokens.scss` (radius/type/space), `_themes.scss` (the `$themes` map that emits every `[data-theme]` palette), `_base.scss`, `_breakpoints.scss` (`bp.below($width)`). Theming stays on CSS custom properties because `ThemePicker` swaps `data-theme` at runtime; Sass variables would compile away.
 - **Server changes**: HTTP routes live in `services/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`services/executor/`). Compose splits that into its own image; locally use `npm run start:all` (or separate `npm run orchestrator` / `npm run execution`) when you need workers. Shared code is `@zero/*` packages.
 - **Output roots**: regenerable files under `dist/` via `@zero/domain` `outputRoots` (`web`, `artifacts`, `coverage`, `logs`). Override with `ZERO_DIST_ROOT`.
 - **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.
@@ -176,7 +177,7 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | Skill | Use for |
 |-------|---------|
 | `init` | Install stack-matched pro skills into `.cursor/skills` + `.agents/skills` |
-| `zero-target-arch` | Verify packaging S0–S7 and product Q1–Q4 (done), and **advance Q5** via `support/agent-workflow/` |
+| `zero-target-arch` | Verify packaging S0–S7 and product Q1–Q4 (done), **advance Q5**, or implement **U1–U2** (operator UI/UX) via `support/agent-workflow/` |
 | `zero-web` / `zero-api` / `zero-orchestrator` / `zero-executor` | Code one deployable (Web UI · HTTP API · Orchestrator worker · Playwright executor) |
 | `zero-cloud` / `zero-domain` / `zero-db` / `zero-locators` / `zero-builders` / `zero-analyzer` | Code one shared package |
 | `zero-architecture` | Zero-specific architecture explain / HTML publish |
@@ -193,7 +194,7 @@ Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Produ
 
 Autonomous path from runtime-today → Target architecture (`dist/web/architectureV2.html` after build, source in `web/public/`):
 
-- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: "Q5"` — domain + sub-domain classification, spec `milestones/Q5-domain-subdomain.md`, plan on the zero-docs **Next Milestone** tab)
-- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q5` (or any M/S/Q id)
+- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: "Q5"` — trustworthy site understanding, spec `milestones/Q5-domain-subdomain.md`; **U1–U2** operator UI/UX done, specs `milestones/U1-professional-ui-ux.md` and `milestones/U2-low-friction-canvas.md`)
+- Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q5` (or any M/S/Q/U id)
 - Docker instance: `http://localhost:5175/status` (compose service `workflow`, repo mounted at `/repo`)
 - Cloud contracts: `@zero/cloud` (`ZERO_CLOUD=local` by default)

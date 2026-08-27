@@ -299,22 +299,32 @@ async function testLocators(page) {
 async function testThemeToggle(page) {
   await page.goto(BASE, { waitUntil: 'networkidle' });
   const before = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  const themeBtn = page.locator('.sidebar-foot .nav-item').filter({ hasText: /Light Mode|Dark Mode/ }).first();
+  const themeBtn = page.getByRole('button', { name: /Choose theme/ });
   await themeBtn.click();
+  await page.waitForTimeout(150);
+  const options = page.getByRole('radio');
+  const count = await options.count();
+  if (count >= 2) pass('Theme picker', 'lists multiple themes', String(count));
+  else fail('Theme picker', 'lists multiple themes', `count=${count}`);
+
+  const next = options.filter({ hasNot: page.locator('[aria-checked="true"]') }).first();
+  await next.click();
   await page.waitForTimeout(200);
   const after = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  if (before !== after) pass('Theme toggle', 'switches theme', `${before} → ${after}`);
-  else fail('Theme toggle', 'switches theme');
+  if (before !== after) pass('Theme picker', 'switches theme', `${before} → ${after}`);
+  else fail('Theme picker', 'switches theme');
 
   const stored = await page.evaluate(() => localStorage.getItem('zero-theme'));
-  if (stored === after) pass('Theme toggle', 'persists to localStorage', stored);
-  else fail('Theme toggle', 'persists to localStorage', `stored=${stored} theme=${after}`);
+  if (stored === after) pass('Theme picker', 'persists to localStorage', stored);
+  else fail('Theme picker', 'persists to localStorage', `stored=${stored} theme=${after}`);
 
   await themeBtn.click();
+  await page.waitForTimeout(150);
+  await page.locator(`.theme-option[aria-label*="${before}" i]`).first().click();
   await page.waitForTimeout(200);
   const restored = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  if (restored === before) pass('Theme toggle', 'toggle back restores original');
-  else fail('Theme toggle', 'toggle back restores original');
+  if (restored === before) pass('Theme picker', 'selecting original restores theme');
+  else fail('Theme picker', 'selecting original restores theme', `wanted ${before} got ${restored}`);
 }
 
 async function testSidebarCollapse(page) {
