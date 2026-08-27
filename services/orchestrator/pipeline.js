@@ -137,8 +137,25 @@ function inferProfile(ottUrl, requestedProfile) {
   if (host.includes("tvnz")) return "tvnz";
   if (host.includes("aha") || host.includes("aha.video") || host.includes("ahatv")) return "aha";
   if (host.includes("hotstar")) return "hotstar";
-  if (host.includes("primevideo") || host.includes("amazon")) return "primevideo";
+  if (host.includes("primevideo")) return "primevideo";
   return "default";
+}
+
+function inferDomainFallbackProfile(ottUrl, requestedProfile) {
+  const requested = String(requestedProfile || "").trim().toLowerCase();
+  if (requested && appProfiles[requested]) return requested;
+
+  const host = hostFromUrl(ottUrl);
+
+  const ecommerceHosts = [
+    "amazon", "flipkart", "myntra", "snapdeal", "ajio", "nykaa", "meesho", "tatacliq", "ebay", "walmart", "target", "bestbuy"
+  ];
+  if (ecommerceHosts.some((name) => host.includes(name))) return "ecommerce";
+
+  if (host.includes("supersaravanastores") || host.includes("saravana")) return "retail_store";
+  if (host.includes("mankindpharma") || host.includes("pharma") || host.includes("health")) return "healthcare";
+
+  return inferProfile(ottUrl, requestedProfile);
 }
 
 function parseTcFile(raw) {
@@ -323,8 +340,8 @@ function consolidateRequirements(input) {
       profileKey = inferProfile(input.ottUrl, input.channelProfile);
     }
   } else {
-    // Fallback to OTT profile inference for backward compatibility
-    profileKey = inferProfile(input.ottUrl, input.channelProfile);
+    // Fallback to lightweight host-based domain inference when URL Analyzer data is unavailable.
+    profileKey = inferDomainFallbackProfile(input.ottUrl, input.channelProfile);
   }
   
   const profile = appProfiles[profileKey] || appProfiles.default;
@@ -844,6 +861,10 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
   const totalCases = (manualCases.testCases || []).length;
   const totalExecuted = tests.length;
   const passRate = executionReport.totals.passRate || "0%";
+  const profileKey = String(requirements?.metadata?.profileKey || "default").toLowerCase();
+  const ottProfileKeys = new Set(["gray", "tvnz", "aha", "hotstar", "primevideo", "default"]);
+  const isOttContext = ottProfileKeys.has(profileKey);
+  const targetLabel = isOttContext ? "OTT URL" : "target URL";
 
   const rootCauses = [];
   const errorMessages = new Set(failures.map((f) => String(f.error).slice(0, 80)));
@@ -860,7 +881,11 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
     rootCauses.push("Auth flow: login/OTP elements not found; check credentials or selectors");
   }
   if (failures.some((t) => String(t.error).includes("Search") || String(t.error).includes("EPG") || String(t.error).includes("channel"))) {
-    rootCauses.push("Navigation: Search, EPG or channel entry not visible on landing");
+    rootCauses.push(
+      isOttContext
+        ? "Navigation: Search, EPG, or channel entry not visible on landing"
+        : "Navigation: search entry or product/result navigation is not visible on landing"
+    );
   }
   if (!rootCauses.length && failures.length) {
     rootCauses.push("General: selector drift, timing, or environment variability");
@@ -895,14 +920,14 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
 
   const actionPlan = [];
   if (failures.length) {
-    actionPlan.push("1. Fix failing tests: update selectors or add element logs for missing elements");
-    actionPlan.push("2. Re-run failed only (Re-run Failed button) after selector/flow fixes");
+    actionPlan.push("Fix failing tests: update selectors or add element logs for missing elements");
+    actionPlan.push("Re-run failed only (Re-run Failed button) after selector/flow fixes");
   }
   if (rootCauses.some((r) => r.includes("Auth"))) {
-    actionPlan.push("3. Provide valid login credentials in the run form if the app has a login wall");
+    actionPlan.push("Provide valid login credentials in the run form if the app has a login wall");
   }
-  actionPlan.push("4. Use Element log tab to feed stable selectors for this OTT URL (Postgres required)");
-  actionPlan.push("5. Add assertion lines (selector: or text:) for critical UI checks");
+  actionPlan.push(`Use Element log tab to feed stable selectors for this ${targetLabel} (Postgres required)`);
+  actionPlan.push("Add assertion lines (selector: or text:) for critical UI checks");
 
   // Include optional agent summaries
   const optionalAgentSummaries = {};
