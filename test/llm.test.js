@@ -173,6 +173,71 @@ describe("M6 LLM wiring", () => {
     expect(hits).toBe(1);
   });
 
+  it("maps OpenAI 401 bodies to invalid_key instead of ERR_BAD_REQUEST", async () => {
+    const err = new Error("Request failed with status code 401");
+    err.code = "ERR_BAD_REQUEST";
+    err.response = {
+      status: 401,
+      data: { error: { message: "Incorrect API key provided: sk-test", type: "invalid_request_error", code: "invalid_api_key" } }
+    };
+    const llm = createLlm({
+      http: mockHttp(() => {
+        throw err;
+      })
+    });
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { requirementStatements: ["Shell must render"], metadata: {} },
+      store: {
+        getKey: async (provider) => (provider === "openai" ? "sk-test-openai-key" : null),
+        getSettings: async () => ({ provider: "openai", model: "gpt-4o-mini" })
+      },
+      runId: "bad-key"
+    });
+    expect(out.metadata.llm.used).toBe(false);
+    expect(out.metadata.llm.fallbackReason).toBe("invalid_key");
+    expect(out.metadata.llm.fallbackMessage).toMatch(/Incorrect API key/i);
+    expect(out.metadata.llm.fallbackMessage).not.toMatch(/sk-test/);
+  });
+
+  it("retries a second OpenAI model when the first is unknown", async () => {
+    const models = [];
+    const llm = createLlm({
+      http: mockHttp(({ body }) => {
+        models.push(body.model);
+        if (body.model === "gpt-4o-mini") {
+          const err = new Error("Request failed with status code 404");
+          err.code = "ERR_BAD_REQUEST";
+          err.response = {
+            status: 404,
+            data: { error: { message: "The model `gpt-4o-mini` does not exist", code: "model_not_found" } }
+          };
+          throw err;
+        }
+        return {
+          data: {
+            choices: [{ message: { content: JSON.stringify({ extraRequirements: ["Retry model worked"] }) } }],
+            usage: { prompt_tokens: 2, completion_tokens: 2 }
+          }
+        };
+      })
+    });
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { requirementStatements: ["Shell must render"], metadata: {} },
+      store: {
+        getKey: async (provider) => (provider === "openai" ? "sk-test-openai-key" : null),
+        getSettings: async () => ({ provider: "openai", model: "gpt-4o-mini" })
+      },
+      runId: "model-fallback"
+    });
+    expect(models[0]).toBe("gpt-4o-mini");
+    expect(models[1]).toBe("gpt-4o");
+    expect(out.metadata.llm.used).toBe(true);
+    expect(out.metadata.llm.model).toBe("gpt-4o");
+    expect(out.requirementStatements).toContain("Retry model worked");
+  });
+
   it("redacts keys and parses fenced JSON", () => {
     expect(redact("sk-abcdefghijklmnop")).toBe("••••mnop");
     expect(parseJsonContent("```json\n{\"a\":1}\n```")).toEqual({ a: 1 });

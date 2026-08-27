@@ -84,6 +84,14 @@ export default function TabContent({ run, activeTab, placeholder }) {
             <p>No site data was collected, so the domain could not be determined.</p>
           </div>
         )}
+        {!analysisFailed && (data.warnings || []).length > 0 && (
+          <div className="manager-section">
+            <h3>Analyzer Warnings</h3>
+            <ul>
+              {(data.warnings || []).slice(0, 8).map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </div>
+        )}
         <div className="manager-section">
           <h3>Site Overview</h3>
           <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
@@ -112,9 +120,9 @@ export default function TabContent({ run, activeTab, placeholder }) {
           <div className="manager-section">
             <h3>Discovered Pages</h3>
             <ul>
-              {data.discoveredPages.map((p, i) => (
-                <li key={i}><strong>{p.linkText}</strong>: {p.title} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
-              ))}
+          {data.discoveredPages.map((p, i) => (
+              <li key={i}><strong>{p.linkText || p.path || p.title || 'Page'}</strong>: {p.title || p.url} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
+            ))}
             </ul>
           </div>
         )}

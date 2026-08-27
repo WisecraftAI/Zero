@@ -1,17 +1,20 @@
 ---
 name: zero-target-arch
 description: >-
-  Advance ZER0 agent workflow: packaging S0–S7, then product Q1–Q4 (autonomous
-  any-URL QA). Use for target architecture, /zero-target-arch, agent workflow,
-  autonomous QA, any-URL testing, or milestone Q1–Q4.
+  Advance ZER0 agent workflow: packaging S0–S7 (done), product Q1–Q4 (done),
+  then Q5 domain + sub-domain classification. Use for target architecture,
+  /zero-target-arch, agent workflow, autonomous QA, any-URL testing, or
+  milestone Q5. Prefer this over zero-architecture when the goal is to
+  implement (not just document).
 ---
 
 # ZER0 Agent Workflow — Packaging + Product
 
 ## When this skill owns the task
 
-- **Packaging:** four images, split routes, `/api` prefix drop (S0–S7)
-- **Product:** URL-only QA — crawl → domain cases → execute flows → AI gate (Q1–Q4)
+- **Packaging:** four images, split routes, `/api` prefix drop (S0–S7) — **done**
+- **Product:** URL-only QA — crawl → domain cases → execute flows → AI gate (Q1–Q4) — **done**
+- **Current:** Q5 — domain + sub-domain classification (`progress.json` `"current": "Q5"`)
 
 For explain/publish HTML only → use `zero-architecture`.
 For diagrams → use `zero-diagrams`.
@@ -21,11 +24,11 @@ For diagrams → use `zero-diagrams`.
 1. Read `support/agent-workflow/WORKFLOW.md`
 2. Run `npm run workflow:status`
 3. Open the earliest unfinished spec:
-   - `milestones/S{N}-*.md` + `prompts/packaging.md` (packaging)
-   - `milestones/Q{N}-*.md` + `prompts/autonomous-qa.md` (product)
+   - Packaging: `milestones/S{N}-*.md` + `prompts/packaging.md` (all done)
+   - Product: `milestones/Q5-domain-subdomain.md` + `prompts/autonomous-qa.md`
 4. Follow: **plan → implement → verify → update progress.json → continue if asked**
 
-Do **not** invent a different cloud shape. Do **not** re-implement M1–M7.
+Do **not** invent a different cloud shape. Do **not** re-implement M1–M7 or S0–S7.
 
 ## North star (do not redesign)
 
@@ -35,17 +38,17 @@ Do **not** invent a different cloud shape. Do **not** re-implement M1–M7.
 | Orchestrator worker | `services/orchestrator/` | `@zero/orchestrator` | `/zero-orchestrator` |
 | Playwright executor | `services/executor/` | `@zero/executor` | `/zero-executor` |
 
-Primitives via `@zero/cloud` (`ZERO_CLOUD=local|aws|gcp|azure|vercel`).
+Primitives via `@zero/cloud` (`ZERO_CLOUD=local|aws|gcp|azure|vercel`). Azure/Vercel adapters exist (S6); default remains `local`.
 
 ## Order
 
-Capability (frozen): `M1` → … → `M7`
+Capability (frozen): `M1` → … → `M7` — done.
 
 Packaging: `S0` → … → `S7` — done.
 
-**Product:** `Q1` → `Q2` → `Q3` → `Q4` — autonomous any-URL QA — **done**. Prompt: `prompts/autonomous-qa.md`.
+**Product:** `Q1` → `Q2` → `Q3` → `Q4` — done. **`Q5` open** — two-level site taxonomy (domain + sub-domain) drives generated cases. Spec: `milestones/Q5-domain-subdomain.md`. Workspaces: `/zero-analyzer` (taxonomy + detection), `/zero-orchestrator` (`inferDomain`), `/zero-executor` (artifact bridge), `/zero-db` (optional cache table), `/zero-web` (run view).
 
-If every hardened probe is green, do not invent another milestone without an approved requirement.
+If Q5 probes are green, do not invent another milestone without an approved requirement.
 
 ## Agent roles
 
@@ -59,7 +62,7 @@ If every hardened probe is green, do not invent another milestone without an app
 
 ```bash
 npm run workflow:status
-npm run workflow:verify -- --milestone Q1
+npm run workflow:verify -- --milestone Q5
 ```
 
 ## Progress
@@ -68,9 +71,10 @@ Update `support/agent-workflow/progress.json` only after verify exits 0. Flip `s
 
 ## Product rules (preserve)
 
-- Pipeline `stageKeys` order; locator merge profile → memory → DB
+- Pipeline `stageKeys` order; locator merge prefers DB then memory then profile
 - `EXECUTION_MODE=minimal` is not E2E proof
 - No login passwords in artifacts/logs
 - UI edits in `web/src/**` + `npm run build`
 - Services never import sibling `services/*`
 - Ask before destructive migrations or public API breaks
+- Sub-domain means the taxonomy level (`ECOMMERCE` / grocery), not the DNS label

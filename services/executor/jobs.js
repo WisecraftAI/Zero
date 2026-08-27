@@ -15,6 +15,12 @@ function createJobs(deps) {
   const dbHelpers = deps.dbHelpers;
   const hostFromUrl = deps.hostFromUrl;
 
+  function usablePageTitle(value, fallback) {
+    const title = String(value || "").trim();
+    if (!title || /^analysis (complete|failed)$/i.test(title)) return fallback;
+    return title;
+  }
+
   function safeList(text) {
     return (text || "")
       .split(/\r?\n/)
@@ -1724,8 +1730,14 @@ function createJobs(deps) {
     let browser = null;
 
     try {
-      browser = await chromium.launch({ headless, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
-      const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+      browser = await chromium.launch({
+        headless,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
+      });
+      const analyzerContext = urlAnalyzerPro.ANALYZER_BROWSER_CONTEXT || {
+        viewport: { width: 1440, height: 900 },
+      };
+      const context = await browser.newContext(analyzerContext);
       const page = await context.newPage();
 
       // Use the PRO URL Analyzer for comprehensive professional analysis
@@ -1781,20 +1793,22 @@ function createJobs(deps) {
           subDomainKey: subDomain?.key || null,
           subDomainConfidence: subDomain?.confidence ?? null,
           classificationSource: subDomain?.source || 'rules',
-          siteName: analysisResult.pageStructure?.title || hostFromUrl(ottUrl) || 'Website',
+          siteName: usablePageTitle(analysisResult.pageStructure?.title, hostFromUrl(ottUrl)) || 'Website',
           analysisDepth: 'professional',
-          duration: analysisResult.analysisTime || 0
+          duration: analysisResult.analysisTime || 0,
+          thinCrawl: Boolean(analysisResult.thinCrawl)
         },
         siteOverview: {
           // Fall back to the host rather than a status string — "Analysis Complete"
           // read like a title and hid the fact that no page title was found.
-          title: analysisResult.pageStructure?.title || hostFromUrl(ottUrl) || "Untitled page",
+          title: usablePageTitle(analysisResult.pageStructure?.title, hostFromUrl(ottUrl)) || "Untitled page",
           description: analysisResult.pageStructure?.metaTags?.description || "",
           type: websiteType.typeName,
           subDomain: subDomain?.name || null,
           url: ottUrl,
           pagesDiscovered: analysisResult.pagesCrawled || analysisResult.pagesAnalyzed || 1
         },
+        thinCrawl: Boolean(analysisResult.thinCrawl),
         domainClassification: {
           domain: websiteType.typeName,
           domainKey: websiteType.type || 'GENERIC',
@@ -1818,6 +1832,7 @@ function createJobs(deps) {
           url: p.url,
           title: p.title,
           path: p.path,
+          linkText: (p.navLabels && p.navLabels[0]) || p.path || p.title || p.url,
           depth: p.depth,
           formCount: p.formCount,
           elementCounts: p.elementCounts,
@@ -1858,6 +1873,7 @@ function createJobs(deps) {
         selectors: {},
         observations: analysisResult.observations || [],
         warnings: analysisResult.warnings || [],
+        thinCrawl: Boolean(analysisResult.thinCrawl),
         
         // BRD Document
         brdDocument: analysisResult.brd || null,
@@ -1896,6 +1912,14 @@ function createJobs(deps) {
         // Suggested test areas based on website type
         suggestedTestAreas: (() => {
           const areas = [];
+
+          if (subDomain?.testPriorities?.length) {
+            areas.push({
+              area: subDomain.name,
+              priority: "Critical",
+              tests: subDomain.testPriorities.slice(0, 8),
+            });
+          }
           
           // Add type-specific test areas
           if (websiteType.type === 'RETAIL_STORE') {

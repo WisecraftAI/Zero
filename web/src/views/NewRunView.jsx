@@ -41,7 +41,21 @@ export default function NewRunView({ onSubmit }) {
   };
 
   // Detect website type dynamically
+  const targetUrl = useMemo(() => normalizeTargetUrl(ottUrl), [ottUrl]);
   const websiteType = useMemo(() => detectWebsiteTypeFromUrl(ottUrl), [ottUrl]);
+
+  const handleVerify = () => {
+    const url = normalizeTargetUrl(ottUrl);
+    if (!url) {
+      setError('Enter a valid website URL. https:// is added automatically if omitted.');
+      return;
+    }
+    setError('');
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      setError('Could not open the URL. Allow pop-ups for this site, or check the address.');
+    }
+  };
 
   useEffect(() => {
     console.log('[NewRunView] MOUNTED');
@@ -86,7 +100,7 @@ export default function NewRunView({ onSubmit }) {
     if (!form) return;
 
     const url = normalizeTargetUrl(form.ottUrl?.value);
-    if (!url) { setError('Target URL is required.'); return; }
+    if (!url) { setError('Enter a valid website URL. https:// is added automatically if omitted.'); return; }
     
     const file  = form.tcFile?.files?.[0];
     const notes = form.notes?.value?.trim();
@@ -172,14 +186,25 @@ export default function NewRunView({ onSubmit }) {
                     value={ottUrl}
                     onChange={e => setOttUrl(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    className="btn btn-secondary nrv-verify-btn"
-                    disabled={!ottUrl.trim()}
-                    onClick={() => window.open(ottUrl, '_blank')}
-                  >
-                    Verify ↗
-                  </button>
+                  {targetUrl ? (
+                    <a
+                      className="btn btn-secondary nrv-verify-btn"
+                      href={targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Verify ↗
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-secondary nrv-verify-btn"
+                      disabled={!ottUrl.trim()}
+                      onClick={handleVerify}
+                    >
+                      Verify ↗
+                    </button>
+                  )}
                 </div>
               </Field>
               <Field label="OTT channel override" hint="Optional — leave Auto for non-streaming sites">
@@ -204,7 +229,7 @@ export default function NewRunView({ onSubmit }) {
                 </div>
                 <div className="nrv-ai-line">
                   <span className="nrv-ai-key">URL</span>
-                  <span className="nrv-ai-val nrv-ai-url">{ottUrl || 'Not set'}</span>
+                  <span className="nrv-ai-val nrv-ai-url">{targetUrl || ottUrl || 'Not set'}</span>
                 </div>
                 <div className="nrv-ai-line">
                   <span className="nrv-ai-key">Agents</span>

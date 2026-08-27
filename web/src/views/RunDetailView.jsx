@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PipelineFlow from '../components/PipelineFlow';
 import RunProgressPanel from '../components/RunProgressPanel';
 import { apiUrl, artifactUrl } from '../apiBase';
+import { collectLlmIssues } from '../lib/llmStatus';
 import './RunDetailView.css';
 
 /* ─── Tab definitions ─────────────────────────────────────── */
@@ -68,6 +69,7 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack, strea
 
   const hasFailures = run?.artifacts?.executionReport?.totals?.failed > 0;
   const canDownload = run?.status === 'completed';
+  const llmIssues = collectLlmIssues(run);
 
   const es = run?.artifacts?.managerReport?.executiveSummary || {};
   const verdictKey = (es.verdict || '').toLowerCase() === 'go' ? 'go'
@@ -111,6 +113,20 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack, strea
           </button>
         </div>
       </div>
+
+      {llmIssues.length > 0 && (
+        <div className="rdt-llm-alert" role="status">
+          <strong>AI enrichment fell back to templates.</strong>
+          <ul>
+            {llmIssues.map((issue, i) => (
+              <li key={i}>
+                {issue.provider || 'provider'}{issue.model ? ` / ${issue.model}` : ''}: {issue.message}
+              </li>
+            ))}
+          </ul>
+          <p>Fix the key under API Keys, click Enable AI on Agents, then start a new run.</p>
+        </div>
+      )}
 
       {/* Pipeline flow */}
       <div className="rdt-pipeline-panel">
@@ -424,6 +440,7 @@ function WebAnalysisTab({ run }) {
   const classificationSource = classification.source || data.metadata?.classificationSource || null;
   const analysisFailed = Boolean(data.analysisFailed || data.error);
   const warnings = data.warnings || [];
+  const thinCrawl = Boolean(data.thinCrawl || data.metadata?.thinCrawl);
   const focusAreas = data.subDomainTestPriorities || [];
   const focusFlows = data.subDomainCriticalFlows || [];
 
@@ -468,10 +485,10 @@ function WebAnalysisTab({ run }) {
           </div>
         </div>
       </Section>
-      {!analysisFailed && warnings.length > 0 && (
+      {!analysisFailed && (warnings.length > 0 || thinCrawl) && (
         <Section title="Analyzer Warnings">
           <ul className="issue-list">
-            {warnings.slice(0, 8).map((w, i) => (
+            {(warnings.length ? warnings : ['The page rendered little or no interactive content.']).slice(0, 8).map((w, i) => (
               <li key={i} className="issue issue--warning">{w}</li>
             ))}
           </ul>
@@ -536,7 +553,7 @@ function WebAnalysisTab({ run }) {
         <Section title="Discovered Pages">
           <ul className="page-list">
             {data.discoveredPages.map((p, i) => (
-              <li key={i}><strong>{p.linkText}</strong>: {p.title} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
+              <li key={i}><strong>{p.linkText || p.path || p.title || 'Page'}</strong>: {p.title || p.url} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
             ))}
           </ul>
         </Section>

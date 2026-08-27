@@ -51,6 +51,25 @@
   flex-wrap: wrap;
 }
 
+.rdt-llm-alert {
+  background: var(--amber-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+.rdt-llm-alert ul {
+  margin: 8px 0 6px;
+  padding-left: 18px;
+}
+.rdt-llm-alert p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.82rem;
+}
+
 /* Pipeline panel */
 .rdt-pipeline-panel {
   background: var(--surface);

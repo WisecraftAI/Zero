@@ -47,8 +47,31 @@ module.exports = function registerSettingsRoutes(app, ctx) {
     if (!ALLOWED_PROVIDERS.includes(provider)) {
       return res.status(400).json({ error: `Unknown provider. Use one of: ${ALLOWED_PROVIDERS.join(", ")}` });
     }
-    const key = (req.body?.key || "").toString().trim();
+    let key = (req.body?.key || "").toString().trim();
+    if (key.toLowerCase().startsWith("bearer ")) key = key.slice(7).trim();
     if (!key) return res.status(400).json({ error: "Field 'key' is required." });
+
+    if (provider === "openai" && key.startsWith("sk-ant-")) {
+      return res.status(400).json({ error: "That looks like an Anthropic key. Save it under Claude." });
+    }
+    if (provider === "openai" && !key.startsWith("sk-")) {
+      return res.status(400).json({
+        error: "OpenAI API keys start with sk-. Use a key from https://platform.openai.com/api-keys, not a ChatGPT login."
+      });
+    }
+    if (provider === "claude" && !key.startsWith("sk-ant-")) {
+      return res.status(400).json({ error: "Anthropic keys start with sk-ant-." });
+    }
+
+    const TEST_PROVIDERS = { openai: "OPENAI", claude: "ANTHROPIC", gemini: "GOOGLE" };
+    try {
+      const probed = await ctx.apiKeyManager.testKey(key, TEST_PROVIDERS[provider]);
+      if (probed && probed.valid === false) {
+        return res.status(400).json({ error: probed.message || "Provider rejected this API key." });
+      }
+    } catch (error) {
+      return res.status(502).json({ error: `Could not verify key: ${error.message}` });
+    }
 
     try {
       const userEmail = getUserEmail(req);

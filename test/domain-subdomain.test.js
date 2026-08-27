@@ -1,7 +1,7 @@
 "use strict";
 
-const { scoreIndicators, matchesIndicator } = require("../packages/analyzer/lib/classify/indicatorMatch");
-const { detectWebsiteType } = require("../packages/analyzer/lib/classify/websiteType");
+const { scoreIndicators, matchesIndicator, matchesHostnameLabel } = require("../packages/analyzer/lib/classify/indicatorMatch");
+const { detectWebsiteType, matchHostnameToDomain } = require("../packages/analyzer/lib/classify/websiteType");
 const { scoreSubDomains } = require("../packages/analyzer/lib/classify/subDomain");
 const { subDomainNames, resolveSubDomain } = require("../packages/analyzer/lib/classify/domainTaxonomy");
 const {
@@ -50,6 +50,12 @@ describe("indicator matching", () => {
     expect(score.weighted).toBe(3);
     expect(score.maxWeight).toBe(3);
   });
+
+  it("matches hostname labels without substring false positives", () => {
+    expect(matchesHostnameLabel("www.zepto.com", ["zepto", "exam"])).toBe("zepto");
+    expect(matchesHostnameLabel("example.com", ["exam"])).toBeNull();
+    expect(matchesHostnameLabel("acko.com", ["acko"])).toBe("acko");
+  });
 });
 
 describe("domain classification", () => {
@@ -64,6 +70,28 @@ describe("domain classification", () => {
     expect(result.type).toBe("GENERIC");
     expect(result.typeName).toBe("Website");
     expect(result.confidence).toBe(0);
+  });
+
+  it("does not lift a domain from a short sub-domain fragment inside another word", () => {
+    expect(matchHostnameToDomain("example.com")).toBeNull();
+    expect(matchHostnameToDomain("www.example.com")).toBeNull();
+  });
+
+  it("resolves zepto.com to ECOMMERCE from the grocery hostname hint, even with empty page text", async () => {
+    const page = mockPage({ text: "", title: "" });
+
+    const result = await detectWebsiteType(page, "https://www.zepto.com");
+
+    expect(result.type).toBe("ECOMMERCE");
+    expect(result.typeName).toBe("E-commerce Platform");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.9);
+    expect(result.indicators.join(" ")).toMatch(/zepto/i);
+  });
+
+  it("keeps domain-level brands on the parent type", () => {
+    const match = matchHostnameToDomain("www.amazon.in");
+    expect(match.type).toBe("ECOMMERCE");
+    expect(match.source).toBe("domain");
   });
 
   it("reaches the parent domain through sub-domain vocabulary", async () => {
@@ -111,6 +139,18 @@ describe("sub-domain classification", () => {
     });
 
     expect(subDomain.name).toBe("Hotels and Stays");
+    expect(subDomain.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("picks Grocery under ECOMMERCE from the zepto hostname", () => {
+    const { subDomain } = scoreSubDomains({
+      domainKey: "ECOMMERCE",
+      text: "",
+      hostname: "www.zepto.com",
+    });
+
+    expect(subDomain).toBeTruthy();
+    expect(subDomain.name).toBe("Grocery and Daily Essentials");
     expect(subDomain.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
@@ -311,5 +351,26 @@ describe("sub-domain driven case generation", () => {
     });
     // Broad domain areas still appear, after the sub-domain ones.
     expect(modules).toEqual(expect.arrayContaining(["Login Security"]));
+  });
+});
+
+describe("analyzer browser context", () => {
+  const {
+    ANALYZER_USER_AGENT,
+    ANALYZER_BROWSER_CONTEXT,
+    DEFAULT_GEOLOCATION,
+    LOCATION_LABEL,
+  } = require("../packages/analyzer/lib/crawl/settle");
+
+  it("does not use Playwright's headless UA that grocery SPAs serve as an empty shell", () => {
+    expect(ANALYZER_USER_AGENT).toMatch(/Chrome\/\d+/);
+    expect(ANALYZER_USER_AGENT).not.toMatch(/Headless/i);
+    expect(ANALYZER_BROWSER_CONTEXT.userAgent).toBe(ANALYZER_USER_AGENT);
+    expect(ANALYZER_BROWSER_CONTEXT.locale).toBe("en-IN");
+    expect(ANALYZER_BROWSER_CONTEXT.timezoneId).toBe("Asia/Kolkata");
+    expect(ANALYZER_BROWSER_CONTEXT.geolocation).toEqual(DEFAULT_GEOLOCATION);
+    expect(ANALYZER_BROWSER_CONTEXT.permissions).toEqual(expect.arrayContaining(["geolocation"]));
+    expect(LOCATION_LABEL.test("Detect my location")).toBe(true);
+    expect(LOCATION_LABEL.test("Use current location")).toBe(true);
   });
 });

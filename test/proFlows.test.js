@@ -246,6 +246,17 @@ describe("detectUserFlows integration", () => {
     expect(detectUserFlows({ type: "CORPORATE" }, [], [])).toEqual([]);
   });
 
+  it("falls back to taxonomy critical flows when the crawl is empty", () => {
+    const flows = detectUserFlows(
+      { type: "ECOMMERCE", criticalFlows: ["Search to Purchase", "Cart Management"] },
+      [],
+      [],
+      { name: "Grocery and Daily Essentials", criticalFlows: ["Serviceability Check to Checkout"] }
+    );
+
+    expect(flowNames(flows)).toEqual(["Serviceability Check to Checkout", "Search to Purchase", "Cart Management"]);
+  });
+
   it("preserves step and assertion shape for downstream test generation", () => {
     const flows = detectUserFlows(
       { type: "BANKING_FINANCE" },

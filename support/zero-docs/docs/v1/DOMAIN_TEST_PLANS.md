@@ -45,271 +45,271 @@ first-match order; `Resolved sub-domain` is what `scoreSubDomains` then returns 
 | Site fragment | Declared under | Resolved domain | Resolved sub-domain |
 |---------------|----------------|-----------------|---------------------|
 | `1mg` | `HEALTHCARE_PHARMA` · `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
-| `99acres` | `MARKETPLACE/RENTALS` | — _(page text only)_ | — |
-| `abhibus` | `TRAVEL_BOOKING/RAIL_BUS` | — _(page text only)_ | — |
+| `99acres` | `MARKETPLACE/RENTALS` | `MARKETPLACE` | `RENTALS` |
+| `abhibus` | `TRAVEL_BOOKING/RAIL_BUS` | `TRAVEL_BOOKING` | `RAIL_BUS` |
 | `ac.` | `EDUCATION/HIGHER_ED` | — _(page text only)_ | — |
-| `accenture` | `CORPORATE/IT_SERVICES` | — _(page text only)_ | — |
-| `acko` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `agoda` | `TRAVEL_BOOKING/HOTELS` | — _(page text only)_ | — |
+| `accenture` | `CORPORATE/IT_SERVICES` | `CORPORATE` | `IT_SERVICES` |
+| `acko` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `agoda` | `TRAVEL_BOOKING/HOTELS` | `TRAVEL_BOOKING` | `HOTELS` |
 | `aha` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
 | `airbnb` | `TRAVEL_BOOKING` · `MARKETPLACE` · `MARKETPLACE/RENTALS` | `TRAVEL_BOOKING` | — |
-| `airindia` | `TRAVEL_BOOKING/FLIGHTS` | — _(page text only)_ | — |
-| `ajio` | `ECOMMERCE/FASHION` | — _(page text only)_ | — |
+| `airindia` | `TRAVEL_BOOKING/FLIGHTS` | `TRAVEL_BOOKING` | `FLIGHTS` |
+| `ajio` | `ECOMMERCE/FASHION` | `ECOMMERCE` | `FASHION` |
 | `amazon` | `ECOMMERCE` · `MARKETPLACE/MULTI_VENDOR_RETAIL` | `ECOMMERCE` | — |
-| `amplitude` | `SAAS/ANALYTICS` | — _(page text only)_ | — |
-| `analytics` | `SAAS/ANALYTICS` | — _(page text only)_ | — |
+| `amplitude` | `SAAS/ANALYTICS` | `SAAS` | `ANALYTICS` |
+| `analytics` | `SAAS/ANALYTICS` | `SAAS` | `ANALYTICS` |
 | `apollo` | `HEALTHCARE_PHARMA` | `HEALTHCARE_PHARMA` | — |
 | `apollohospitals` | `HEALTHCARE_PHARMA/HOSPITAL` | `HEALTHCARE_PHARMA` | `HOSPITAL` |
 | `apollopharmacy` | `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
 | `app.` | `SAAS` | `SAAS` | — |
-| `asana` | `SAAS/COLLABORATION` | — _(page text only)_ | — |
-| `atlassian` | `SAAS/COLLABORATION` | — _(page text only)_ | — |
-| `audible` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
-| `automobile` | `RETAIL_STORE/SHOWROOM` | — _(page text only)_ | — |
-| `avis` | `TRAVEL_BOOKING/CAR_RENTAL` | — _(page text only)_ | — |
+| `asana` | `SAAS/COLLABORATION` | `SAAS` | `COLLABORATION` |
+| `atlassian` | `SAAS/COLLABORATION` | `SAAS` | `COLLABORATION` |
+| `audible` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
+| `automobile` | `RETAIL_STORE/SHOWROOM` | `RETAIL_STORE` | `SHOWROOM` |
+| `avis` | `TRAVEL_BOOKING/CAR_RENTAL` | `TRAVEL_BOOKING` | `CAR_RENTAL` |
 | `axis` | `BANKING_FINANCE` | `BANKING_FINANCE` | — |
-| `bajajallianz` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `bajajfinserv` | `BANKING_FINANCE/LENDING` | — _(page text only)_ | — |
+| `bajajallianz` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `bajajfinserv` | `BANKING_FINANCE/LENDING` | `BANKING_FINANCE` | `LENDING` |
 | `bank` | `BANKING_FINANCE` · `BANKING_FINANCE/RETAIL_BANKING` | `BANKING_FINANCE` | `RETAIL_BANKING` |
 | `bbc` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
-| `beauty` | `ECOMMERCE/BEAUTY` | — _(page text only)_ | — |
-| `bigbasket` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | — _(page text only)_ | — |
+| `beauty` | `ECOMMERCE/BEAUTY` | `ECOMMERCE` | `BEAUTY` |
+| `bigbasket` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | `ECOMMERCE` | `GROCERY` |
 | `bigbazaar` | `RETAIL_STORE` · `RETAIL_STORE/SUPERMARKET` | `RETAIL_STORE` | `SUPERMARKET` |
-| `blinkit` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | — _(page text only)_ | — |
-| `bloomberg` | `NEWS_MEDIA/BUSINESS_NEWS` | — _(page text only)_ | — |
+| `blinkit` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | `ECOMMERCE` | `GROCERY` |
+| `bloomberg` | `NEWS_MEDIA/BUSINESS_NEWS` | `NEWS_MEDIA` | `BUSINESS_NEWS` |
 | `booking` | `TRAVEL_BOOKING` | `TRAVEL_BOOKING` | — |
 | `byju` | `EDUCATION` · `EDUCATION/K12` | `EDUCATION` | `K12` |
-| `card` | `BANKING_FINANCE/CARDS` | — _(page text only)_ | — |
-| `cartoon` | `OTT_STREAMING/KIDS` | — _(page text only)_ | — |
-| `cement` | `CORPORATE/MANUFACTURING` | — _(page text only)_ | — |
-| `classified` | `MARKETPLACE/CLASSIFIEDS` | — _(page text only)_ | — |
+| `card` | `BANKING_FINANCE/CARDS` | `BANKING_FINANCE` | `CARDS` |
+| `cartoon` | `OTT_STREAMING/KIDS` | `OTT_STREAMING` | `KIDS` |
+| `cement` | `CORPORATE/MANUFACTURING` | `CORPORATE` | `MANUFACTURING` |
+| `classified` | `MARKETPLACE/CLASSIFIEDS` | `MARKETPLACE` | `CLASSIFIEDS` |
 | `cleartrip` | `TRAVEL_BOOKING` | `TRAVEL_BOOKING` | — |
-| `clinic` | `HEALTHCARE_PHARMA/HOSPITAL` | — _(page text only)_ | — |
+| `clinic` | `HEALTHCARE_PHARMA/HOSPITAL` | `HEALTHCARE_PHARMA` | `HOSPITAL` |
 | `cloud.` | `SAAS` | `SAAS` | — |
 | `cnn` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
-| `college` | `EDUCATION/HIGHER_ED` | — _(page text only)_ | — |
-| `community` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | — _(page text only)_ | — |
-| `consult` | `HEALTHCARE_PHARMA/TELEMEDICINE` | — _(page text only)_ | — |
-| `consulting` | `CORPORATE/IT_SERVICES` | — _(page text only)_ | — |
+| `college` | `EDUCATION/HIGHER_ED` | `EDUCATION` | `HIGHER_ED` |
+| `community` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | `SOCIAL_MEDIA` | `COMMUNITY_FORUM` |
+| `consult` | `HEALTHCARE_PHARMA/TELEMEDICINE` | `HEALTHCARE_PHARMA` | `TELEMEDICINE` |
+| `consulting` | `CORPORATE/IT_SERVICES` | `HEALTHCARE_PHARMA` | `TELEMEDICINE` |
 | `corp` | `CORPORATE` · `CORPORATE/CONGLOMERATE` | `CORPORATE` | `CONGLOMERATE` |
 | `coursera` | `EDUCATION` · `EDUCATION/UPSKILLING` | `EDUCATION` | `UPSKILLING` |
-| `craigslist` | `MARKETPLACE/CLASSIFIEDS` | — _(page text only)_ | — |
-| `credit` | `BANKING_FINANCE/LENDING` | — _(page text only)_ | — |
-| `cricbuzz` | `NEWS_MEDIA/SPORTS_NEWS` | — _(page text only)_ | — |
-| `cricket` | `OTT_STREAMING/LIVE_SPORTS` | — _(page text only)_ | — |
-| `crm` | `SAAS/CRM_SALES` | — _(page text only)_ | — |
-| `croma` | `ECOMMERCE/ELECTRONICS` | — _(page text only)_ | — |
-| `darwinbox` | `SAAS/HR_PAYROLL` | — _(page text only)_ | — |
-| `dealer` | `RETAIL_STORE/SHOWROOM` | — _(page text only)_ | — |
-| `decathlon` | `RETAIL_STORE/SPECIALTY_RETAIL` | — _(page text only)_ | — |
-| `dev` | `SAAS/DEVTOOLS` | — _(page text only)_ | — |
-| `diagnostic` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | — _(page text only)_ | — |
-| `dinamalar` | `NEWS_MEDIA/REGIONAL_NEWS` | — _(page text only)_ | — |
-| `discourse` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | — _(page text only)_ | — |
+| `craigslist` | `MARKETPLACE/CLASSIFIEDS` | `MARKETPLACE` | `CLASSIFIEDS` |
+| `credit` | `BANKING_FINANCE/LENDING` | `BANKING_FINANCE` | `LENDING` |
+| `cricbuzz` | `NEWS_MEDIA/SPORTS_NEWS` | `NEWS_MEDIA` | `SPORTS_NEWS` |
+| `cricket` | `OTT_STREAMING/LIVE_SPORTS` | `OTT_STREAMING` | `LIVE_SPORTS` |
+| `crm` | `SAAS/CRM_SALES` | `SAAS` | `CRM_SALES` |
+| `croma` | `ECOMMERCE/ELECTRONICS` | `ECOMMERCE` | `ELECTRONICS` |
+| `darwinbox` | `SAAS/HR_PAYROLL` | `SAAS` | `HR_PAYROLL` |
+| `dealer` | `RETAIL_STORE/SHOWROOM` | `RETAIL_STORE` | `SHOWROOM` |
+| `decathlon` | `RETAIL_STORE/SPECIALTY_RETAIL` | `RETAIL_STORE` | `SPECIALTY_RETAIL` |
+| `dev` | `SAAS/DEVTOOLS` | `SAAS` | `DEVTOOLS` |
+| `diagnostic` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | `HEALTHCARE_PHARMA` | `DIAGNOSTICS` |
+| `dinamalar` | `NEWS_MEDIA/REGIONAL_NEWS` | `NEWS_MEDIA` | `REGIONAL_NEWS` |
+| `discourse` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | `SOCIAL_MEDIA` | `COMMUNITY_FORUM` |
 | `dmart` | `RETAIL_STORE` · `RETAIL_STORE/SUPERMARKET` | `RETAIL_STORE` | `SUPERMARKET` |
 | `doordash` | `FOOD_DELIVERY` · `FOOD_DELIVERY/RESTAURANT_DELIVERY` | `FOOD_DELIVERY` | `RESTAURANT_DELIVERY` |
 | `dunzo` | `FOOD_DELIVERY` | `FOOD_DELIVERY` | — |
-| `eatfit` | `FOOD_DELIVERY/CLOUD_KITCHEN` | — _(page text only)_ | — |
+| `eatfit` | `FOOD_DELIVERY/CLOUD_KITCHEN` | `FOOD_DELIVERY` | `CLOUD_KITCHEN` |
 | `ebay` | `ECOMMERCE` · `MARKETPLACE` · `MARKETPLACE/MULTI_VENDOR_RETAIL` | `ECOMMERCE` | — |
 | `economictimes` | `NEWS_MEDIA/BUSINESS_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
 | `edu` | `EDUCATION` · `EDUCATION/HIGHER_ED` | `EDUCATION` | `HIGHER_ED` |
-| `eenadu` | `NEWS_MEDIA/REGIONAL_NEWS` | — _(page text only)_ | — |
-| `electricity` | `CORPORATE/ENERGY_UTILITIES` | — _(page text only)_ | — |
-| `electronic` | `ECOMMERCE/ELECTRONICS` | — _(page text only)_ | — |
-| `emirates` | `TRAVEL_BOOKING/FLIGHTS` | — _(page text only)_ | — |
-| `energy` | `CORPORATE/ENERGY_UTILITIES` | — _(page text only)_ | — |
-| `espn` | `OTT_STREAMING/LIVE_SPORTS` · `NEWS_MEDIA/SPORTS_NEWS` | — _(page text only)_ | — |
+| `eenadu` | `NEWS_MEDIA/REGIONAL_NEWS` | `NEWS_MEDIA` | `REGIONAL_NEWS` |
+| `electricity` | `CORPORATE/ENERGY_UTILITIES` | `CORPORATE` | `ENERGY_UTILITIES` |
+| `electronic` | `ECOMMERCE/ELECTRONICS` | `ECOMMERCE` | `ELECTRONICS` |
+| `emirates` | `TRAVEL_BOOKING/FLIGHTS` | `TRAVEL_BOOKING` | `FLIGHTS` |
+| `energy` | `CORPORATE/ENERGY_UTILITIES` | `CORPORATE` | `ENERGY_UTILITIES` |
+| `espn` | `OTT_STREAMING/LIVE_SPORTS` · `NEWS_MEDIA/SPORTS_NEWS` | `OTT_STREAMING` | `LIVE_SPORTS` |
 | `etsy` | `ECOMMERCE` · `MARKETPLACE` | `ECOMMERCE` | — |
-| `exam` | `EDUCATION/TEST_PREP` | — _(page text only)_ | — |
-| `faasos` | `FOOD_DELIVERY/CLOUD_KITCHEN` | — _(page text only)_ | — |
+| `exam` | `EDUCATION/TEST_PREP` | `EDUCATION` | `TEST_PREP` |
+| `faasos` | `FOOD_DELIVERY/CLOUD_KITCHEN` | `FOOD_DELIVERY` | `CLOUD_KITCHEN` |
 | `facebook` | `SOCIAL_MEDIA` · `SOCIAL_MEDIA/SOCIAL_NETWORKING` | `SOCIAL_MEDIA` | `SOCIAL_NETWORKING` |
-| `fancode` | `OTT_STREAMING/LIVE_SPORTS` | — _(page text only)_ | — |
-| `fashion` | `ECOMMERCE/FASHION` | — _(page text only)_ | — |
-| `flight` | `TRAVEL_BOOKING/FLIGHTS` | — _(page text only)_ | — |
+| `fancode` | `OTT_STREAMING/LIVE_SPORTS` | `OTT_STREAMING` | `LIVE_SPORTS` |
+| `fashion` | `ECOMMERCE/FASHION` | `ECOMMERCE` | `FASHION` |
+| `flight` | `TRAVEL_BOOKING/FLIGHTS` | `TRAVEL_BOOKING` | `FLIGHTS` |
 | `flipkart` | `ECOMMERCE` · `MARKETPLACE/MULTI_VENDOR_RETAIL` | `ECOMMERCE` | — |
-| `fortis` | `HEALTHCARE_PHARMA/HOSPITAL` | — _(page text only)_ | — |
-| `forum` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | — _(page text only)_ | — |
-| `furniture` | `ECOMMERCE/HOME_LIVING` | — _(page text only)_ | — |
-| `gaana` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
-| `gas` | `CORPORATE/ENERGY_UTILITIES` | — _(page text only)_ | — |
-| `github` | `SAAS/DEVTOOLS` | — _(page text only)_ | — |
-| `gitlab` | `SAAS/DEVTOOLS` | — _(page text only)_ | — |
-| `goal` | `NEWS_MEDIA/SPORTS_NEWS` | — _(page text only)_ | — |
+| `fortis` | `HEALTHCARE_PHARMA/HOSPITAL` | `HEALTHCARE_PHARMA` | `HOSPITAL` |
+| `forum` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | `SOCIAL_MEDIA` | `COMMUNITY_FORUM` |
+| `furniture` | `ECOMMERCE/HOME_LIVING` | `ECOMMERCE` | `HOME_LIVING` |
+| `gaana` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
+| `gas` | `CORPORATE/ENERGY_UTILITIES` | `CORPORATE` | `ENERGY_UTILITIES` |
+| `github` | `SAAS/DEVTOOLS` | `SAAS` | `DEVTOOLS` |
+| `gitlab` | `SAAS/DEVTOOLS` | `SAAS` | `DEVTOOLS` |
+| `goal` | `NEWS_MEDIA/SPORTS_NEWS` | `NEWS_MEDIA` | `SPORTS_NEWS` |
 | `goibibo` | `TRAVEL_BOOKING` | `TRAVEL_BOOKING` | — |
-| `grocery` | `ECOMMERCE/GROCERY` | — _(page text only)_ | — |
+| `grocery` | `ECOMMERCE/GROCERY` | `ECOMMERCE` | `GROCERY` |
 | `group` | `CORPORATE` · `CORPORATE/CONGLOMERATE` | `CORPORATE` | `CONGLOMERATE` |
-| `groww` | `BANKING_FINANCE/WEALTH` | — _(page text only)_ | — |
+| `groww` | `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
 | `hdfc` | `BANKING_FINANCE` | `BANKING_FINANCE` | — |
 | `hdfcergo` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
-| `healthians` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | — _(page text only)_ | — |
-| `hertz` | `TRAVEL_BOOKING/CAR_RENTAL` | — _(page text only)_ | — |
+| `healthians` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | `HEALTHCARE_PHARMA` | `DIAGNOSTICS` |
+| `hertz` | `TRAVEL_BOOKING/CAR_RENTAL` | `TRAVEL_BOOKING` | `CAR_RENTAL` |
 | `hindu` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
 | `holdings` | `CORPORATE` · `CORPORATE/CONGLOMERATE` | `CORPORATE` | `CONGLOMERATE` |
-| `holiday` | `TRAVEL_BOOKING/PACKAGES` | — _(page text only)_ | — |
-| `hospital` | `HEALTHCARE_PHARMA/HOSPITAL` | — _(page text only)_ | — |
-| `hotel` | `TRAVEL_BOOKING/HOTELS` | — _(page text only)_ | — |
+| `holiday` | `TRAVEL_BOOKING/PACKAGES` | `TRAVEL_BOOKING` | `PACKAGES` |
+| `hospital` | `HEALTHCARE_PHARMA/HOSPITAL` | `HEALTHCARE_PHARMA` | `HOSPITAL` |
+| `hotel` | `TRAVEL_BOOKING/HOTELS` | `TRAVEL_BOOKING` | `HOTELS` |
 | `hotstar` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
-| `housing` | `MARKETPLACE/RENTALS` | — _(page text only)_ | — |
-| `hr` | `SAAS/HR_PAYROLL` | — _(page text only)_ | — |
-| `hubspot` | `SAAS/CRM_SALES` | — _(page text only)_ | — |
+| `housing` | `MARKETPLACE/RENTALS` | `MARKETPLACE` | `RENTALS` |
+| `hr` | `SAAS/HR_PAYROLL` | `SAAS` | `HR_PAYROLL` |
+| `hubspot` | `SAAS/CRM_SALES` | `SAAS` | `CRM_SALES` |
 | `icici` | `BANKING_FINANCE` | `BANKING_FINANCE` | — |
 | `icicilombard` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
-| `ikea` | `ECOMMERCE/HOME_LIVING` | — _(page text only)_ | — |
-| `indeed` | `SOCIAL_MEDIA/PROFESSIONAL_NETWORKING` | — _(page text only)_ | — |
+| `ikea` | `ECOMMERCE/HOME_LIVING` | `ECOMMERCE` | `HOME_LIVING` |
+| `indeed` | `SOCIAL_MEDIA/PROFESSIONAL_NETWORKING` | `SOCIAL_MEDIA` | `PROFESSIONAL_NETWORKING` |
 | `indian` | `NEWS_MEDIA` | `NEWS_MEDIA` | — |
-| `indigo` | `TRAVEL_BOOKING/FLIGHTS` | — _(page text only)_ | — |
-| `industries` | `CORPORATE/MANUFACTURING` | — _(page text only)_ | — |
-| `infosys` | `CORPORATE/IT_SERVICES` | — _(page text only)_ | — |
+| `indigo` | `TRAVEL_BOOKING/FLIGHTS` | `TRAVEL_BOOKING` | `FLIGHTS` |
+| `industries` | `CORPORATE/MANUFACTURING` | `CORPORATE` | `MANUFACTURING` |
+| `infosys` | `CORPORATE/IT_SERVICES` | `CORPORATE` | `IT_SERVICES` |
 | `instagram` | `SOCIAL_MEDIA` · `SOCIAL_MEDIA/SOCIAL_NETWORKING` | `SOCIAL_MEDIA` | `SOCIAL_NETWORKING` |
-| `instamart` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | — _(page text only)_ | — |
-| `insur` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `invest` | `BANKING_FINANCE/WEALTH` | — _(page text only)_ | — |
-| `irctc` | `TRAVEL_BOOKING/RAIL_BUS` | — _(page text only)_ | — |
-| `jiomart` | `ECOMMERCE/GROCERY` | — _(page text only)_ | — |
-| `junior` | `OTT_STREAMING/KIDS` | — _(page text only)_ | — |
-| `justdial` | `MARKETPLACE/SERVICES_MARKETPLACE` | — _(page text only)_ | — |
-| `k12` | `EDUCATION/K12` | — _(page text only)_ | — |
-| `keka` | `SAAS/HR_PAYROLL` | — _(page text only)_ | — |
-| `kids` | `OTT_STREAMING/KIDS` | — _(page text only)_ | — |
-| `kitchen` | `FOOD_DELIVERY/CLOUD_KITCHEN` | — _(page text only)_ | — |
-| `lab` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | — _(page text only)_ | — |
-| `lend` | `BANKING_FINANCE/LENDING` | — _(page text only)_ | — |
-| `lenskart` | `RETAIL_STORE/SPECIALTY_RETAIL` | — _(page text only)_ | — |
-| `lifestyle` | `RETAIL_STORE/DEPARTMENT_STORE` | — _(page text only)_ | — |
+| `instamart` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | `ECOMMERCE` | `GROCERY` |
+| `insur` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `invest` | `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
+| `irctc` | `TRAVEL_BOOKING/RAIL_BUS` | `TRAVEL_BOOKING` | `RAIL_BUS` |
+| `jiomart` | `ECOMMERCE/GROCERY` | `ECOMMERCE` | `GROCERY` |
+| `junior` | `OTT_STREAMING/KIDS` | `OTT_STREAMING` | `KIDS` |
+| `justdial` | `MARKETPLACE/SERVICES_MARKETPLACE` | `MARKETPLACE` | `SERVICES_MARKETPLACE` |
+| `k12` | `EDUCATION/K12` | `EDUCATION` | `K12` |
+| `keka` | `SAAS/HR_PAYROLL` | `SAAS` | `HR_PAYROLL` |
+| `kids` | `OTT_STREAMING/KIDS` | `OTT_STREAMING` | `KIDS` |
+| `kitchen` | `FOOD_DELIVERY/CLOUD_KITCHEN` | `FOOD_DELIVERY` | `CLOUD_KITCHEN` |
+| `lab` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | `HEALTHCARE_PHARMA` | `DIAGNOSTICS` |
+| `lend` | `BANKING_FINANCE/LENDING` | `BANKING_FINANCE` | `LENDING` |
+| `lenskart` | `RETAIL_STORE/SPECIALTY_RETAIL` | `RETAIL_STORE` | `SPECIALTY_RETAIL` |
+| `lifestyle` | `RETAIL_STORE/DEPARTMENT_STORE` | `RETAIL_STORE` | `DEPARTMENT_STORE` |
 | `linkedin` | `SOCIAL_MEDIA` · `SOCIAL_MEDIA/PROFESSIONAL_NETWORKING` | `SOCIAL_MEDIA` | `PROFESSIONAL_NETWORKING` |
-| `loan` | `BANKING_FINANCE/LENDING` | — _(page text only)_ | — |
-| `lokmat` | `NEWS_MEDIA/REGIONAL_NEWS` | — _(page text only)_ | — |
-| `looker` | `SAAS/ANALYTICS` | — _(page text only)_ | — |
-| `magicbricks` | `MARKETPLACE/RENTALS` | — _(page text only)_ | — |
+| `loan` | `BANKING_FINANCE/LENDING` | `BANKING_FINANCE` | `LENDING` |
+| `lokmat` | `NEWS_MEDIA/REGIONAL_NEWS` | `NEWS_MEDIA` | `REGIONAL_NEWS` |
+| `looker` | `SAAS/ANALYTICS` | `SAAS` | `ANALYTICS` |
+| `magicbricks` | `MARKETPLACE/RENTALS` | `MARKETPLACE` | `RENTALS` |
 | `makemytrip` | `TRAVEL_BOOKING` | `TRAVEL_BOOKING` | — |
-| `manipal` | `HEALTHCARE_PHARMA/HOSPITAL` | — _(page text only)_ | — |
+| `manipal` | `HEALTHCARE_PHARMA/HOSPITAL` | `HEALTHCARE_PHARMA` | `HOSPITAL` |
 | `mankind` | `HEALTHCARE_PHARMA` | `HEALTHCARE_PHARMA` | — |
-| `manufacturing` | `CORPORATE/MANUFACTURING` | — _(page text only)_ | — |
+| `manufacturing` | `CORPORATE/MANUFACTURING` | `CORPORATE` | `MANUFACTURING` |
 | `marketplace` | `MARKETPLACE` · `MARKETPLACE/MULTI_VENDOR_RETAIL` | `MARKETPLACE` | `MULTI_VENDOR_RETAIL` |
-| `marriott` | `TRAVEL_BOOKING/HOTELS` | — _(page text only)_ | — |
-| `maxlife` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `meal` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | — _(page text only)_ | — |
+| `marriott` | `TRAVEL_BOOKING/HOTELS` | `TRAVEL_BOOKING` | `HOTELS` |
+| `maxlife` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `meal` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | `FOOD_DELIVERY` | `MEAL_SUBSCRIPTION` |
 | `medplus` | `HEALTHCARE_PHARMA` · `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
-| `metropolis` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | — _(page text only)_ | — |
-| `mfine` | `HEALTHCARE_PHARMA/TELEMEDICINE` | — _(page text only)_ | — |
-| `mint` | `NEWS_MEDIA/BUSINESS_NEWS` | — _(page text only)_ | — |
-| `mixpanel` | `SAAS/ANALYTICS` | — _(page text only)_ | — |
-| `moneycontrol` | `NEWS_MEDIA/BUSINESS_NEWS` | — _(page text only)_ | — |
-| `motors` | `RETAIL_STORE/SHOWROOM` | — _(page text only)_ | — |
-| `music` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
-| `mutualfund` | `BANKING_FINANCE/WEALTH` | — _(page text only)_ | — |
+| `metropolis` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | `HEALTHCARE_PHARMA` | `DIAGNOSTICS` |
+| `mfine` | `HEALTHCARE_PHARMA/TELEMEDICINE` | `HEALTHCARE_PHARMA` | `TELEMEDICINE` |
+| `mint` | `NEWS_MEDIA/BUSINESS_NEWS` | `NEWS_MEDIA` | `BUSINESS_NEWS` |
+| `mixpanel` | `SAAS/ANALYTICS` | `SAAS` | `ANALYTICS` |
+| `moneycontrol` | `NEWS_MEDIA/BUSINESS_NEWS` | `NEWS_MEDIA` | `BUSINESS_NEWS` |
+| `motors` | `RETAIL_STORE/SHOWROOM` | `RETAIL_STORE` | `SHOWROOM` |
+| `music` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
+| `mutualfund` | `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
 | `myntra` | `ECOMMERCE` · `ECOMMERCE/FASHION` | `ECOMMERCE` | `FASHION` |
-| `naukri` | `SOCIAL_MEDIA/PROFESSIONAL_NETWORKING` | — _(page text only)_ | — |
+| `naukri` | `SOCIAL_MEDIA/PROFESSIONAL_NETWORKING` | `SOCIAL_MEDIA` | `PROFESSIONAL_NETWORKING` |
 | `ndtv` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
 | `netbanking` | `BANKING_FINANCE/RETAIL_BANKING` | `BANKING_FINANCE` | `RETAIL_BANKING` |
 | `netflix` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
-| `netlify` | `SAAS/DEVTOOLS` | — _(page text only)_ | — |
+| `netlify` | `SAAS/DEVTOOLS` | `SAAS` | `DEVTOOLS` |
 | `netmeds` | `HEALTHCARE_PHARMA` · `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
 | `news` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
-| `nobroker` | `MARKETPLACE/RENTALS` | — _(page text only)_ | — |
-| `notion` | `SAAS/COLLABORATION` | — _(page text only)_ | — |
-| `nykaa` | `ECOMMERCE/BEAUTY` | — _(page text only)_ | — |
-| `nykaafashion` | `ECOMMERCE/FASHION` | — _(page text only)_ | — |
-| `olx` | `MARKETPLACE/CLASSIFIEDS` | — _(page text only)_ | — |
-| `oyo` | `TRAVEL_BOOKING/HOTELS` | — _(page text only)_ | — |
-| `package` | `TRAVEL_BOOKING/PACKAGES` | — _(page text only)_ | — |
+| `nobroker` | `MARKETPLACE/RENTALS` | `MARKETPLACE` | `RENTALS` |
+| `notion` | `SAAS/COLLABORATION` | `SAAS` | `COLLABORATION` |
+| `nykaa` | `ECOMMERCE/BEAUTY` | `ECOMMERCE` | `BEAUTY` |
+| `nykaafashion` | `ECOMMERCE/FASHION` | `ECOMMERCE` | `FASHION` |
+| `olx` | `MARKETPLACE/CLASSIFIEDS` | `MARKETPLACE` | `CLASSIFIEDS` |
+| `oyo` | `TRAVEL_BOOKING/HOTELS` | `TRAVEL_BOOKING` | `HOTELS` |
+| `package` | `TRAVEL_BOOKING/PACKAGES` | `TRAVEL_BOOKING` | `PACKAGES` |
 | `pantaloons` | `RETAIL_STORE` · `RETAIL_STORE/DEPARTMENT_STORE` | `RETAIL_STORE` | `DEPARTMENT_STORE` |
-| `pay` | `BANKING_FINANCE/PAYMENTS` | — _(page text only)_ | — |
-| `payroll` | `SAAS/HR_PAYROLL` | — _(page text only)_ | — |
+| `pay` | `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
+| `payroll` | `SAAS/HR_PAYROLL` | `SAAS` | `HR_PAYROLL` |
 | `paytm` | `BANKING_FINANCE` · `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
-| `pepperfry` | `ECOMMERCE/HOME_LIVING` | — _(page text only)_ | — |
+| `pepperfry` | `ECOMMERCE/HOME_LIVING` | `ECOMMERCE` | `HOME_LIVING` |
 | `pharma` | `HEALTHCARE_PHARMA` | `HEALTHCARE_PHARMA` | — |
 | `pharmacy` | `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
-| `pharmeasy` | `HEALTHCARE_PHARMA/PHARMACY` | — _(page text only)_ | — |
+| `pharmeasy` | `HEALTHCARE_PHARMA/PHARMACY` | `HEALTHCARE_PHARMA` | `PHARMACY` |
 | `phonepe` | `BANKING_FINANCE` · `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
 | `pinterest` | `SOCIAL_MEDIA` · `SOCIAL_MEDIA/MEDIA_SHARING` | `SOCIAL_MEDIA` | `MEDIA_SHARING` |
 | `platform` | `SAAS` | `SAAS` | — |
-| `policybazaar` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `power` | `CORPORATE/ENERGY_UTILITIES` | — _(page text only)_ | — |
+| `policybazaar` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `power` | `CORPORATE/ENERGY_UTILITIES` | `CORPORATE` | `ENERGY_UTILITIES` |
 | `practo` | `HEALTHCARE_PHARMA` · `HEALTHCARE_PHARMA/TELEMEDICINE` | `HEALTHCARE_PHARMA` | `TELEMEDICINE` |
 | `primevideo` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
-| `purplle` | `ECOMMERCE/BEAUTY` | — _(page text only)_ | — |
-| `quikr` | `MARKETPLACE/CLASSIFIEDS` | — _(page text only)_ | — |
-| `rail` | `TRAVEL_BOOKING/RAIL_BUS` | — _(page text only)_ | — |
-| `razorpay` | `BANKING_FINANCE/PAYMENTS` | — _(page text only)_ | — |
-| `redbus` | `TRAVEL_BOOKING/RAIL_BUS` | — _(page text only)_ | — |
-| `reddit` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | — _(page text only)_ | — |
-| `regional` | `NEWS_MEDIA/REGIONAL_NEWS` | — _(page text only)_ | — |
+| `purplle` | `ECOMMERCE/BEAUTY` | `ECOMMERCE` | `BEAUTY` |
+| `quikr` | `MARKETPLACE/CLASSIFIEDS` | `MARKETPLACE` | `CLASSIFIEDS` |
+| `rail` | `TRAVEL_BOOKING/RAIL_BUS` | `TRAVEL_BOOKING` | `RAIL_BUS` |
+| `razorpay` | `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
+| `redbus` | `TRAVEL_BOOKING/RAIL_BUS` | `TRAVEL_BOOKING` | `RAIL_BUS` |
+| `reddit` | `SOCIAL_MEDIA/COMMUNITY_FORUM` | `SOCIAL_MEDIA` | `COMMUNITY_FORUM` |
+| `regional` | `NEWS_MEDIA/REGIONAL_NEWS` | `NEWS_MEDIA` | `REGIONAL_NEWS` |
 | `reliance` | `RETAIL_STORE` | `RETAIL_STORE` | — |
 | `reliancedigital` | `ECOMMERCE/ELECTRONICS` | `RETAIL_STORE` | — |
 | `reliancefresh` | `RETAIL_STORE/SUPERMARKET` | `RETAIL_STORE` | `SUPERMARKET` |
-| `rental` | `TRAVEL_BOOKING/CAR_RENTAL` | — _(page text only)_ | — |
+| `rental` | `TRAVEL_BOOKING/CAR_RENTAL` | `TRAVEL_BOOKING` | `CAR_RENTAL` |
 | `saas` | `SAAS` | `SAAS` | — |
-| `saavn` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
-| `salesforce` | `SAAS/CRM_SALES` | — _(page text only)_ | — |
+| `saavn` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
+| `salesforce` | `SAAS/CRM_SALES` | `SAAS` | `CRM_SALES` |
 | `saravana` | `RETAIL_STORE` · `RETAIL_STORE/DEPARTMENT_STORE` | `RETAIL_STORE` | `DEPARTMENT_STORE` |
 | `sbi` | `BANKING_FINANCE` | `BANKING_FINANCE` | — |
-| `school` | `EDUCATION/K12` | — _(page text only)_ | — |
-| `sephora` | `ECOMMERCE/BEAUTY` | — _(page text only)_ | — |
-| `services` | `MARKETPLACE/SERVICES_MARKETPLACE` | — _(page text only)_ | — |
+| `school` | `EDUCATION/K12` | `EDUCATION` | `K12` |
+| `sephora` | `ECOMMERCE/BEAUTY` | `ECOMMERCE` | `BEAUTY` |
+| `services` | `MARKETPLACE/SERVICES_MARKETPLACE` | `MARKETPLACE` | `SERVICES_MARKETPLACE` |
 | `shopify` | `ECOMMERCE` | `ECOMMERCE` | — |
-| `shoppersstop` | `RETAIL_STORE/DEPARTMENT_STORE` | — _(page text only)_ | — |
-| `showroom` | `RETAIL_STORE/SHOWROOM` | — _(page text only)_ | — |
-| `simplilearn` | `EDUCATION/UPSKILLING` | — _(page text only)_ | — |
-| `slack` | `SAAS/COLLABORATION` | — _(page text only)_ | — |
+| `shoppersstop` | `RETAIL_STORE/DEPARTMENT_STORE` | `RETAIL_STORE` | `DEPARTMENT_STORE` |
+| `showroom` | `RETAIL_STORE/SHOWROOM` | `RETAIL_STORE` | `SHOWROOM` |
+| `simplilearn` | `EDUCATION/UPSKILLING` | `EDUCATION` | `UPSKILLING` |
+| `slack` | `SAAS/COLLABORATION` | `SAAS` | `COLLABORATION` |
 | `sonyliv` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
-| `sport` | `OTT_STREAMING/LIVE_SPORTS` · `NEWS_MEDIA/SPORTS_NEWS` | — _(page text only)_ | — |
-| `spotify` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
-| `steel` | `CORPORATE/MANUFACTURING` | — _(page text only)_ | — |
-| `stripe` | `BANKING_FINANCE/PAYMENTS` | — _(page text only)_ | — |
-| `subscription` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | — _(page text only)_ | — |
-| `supermarket` | `RETAIL_STORE/SUPERMARKET` | — _(page text only)_ | — |
+| `sport` | `OTT_STREAMING/LIVE_SPORTS` · `NEWS_MEDIA/SPORTS_NEWS` | `OTT_STREAMING` | `LIVE_SPORTS` |
+| `spotify` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
+| `steel` | `CORPORATE/MANUFACTURING` | `CORPORATE` | `MANUFACTURING` |
+| `stripe` | `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
+| `subscription` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | `FOOD_DELIVERY` | `MEAL_SUBSCRIPTION` |
+| `supermarket` | `RETAIL_STORE/SUPERMARKET` | `RETAIL_STORE` | `SUPERMARKET` |
 | `swiggy` | `FOOD_DELIVERY` · `FOOD_DELIVERY/RESTAURANT_DELIVERY` | `FOOD_DELIVERY` | `RESTAURANT_DELIVERY` |
-| `taj` | `TRAVEL_BOOKING/HOTELS` | — _(page text only)_ | — |
-| `tanishq` | `RETAIL_STORE/SPECIALTY_RETAIL` | — _(page text only)_ | — |
-| `tataaig` | `BANKING_FINANCE/INSURANCE` | — _(page text only)_ | — |
-| `tcs` | `CORPORATE/IT_SERVICES` | — _(page text only)_ | — |
-| `telemed` | `HEALTHCARE_PHARMA/TELEMEDICINE` | — _(page text only)_ | — |
-| `testprep` | `EDUCATION/TEST_PREP` | — _(page text only)_ | — |
-| `thomascook` | `TRAVEL_BOOKING/PACKAGES` | — _(page text only)_ | — |
-| `threads` | `SOCIAL_MEDIA/SOCIAL_NETWORKING` | — _(page text only)_ | — |
-| `thyrocare` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | — _(page text only)_ | — |
-| `tiffin` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | — _(page text only)_ | — |
-| `tiktok` | `SOCIAL_MEDIA/MEDIA_SHARING` | — _(page text only)_ | — |
+| `taj` | `TRAVEL_BOOKING/HOTELS` | `TRAVEL_BOOKING` | `HOTELS` |
+| `tanishq` | `RETAIL_STORE/SPECIALTY_RETAIL` | `RETAIL_STORE` | `SPECIALTY_RETAIL` |
+| `tataaig` | `BANKING_FINANCE/INSURANCE` | `BANKING_FINANCE` | `INSURANCE` |
+| `tcs` | `CORPORATE/IT_SERVICES` | `CORPORATE` | `IT_SERVICES` |
+| `telemed` | `HEALTHCARE_PHARMA/TELEMEDICINE` | `HEALTHCARE_PHARMA` | `TELEMEDICINE` |
+| `testprep` | `EDUCATION/TEST_PREP` | `EDUCATION` | `TEST_PREP` |
+| `thomascook` | `TRAVEL_BOOKING/PACKAGES` | `TRAVEL_BOOKING` | `PACKAGES` |
+| `threads` | `SOCIAL_MEDIA/SOCIAL_NETWORKING` | `SOCIAL_MEDIA` | `SOCIAL_NETWORKING` |
+| `thyrocare` | `HEALTHCARE_PHARMA/DIAGNOSTICS` | `HEALTHCARE_PHARMA` | `DIAGNOSTICS` |
+| `tiffin` | `FOOD_DELIVERY/MEAL_SUBSCRIPTION` | `FOOD_DELIVERY` | `MEAL_SUBSCRIPTION` |
+| `tiktok` | `SOCIAL_MEDIA/MEDIA_SHARING` | `SOCIAL_MEDIA` | `MEDIA_SHARING` |
 | `times` | `NEWS_MEDIA` · `NEWS_MEDIA/GENERAL_NEWS` | `NEWS_MEDIA` | `GENERAL_NEWS` |
-| `titan` | `RETAIL_STORE/SPECIALTY_RETAIL` | — _(page text only)_ | — |
-| `tour` | `TRAVEL_BOOKING/PACKAGES` | — _(page text only)_ | — |
-| `trello` | `SAAS/COLLABORATION` | — _(page text only)_ | — |
+| `titan` | `RETAIL_STORE/SPECIALTY_RETAIL` | `RETAIL_STORE` | `SPECIALTY_RETAIL` |
+| `tour` | `TRAVEL_BOOKING/PACKAGES` | `TRAVEL_BOOKING` | `PACKAGES` |
+| `trello` | `SAAS/COLLABORATION` | `SAAS` | `COLLABORATION` |
 | `tvnz` | `OTT_STREAMING` | `OTT_STREAMING` | — |
 | `twitter` | `SOCIAL_MEDIA` | `SOCIAL_MEDIA` | — |
 | `uber` | `FOOD_DELIVERY` | `FOOD_DELIVERY` | — |
 | `ubereats` | `FOOD_DELIVERY/RESTAURANT_DELIVERY` | `FOOD_DELIVERY` | `RESTAURANT_DELIVERY` |
 | `udemy` | `EDUCATION` · `EDUCATION/UPSKILLING` | `EDUCATION` | `UPSKILLING` |
 | `unacademy` | `EDUCATION` · `EDUCATION/TEST_PREP` | `EDUCATION` | `TEST_PREP` |
-| `university` | `EDUCATION/HIGHER_ED` | — _(page text only)_ | — |
-| `upgrad` | `EDUCATION/UPSKILLING` | — _(page text only)_ | — |
-| `upi` | `BANKING_FINANCE/PAYMENTS` | — _(page text only)_ | — |
-| `upstox` | `BANKING_FINANCE/WEALTH` | — _(page text only)_ | — |
-| `urbancompany` | `MARKETPLACE/SERVICES_MARKETPLACE` | — _(page text only)_ | — |
-| `urbanladder` | `ECOMMERCE/HOME_LIVING` | — _(page text only)_ | — |
-| `vercel` | `SAAS/DEVTOOLS` | — _(page text only)_ | — |
-| `vijaysales` | `ECOMMERCE/ELECTRONICS` | — _(page text only)_ | — |
-| `vimeo` | `SOCIAL_MEDIA/MEDIA_SHARING` | — _(page text only)_ | — |
-| `vistara` | `TRAVEL_BOOKING/FLIGHTS` | — _(page text only)_ | — |
-| `wallet` | `BANKING_FINANCE/PAYMENTS` | — _(page text only)_ | — |
+| `university` | `EDUCATION/HIGHER_ED` | `EDUCATION` | `HIGHER_ED` |
+| `upgrad` | `EDUCATION/UPSKILLING` | `EDUCATION` | `UPSKILLING` |
+| `upi` | `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
+| `upstox` | `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
+| `urbancompany` | `MARKETPLACE/SERVICES_MARKETPLACE` | `MARKETPLACE` | `SERVICES_MARKETPLACE` |
+| `urbanladder` | `ECOMMERCE/HOME_LIVING` | `ECOMMERCE` | `HOME_LIVING` |
+| `vercel` | `SAAS/DEVTOOLS` | `SAAS` | `DEVTOOLS` |
+| `vijaysales` | `ECOMMERCE/ELECTRONICS` | `ECOMMERCE` | `ELECTRONICS` |
+| `vimeo` | `SOCIAL_MEDIA/MEDIA_SHARING` | `SOCIAL_MEDIA` | `MEDIA_SHARING` |
+| `vistara` | `TRAVEL_BOOKING/FLIGHTS` | `TRAVEL_BOOKING` | `FLIGHTS` |
+| `wallet` | `BANKING_FINANCE/PAYMENTS` | `BANKING_FINANCE` | `PAYMENTS` |
 | `walmart` | `ECOMMERCE` | `ECOMMERCE` | — |
-| `wealth` | `BANKING_FINANCE/WEALTH` | — _(page text only)_ | — |
-| `willow` | `OTT_STREAMING/LIVE_SPORTS` | — _(page text only)_ | — |
-| `wipro` | `CORPORATE/IT_SERVICES` | — _(page text only)_ | — |
-| `wynk` | `OTT_STREAMING/MUSIC_AUDIO` | — _(page text only)_ | — |
+| `wealth` | `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
+| `willow` | `OTT_STREAMING/LIVE_SPORTS` | `OTT_STREAMING` | `LIVE_SPORTS` |
+| `wipro` | `CORPORATE/IT_SERVICES` | `CORPORATE` | `IT_SERVICES` |
+| `wynk` | `OTT_STREAMING/MUSIC_AUDIO` | `OTT_STREAMING` | `MUSIC_AUDIO` |
 | `yatra` | `TRAVEL_BOOKING` | `TRAVEL_BOOKING` | — |
 | `youtube` | `OTT_STREAMING` · `SOCIAL_MEDIA/MEDIA_SHARING` | `OTT_STREAMING` | — |
-| `zara` | `ECOMMERCE/FASHION` | — _(page text only)_ | — |
+| `zara` | `ECOMMERCE/FASHION` | `ECOMMERCE` | `FASHION` |
 | `zee5` | `OTT_STREAMING` · `OTT_STREAMING/VIDEO_VOD` | `OTT_STREAMING` | `VIDEO_VOD` |
-| `zepto` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | — _(page text only)_ | — |
+| `zepto` | `ECOMMERCE/GROCERY` · `FOOD_DELIVERY/GROCERY_DELIVERY` | `ECOMMERCE` | `GROCERY` |
 | `zerodha` | `BANKING_FINANCE` · `BANKING_FINANCE/WEALTH` | `BANKING_FINANCE` | `WEALTH` |
-| `zoho` | `SAAS/CRM_SALES` | — _(page text only)_ | — |
+| `zoho` | `SAAS/CRM_SALES` | `SAAS` | `CRM_SALES` |
 | `zomato` | `FOOD_DELIVERY` · `FOOD_DELIVERY/RESTAURANT_DELIVERY` | `FOOD_DELIVERY` | `RESTAURANT_DELIVERY` |
-| `zoomcar` | `TRAVEL_BOOKING/CAR_RENTAL` | — _(page text only)_ | — |
+| `zoomcar` | `TRAVEL_BOOKING/CAR_RENTAL` | `TRAVEL_BOOKING` | `CAR_RENTAL` |
 
-Domain `urlPatterns` are the only hostname source `detectWebsiteType` consults, so 181
-of the fragments above are declared solely under a sub-domain and cannot be resolved from the hostname —
-those sites depend entirely on landing-page text to reach their domain.
+detectWebsiteType matches domain `urlPatterns` first, then sub-domain hostname labels, so 1
+of the fragments above are too short or too generic to resolve from the hostname alone —
+those sites still depend on landing-page text (or a longer brand label) to reach their domain.
 
 ## ECOMMERCE · E-commerce Platform
 

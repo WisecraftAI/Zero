@@ -1,5 +1,5 @@
 const { WEBSITE_TYPES } = require('../constants');
-const { scoreIndicators, matchesUrlPattern } = require('./indicatorMatch');
+const { scoreIndicators, matchesUrlPattern, matchesHostnameLabel } = require('./indicatorMatch');
 const { getSubDomains } = require('./domainTaxonomy');
 
 /** Hostname hits are treated as near-certain. */
@@ -9,6 +9,50 @@ const MIN_TEXT_MATCHES = 2;
 const MIN_NORMALIZED_SCORE = 0.25;
 const CONFIDENCE_BASE = 0.3;
 const MAX_TEXT_CONFIDENCE = 0.85;
+
+/**
+ * Resolve a hostname against the taxonomy without reading the page.
+ *
+ * Domain `urlPatterns` win first so a known brand stays on its parent type.
+ * Sub-domain patterns then lift the parent — `zepto.com` is only declared under
+ * grocery, and a blocked or empty landing page must still reach ECOMMERCE.
+ */
+function matchHostnameToDomain(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (!host) return null;
+
+  for (const [type, config] of Object.entries(WEBSITE_TYPES)) {
+    const hit = matchesUrlPattern(host, config.urlPatterns);
+    if (hit) {
+      return {
+        type,
+        typeName: config.name,
+        via: hit,
+        source: "domain",
+        subDomainKey: null,
+        subDomainName: null,
+      };
+    }
+  }
+
+  for (const [type, config] of Object.entries(WEBSITE_TYPES)) {
+    for (const [subKey, sub] of Object.entries(getSubDomains(type))) {
+      const hit = matchesHostnameLabel(host, sub.urlPatterns);
+      if (hit) {
+        return {
+          type,
+          typeName: config.name,
+          via: hit,
+          source: "subDomain",
+          subDomainKey: subKey,
+          subDomainName: sub.name,
+        };
+      }
+    }
+  }
+
+  return null;
+}
 
 async function detectWebsiteType(page, url) {
   const result = {
@@ -22,16 +66,16 @@ async function detectWebsiteType(page, url) {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
 
-    // First check URL patterns (highest confidence)
-    for (const [type, config] of Object.entries(WEBSITE_TYPES)) {
-      const hit = matchesUrlPattern(hostname, config.urlPatterns);
-      if (hit) {
-        result.type = type;
-        result.typeName = config.name;
-        result.confidence = URL_MATCH_CONFIDENCE;
-        result.indicators.push(`URL pattern match: ${hostname}`);
-        break;
-      }
+    const hostMatch = matchHostnameToDomain(hostname);
+    if (hostMatch) {
+      result.type = hostMatch.type;
+      result.typeName = hostMatch.typeName;
+      result.confidence = URL_MATCH_CONFIDENCE;
+      result.indicators.push(
+        hostMatch.subDomainName
+          ? `URL pattern match: ${hostname} (${hostMatch.subDomainName})`
+          : `URL pattern match: ${hostname}`
+      );
     }
 
     // If not matched by URL, analyze page content
@@ -121,4 +165,4 @@ async function detectWebsiteType(page, url) {
   return result;
 }
 
-module.exports = { detectWebsiteType };
+module.exports = { detectWebsiteType, matchHostnameToDomain, URL_MATCH_CONFIDENCE };

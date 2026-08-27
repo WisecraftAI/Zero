@@ -1,6 +1,15 @@
 function formatForBAAgent(analysisResult) {
+  const typeName = analysisResult.websiteType?.typeName;
+  const subName = analysisResult.subDomain?.name;
+  const classifiedAs = [typeName, subName].filter(Boolean).join(" / ");
+  const asClause = classifiedAs ? ` as ${classifiedAs}` : "";
+
+  const thinNote = analysisResult.thinCrawl
+    ? " The page UI was not readable; test areas come from the classified site type."
+    : "";
+
   return {
-    summary: `Analyzed ${analysisResult.url}. Found ${analysisResult.elements?.length || 0} elements, ${analysisResult.forms?.length || 0} forms, ${analysisResult.userFlows?.length || 0} user flows.`,
+    summary: `Analyzed ${analysisResult.url}${asClause}. Found ${analysisResult.elements?.length || 0} elements, ${analysisResult.forms?.length || 0} forms, ${analysisResult.userFlows?.length || 0} user flows.${thinNote}`,
     
     websiteInfo: {
       type: analysisResult.websiteType?.typeName || 'Website',
@@ -33,6 +42,7 @@ function formatForBAAgent(analysisResult) {
     },
     
     testingRecommendations: [
+      ...(analysisResult.thinCrawl ? ['The landing page rendered little UI — re-run headed, or complete the site location/login gate, then re-analyse'] : []),
       ...(analysisResult.antiBot ? ['Use headed browser mode due to anti-bot protection'] : []),
       ...(analysisResult.dynamicContent ? ['Use data-testid selectors for stable automation'] : []),
       ...(analysisResult.websiteType?.testPriorities?.slice(0, 3).map(p => `Prioritize: ${p} testing`) || [])

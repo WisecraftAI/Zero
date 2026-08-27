@@ -160,7 +160,8 @@ export default function ApiKeysView() {
         <h2 className="apk-guide-title">LLM options &amp; cost</h2>
         <p className="apk-guide-intro">
           ZERO always runs without keys using templates. Add a key only if you want AI-enriched requirements, test cases, and manager narrative.
-          After saving a key here, assign provider + model per agent under <strong>Agents</strong> in the sidebar.
+          After saving a key here, open <strong>Agents</strong> and click <strong>Enable AI on all agents</strong>
+          (or pick provider + model per agent). Saving a key now verifies it with the provider first.
         </p>
         <div className="apk-guide-grid">
           {LLM_MODES.map((m) => (

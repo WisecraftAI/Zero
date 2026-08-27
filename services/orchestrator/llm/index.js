@@ -56,6 +56,9 @@ const DEFAULT_MODELS = {
   gemini: "gemini-2.0-flash"
 };
 
+/** If the preferred OpenAI model is gone or not entitled, try these next. */
+const OPENAI_MODEL_FALLBACKS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"];
+
 const COST_PER_MTOK = {
   openai: { in: 0.15, out: 0.6 },
   claude: { in: 0.8, out: 4 },
@@ -104,9 +107,35 @@ function stampLlm(target, meta) {
     model: meta.model || null,
     promptVersion: meta.promptVersion || null,
     fallbackReason: meta.fallbackReason || null,
+    fallbackMessage: meta.fallbackMessage || null,
     costUsd: meta.costUsd || 0
   };
   return target;
+}
+
+/**
+ * Axios 4xx becomes ERR_BAD_REQUEST, which hid "invalid key" / "unknown model"
+ * from the run UI. Prefer the provider body's code and message.
+ */
+function describeProviderError(err) {
+  const status = err && err.response && err.response.status;
+  const body = err && err.response && err.response.data;
+  const apiErr = body && typeof body === "object" ? body.error : null;
+  const apiCode = apiErr && apiErr.code ? String(apiErr.code) : null;
+  const apiMessage = apiErr && (apiErr.message || apiErr.code);
+  const message = String(apiMessage || (err && err.message) || "provider_error")
+    .replace(/sk-[a-zA-Z0-9_-]+/g, "sk-••••")
+    .slice(0, 240);
+
+  let reason = (err && err.code) || "provider_error";
+  if (status === 401 || apiCode === "invalid_api_key") reason = "invalid_key";
+  else if (apiCode === "insufficient_quota") reason = "insufficient_quota";
+  else if (status === 403) reason = "forbidden";
+  else if (status === 429) reason = "rate_limit";
+  else if (status === 404 || apiCode === "model_not_found") reason = "unknown_model";
+  else if (status) reason = `http_${status}`;
+
+  return { reason, message, status: status || null, apiCode };
 }
 
 function createLlm(options = {}) {
@@ -324,42 +353,56 @@ function createLlm(options = {}) {
       `Context JSON:\n${JSON.stringify(context || {}).slice(0, 6000)}`
     ].join("\n");
 
-    try {
-      const result = await callProvider({
-        provider: binding.provider,
-        apiKey: binding.apiKey,
-        model: binding.model,
-        system: spec.system,
-        messages: [{ role: "user", content: userPrompt }]
-      });
-      const costUsd = estimateCost(binding.provider, result.usage);
-      addSpend(runId || "global", costUsd);
-      logger.info(
-        `[llm] ${agent} ${binding.provider} ${result.model} v=${spec.version} ` +
-          `tokens=${(result.usage.prompt_tokens || 0) + (result.usage.completion_tokens || 0)} ` +
-          `cost=${costUsd.toFixed(6)} key=${redact(binding.apiKey)}`
-      );
+    const tried = new Set();
+    let model = binding.model;
+    let lastFail = null;
 
-      const parsed = parseJsonContent(result.content);
-      applyEnrichment(agent, base, parsed);
-      return stampLlm(base, {
-        used: true,
-        provider: binding.provider,
-        model: result.model,
-        promptVersion: spec.version,
-        costUsd
-      });
-    } catch (err) {
-      const message = err && err.message ? err.message : "llm_error";
-      logger.warn(`[llm] ${agent} fallback: ${message.replace(/sk-[a-zA-Z0-9-]+/g, "sk-••••")}`);
-      return stampLlm(base, {
-        used: false,
-        provider: binding.provider,
-        model: binding.model,
-        promptVersion: spec.version,
-        fallbackReason: err.code || "provider_error"
-      });
+    while (model && !tried.has(model)) {
+      tried.add(model);
+      try {
+        const result = await callProvider({
+          provider: binding.provider,
+          apiKey: binding.apiKey,
+          model,
+          system: spec.system,
+          messages: [{ role: "user", content: userPrompt }]
+        });
+        const costUsd = estimateCost(binding.provider, result.usage);
+        addSpend(runId || "global", costUsd);
+        logger.info(
+          `[llm] ${agent} ${binding.provider} ${result.model} v=${spec.version} ` +
+            `tokens=${(result.usage.prompt_tokens || 0) + (result.usage.completion_tokens || 0)} ` +
+            `cost=${costUsd.toFixed(6)} key=${redact(binding.apiKey)}`
+        );
+
+        const parsed = parseJsonContent(result.content);
+        applyEnrichment(agent, base, parsed);
+        return stampLlm(base, {
+          used: true,
+          provider: binding.provider,
+          model: result.model,
+          promptVersion: spec.version,
+          costUsd
+        });
+      } catch (err) {
+        lastFail = describeProviderError(err);
+        logger.warn(`[llm] ${agent} fallback: ${lastFail.reason} ${lastFail.message}`);
+        if (binding.provider === "openai" && lastFail.reason === "unknown_model") {
+          model = OPENAI_MODEL_FALLBACKS.find((candidate) => !tried.has(candidate)) || null;
+          if (model) continue;
+        }
+        break;
+      }
     }
+
+    return stampLlm(base, {
+      used: false,
+      provider: binding.provider,
+      model: binding.model,
+      promptVersion: spec.version,
+      fallbackReason: lastFail ? lastFail.reason : "provider_error",
+      fallbackMessage: lastFail ? lastFail.message : null
+    });
   }
 
   return {
@@ -480,6 +523,7 @@ const defaultLlm = createLlm();
 module.exports = {
   PROMPT_VERSIONS,
   DEFAULT_MODELS,
+  OPENAI_MODEL_FALLBACKS,
   createLlm,
   callProvider: defaultLlm.callProvider,
   enrichAgent: defaultLlm.enrichAgent,
@@ -488,5 +532,6 @@ module.exports = {
   parseJsonContent,
   redact,
   envKey,
-  ownerEmailForRun
+  ownerEmailForRun,
+  describeProviderError
 };

@@ -4,7 +4,7 @@
  */
 const { analyzeUrlPro } = require('./lib/strategies/pro');
 const { formatForBAAgent } = require('./lib/format/baPro');
-const { detectWebsiteType } = require('./lib/classify/websiteType');
+const { detectWebsiteType, matchHostnameToDomain } = require('./lib/classify/websiteType');
 const { detectSubDomain, scoreSubDomains } = require('./lib/classify/subDomain');
 const {
   SUB_DOMAINS,
@@ -16,11 +16,13 @@ const {
 const { generateTestCases } = require('./lib/generate/proTestCases');
 const { generateBRD } = require('./lib/generate/proBrd');
 const { WEBSITE_TYPES, ELEMENT_CATEGORIES } = require('./lib/constants');
+const { ANALYZER_USER_AGENT, ANALYZER_BROWSER_CONTEXT } = require('./lib/crawl/settle');
 
 module.exports = {
   analyzeUrlPro,
   formatForBAAgent,
   detectWebsiteType,
+  matchHostnameToDomain,
   detectSubDomain,
   scoreSubDomains,
   generateTestCases,
@@ -31,5 +33,7 @@ module.exports = {
   getSubDomains,
   hasSubDomains,
   subDomainNames,
-  resolveSubDomain
+  resolveSubDomain,
+  ANALYZER_USER_AGENT,
+  ANALYZER_BROWSER_CONTEXT
 };

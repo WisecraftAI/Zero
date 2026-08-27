@@ -85,10 +85,36 @@ function matchesUrlPattern(hostname, patterns = []) {
   return null;
 }
 
+/**
+ * Safer hostname match for sub-domain lift. Bare `includes` lets `exam` select
+ * `example.com`. A pattern hits when it equals a DNS label, or (length >= 5)
+ * prefixes one. Dotted patterns (`app.`) still match as substrings.
+ */
+function matchesHostnameLabel(hostname, patterns = []) {
+  const host = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!host) return null;
+  const labels = host.split(".").filter((label) => label && label !== "www");
+
+  for (const pattern of patterns) {
+    const needle = String(pattern || "").toLowerCase();
+    if (!needle) continue;
+    if (needle.includes(".")) {
+      if (host.includes(needle)) return needle;
+      continue;
+    }
+    const hit = labels.some(
+      (label) => label === needle || (needle.length >= 5 && label.startsWith(needle))
+    );
+    if (hit) return needle;
+  }
+  return null;
+}
+
 module.exports = {
   scoreIndicators,
   matchesIndicator,
   matchesUrlPattern,
+  matchesHostnameLabel,
   indicatorWeight,
   indicatorPattern,
   MULTI_WORD_WEIGHT,

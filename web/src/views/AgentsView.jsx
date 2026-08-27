@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { apiUrl } from '../apiBase';
 import AiSetupBanner from '../components/AiSetupBanner';
-import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
+import { applyProviderToAllAgents, countActiveAgents, preferredConfiguredProvider } from '../lib/aiSetup';
 import './AgentsView.css';
 
 const AGENTS = [
@@ -54,6 +54,7 @@ const PROVIDER_MODELS = {
     { id: 'claude-haiku-4-5',  name: 'Claude Haiku 4.5',  contextWindow: 200_000,   label: '200k' },
   ],
   openai: [
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini', contextWindow: 128_000, label: '128k', recommended: true },
     { id: 'gpt-4o',      name: 'GPT-4o',      contextWindow: 128_000, label: '128k' },
     { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128_000, label: '128k' },
     { id: 'o1-mini',     name: 'o1-mini',     contextWindow: 128_000, label: '128k' },
@@ -166,15 +167,15 @@ export default function AgentsView({ onNavigate }) {
       {!loading && (
         <AiSetupBanner
           variant="agents"
-          geminiConfigured={!!keys.gemini}
+          configuredProvider={preferredConfiguredProvider(keys)}
           activeCount={activeCount}
           totalAgents={AGENTS.length}
           onGoApiKeys={() => onNavigate?.('apikeys')}
-          onEnableGemini={keys.gemini ? async () => {
+          onEnableAi={preferredConfiguredProvider(keys) ? async () => {
             setEnablingAi(true);
             setError('');
             try {
-              await applyGeminiToAllAgents(apiUrl);
+              await applyProviderToAllAgents(apiUrl, preferredConfiguredProvider(keys));
               await load();
             } catch (e) {
               setError(e.message || 'Failed to enable AI agents.');

@@ -167,9 +167,10 @@
 .form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
 
 /* URL row */
-.nrv-url-row { display: flex; gap: 8px; }
+.nrv-url-row { display: flex; gap: 8px; align-items: stretch; }
 .nrv-url-row .form-input { flex: 1; }
 .nrv-verify-btn { flex-shrink: 0; }
+a.nrv-verify-btn { justify-content: center; }
 
 /* AI Understanding panel */
 .nrv-ai-panel {

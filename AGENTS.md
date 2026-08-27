@@ -137,7 +137,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 - **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
 - **Server changes**: HTTP routes live in `services/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`services/executor/`). Compose splits that into its own image; locally use `npm run start:all` (or separate `npm run orchestrator` / `npm run execution`) when you need workers. Shared code is `@zero/*` packages.
 - **Output roots**: regenerable files under `dist/` via `@zero/domain` `outputRoots` (`web`, `artifacts`, `coverage`, `logs`). Override with `ZERO_DIST_ROOT`.
-- **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.
+- **Locators**: merge prefers DB then memory then profile (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.
 - **Secrets**: never commit `.env`; use `.env.example`. Do not log or persist login passwords.
 - **Scope**: keep changes focused; avoid drive-by refactors across services unless asked. Services never import sibling `services/*`.
 - **Docs**: prefer updating `README.md` / this file only when behavior or run instructions change.
@@ -171,7 +171,7 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | `/zero-locators` | Locator registry | `packages/locators/` | `@zero/locators` |
 | `/zero-builders` | Script builders | `packages/builders/` | `@zero/builders` |
 | `/zero-analyzer` | URL analyzer | `packages/analyzer/` | `@zero/analyzer` |
-| `/zero-target-arch` | Packaging track S3–S6 (not one workspace) | `support/agent-workflow/` | — |
+| `/zero-target-arch` | Agent workflow (M/S done, Q5 current) | `support/agent-workflow/` | — |
 
 | Skill | Use for |
 |-------|---------|

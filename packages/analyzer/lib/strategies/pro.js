@@ -9,6 +9,7 @@ const { detectUserFlows } = require('../flows/proFlows');
 const { generateBRD } = require('../generate/proBrd');
 const { generateTestCases } = require('../generate/proTestCases');
 const { crawlLinkedPages, mergeElements } = require('../crawl/multiPage');
+const { settleAnalyzedPage } = require('../crawl/settle');
 const {
   generateMajorFunctionalCases,
   mergeMajorWithGenerated,
@@ -49,7 +50,8 @@ async function analyzeUrlPro(page, url, options = {}) {
     pagesAnalyzed: 0,
     analysisTime: 0,
     antiBot: false,
-    dynamicContent: false
+    dynamicContent: false,
+    thinCrawl: false
   };
 
   let navigated = false;
@@ -57,7 +59,7 @@ async function analyzeUrlPro(page, url, options = {}) {
   try {
     console.log(`[URL Analyzer Pro] Analyzing: ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(3000);
+    await settleAnalyzedPage(page);
     navigated = true;
 
     result.websiteType = await detectWebsiteType(page, url);
@@ -88,6 +90,7 @@ async function analyzeUrlPro(page, url, options = {}) {
     const crawlResult = await crawlLinkedPages(page, url, {
       maxPages: resolveMaxPages(options),
       maxDepth: options.maxDepth ?? 2,
+      settle: settleAnalyzedPage,
     });
     result.crawledPages = crawlResult.pages;
     result.pagesCrawled = crawlResult.pages.length;
@@ -106,7 +109,7 @@ async function analyzeUrlPro(page, url, options = {}) {
     }
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(1500);
+    await settleAnalyzedPage(page, { timeout: 6000 });
 
     result.pageStructure = await analyzePageStructure(page);
 
@@ -144,7 +147,7 @@ async function analyzeUrlPro(page, url, options = {}) {
     for (const pageInfo of extraPages) {
       try {
         await page.goto(pageInfo.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-        await page.waitForTimeout(800);
+        await settleAnalyzedPage(page, { timeout: 5000 });
 
         for (const [category, config] of Object.entries(ELEMENT_CATEGORIES)) {
           const categoryElements = await analyzeElements(page, category, config.selectors);
@@ -167,6 +170,7 @@ async function analyzeUrlPro(page, url, options = {}) {
     }
 
     await page.goto(landingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+    await settleAnalyzedPage(page, { timeout: 4000 }).catch(() => {});
 
     result.dynamicContent = await detectDynamicContent(page);
     if (result.dynamicContent) {
@@ -175,17 +179,6 @@ async function analyzeUrlPro(page, url, options = {}) {
         category: 'Technical',
         message: 'Dynamic content framework detected (React/Angular/Vue/Next.js)',
         recommendation: 'Use data-testid selectors for more stable automation'
-      });
-    }
-
-    result.userFlows = detectUserFlows(result.websiteType, result.elements, result.forms);
-
-    if (result.userFlows.length > 0) {
-      result.observations.push({
-        type: 'info',
-        category: 'Flows',
-        message: `Detected ${result.userFlows.length} user flows`,
-        flows: result.userFlows.map((f) => ({ name: f.name, priority: f.priority }))
       });
     }
 
@@ -215,6 +208,29 @@ async function analyzeUrlPro(page, url, options = {}) {
         message: `Sub-domain identified as: ${result.subDomain.name}`,
         confidence: result.subDomain.confidence,
         indicators: result.subDomain.matchedIndicators
+      });
+    }
+
+    if (!result.elements.length) {
+      result.thinCrawl = true;
+      result.warnings.push(
+        'The page rendered little or no interactive content (location gate, login wall, bot challenge, or SPA hydrate timeout). Classification used the hostname and any visible text.'
+      );
+    }
+
+    result.userFlows = detectUserFlows(
+      result.websiteType,
+      result.elements,
+      result.forms,
+      result.subDomain
+    );
+
+    if (result.userFlows.length > 0) {
+      result.observations.push({
+        type: 'info',
+        category: 'Flows',
+        message: `Detected ${result.userFlows.length} user flows`,
+        flows: result.userFlows.map((f) => ({ name: f.name, priority: f.priority }))
       });
     }
 

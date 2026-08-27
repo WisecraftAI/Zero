@@ -261,10 +261,11 @@ async function testKey(apiKey, provider = null) {
       provider: detectedProvider
     };
   } catch (error) {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const apiMessage = error.response?.data?.error?.message;
       return {
         valid: false,
-        message: "Invalid or expired API key",
+        message: apiMessage || "Invalid or expired API key",
         provider: detectedProvider
       };
     }

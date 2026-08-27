@@ -26,7 +26,7 @@ const OUT_FILE = resolve(REPO_ROOT, 'support/zero-docs/docs/v1/DOMAIN_TEST_PLANS
 const { WEBSITE_TYPES } = require(resolve(ANALYZER, 'constants.js'));
 const { SUB_DOMAINS } = require(resolve(ANALYZER, 'classify/domainTaxonomy.js'));
 const { scoreSubDomains } = require(resolve(ANALYZER, 'classify/subDomain.js'));
-const { matchesUrlPattern } = require(resolve(ANALYZER, 'classify/indicatorMatch.js'));
+const { matchHostnameToDomain } = require(resolve(ANALYZER, 'classify/websiteType.js'));
 const { generateMajorFunctionalCases } = require(resolve(ANALYZER, 'generate/majorFunctionalCases.js'));
 
 const cell = (value) => String(value ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ');
@@ -70,10 +70,7 @@ const modulesOf = (cases) => new Set(cases.map((tc) => String(tc.module).toLower
 
 /** Which domain a bare hostname resolves to, following `detectWebsiteType` order. */
 function resolveDomainByHost(host) {
-  for (const [key, config] of Object.entries(WEBSITE_TYPES)) {
-    if (matchesUrlPattern(host, config.urlPatterns)) return key;
-  }
-  return null;
+  return matchHostnameToDomain(host)?.type ?? null;
 }
 
 /** Every hostname fragment the taxonomy names, and where it is declared. */
@@ -219,9 +216,9 @@ function main() {
         `${site.resolvedSubDomain === null ? '—' : `\`${site.resolvedSubDomain}\``} |`,
     ),
     '',
-    `Domain \`urlPatterns\` are the only hostname source \`detectWebsiteType\` consults, so ${unresolvable.length}`,
-    'of the fragments above are declared solely under a sub-domain and cannot be resolved from the hostname —',
-    'those sites depend entirely on landing-page text to reach their domain.',
+    `detectWebsiteType matches domain \`urlPatterns\` first, then sub-domain hostname labels, so ${unresolvable.length}`,
+    'of the fragments above are too short or too generic to resolve from the hostname alone —',
+    'those sites still depend on landing-page text (or a longer brand label) to reach their domain.',
     '',
     ...domainKeys.map((key) => `${domainSection(key)}\n`),
   ].join('\n');

@@ -101,7 +101,7 @@ function createProcessRun(deps) {
             run,
             buildDomainInferenceContext(run.artifacts.webAnalysis)
           );
-          if (run.artifacts.webAnalysis.baInsights.metadata?.llm?.used) {
+          if (run.artifacts.webAnalysis.baInsights.metadata?.llm) {
             run.artifacts.webAnalysis.metadata = {
               ...(run.artifacts.webAnalysis.metadata || {}),
               domainInference: run.artifacts.webAnalysis.baInsights.metadata.llm,

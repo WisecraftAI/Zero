@@ -160,21 +160,27 @@ async function readLinksFromDom(page) {
       return false;
     }
 
-    document.querySelectorAll("a[href]").forEach((a) => {
-      const href = a.getAttribute("href") || "";
+    function pushLink(node, href) {
       if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
-      const text = (a.innerText || a.textContent || "").trim();
+      const text = (node.innerText || node.textContent || node.getAttribute("aria-label") || "").trim();
       const key = `${href}::${text.slice(0, 40)}`;
       if (seen.has(key)) return;
       seen.add(key);
       rows.push({
-        href: a.href || href,
+        href: node.href || href,
         text,
-        inNav: inRegion(a, ["nav", '[role="navigation"]']),
-        inHeader: inRegion(a, ["header", '[role="banner"]']),
-        inFooter: inRegion(a, ["footer", '[role="contentinfo"]']),
-        inMain: inRegion(a, ["main", '[role="main"]', "#main", ".main-content"]),
+        inNav: inRegion(node, ["nav", '[role="navigation"]']),
+        inHeader: inRegion(node, ["header", '[role="banner"]']),
+        inFooter: inRegion(node, ["footer", '[role="contentinfo"]']),
+        inMain: inRegion(node, ["main", '[role="main"]', "#main", ".main-content"]),
       });
+    }
+
+    document.querySelectorAll("a[href]").forEach((a) => {
+      pushLink(a, a.getAttribute("href") || "");
+    });
+    document.querySelectorAll("[role='link'][href], [data-href], [data-url]").forEach((node) => {
+      pushLink(node, node.getAttribute("href") || node.getAttribute("data-href") || node.getAttribute("data-url") || "");
     });
 
     return rows;
@@ -233,7 +239,11 @@ async function crawlLinkedPages(page, startUrl, options = {}) {
 
     try {
       await page.goto(next.url, { waitUntil: "domcontentloaded", timeout: gotoTimeout });
-      if (waitMs > 0) await page.waitForTimeout(waitMs);
+      if (typeof options.settle === "function") {
+        await options.settle(page);
+      } else if (waitMs > 0) {
+        await page.waitForTimeout(waitMs);
+      }
 
       // Resolve links against where the browser actually ended up. Using the
       // requested URL meant a `foo.com` → `www.foo.com` redirect made every link

@@ -29,7 +29,7 @@ For Mermaid/flow diagrams of Zero, use `zero-diagrams`.
 
 Distinguish **current runtime** (split services + shared packages) from **target vision** (`support/zero-docs/docs/v2/ARCHITECTURE.md` + `dist/web/architectureV2.html`, source `web/public/`).
 
-To **implement** the Production Blueprint (M1–M7), use skill `zero-target-arch` and `support/agent-workflow/` — not this skill.
+To **implement** the Production Blueprint (M1–M7 done, S0–S7 done, Q1–Q4 done, **Q5 open**), use skill `zero-target-arch` and `support/agent-workflow/` — not this skill.
 
 ## Runtime architecture (today)
 
@@ -41,9 +41,9 @@ React web/ → dist/web/  →  @zero/api (services/api/server.js)  →  @zero/or
                          PostgreSQL (@zero/db)
 ```
 
-**Pipeline:** `ba` → `manualQa` → `automationQa` → `execution` → optional `accessibility`/`performance` → `manager` → `delivery`
+**Pipeline:** optional `webAnalyzer` → optional domain inference → `ba` → `manualQa` → `automationQa` → `execution` → optional `accessibility`/`performance`/`security` → `manager` → `delivery`
 
-**Locator merge:** profile selectors → in-memory learned → Postgres `element_locators`
+**Locator merge:** learned DB and memory selectors ahead of profile fallbacks (`element_locators` → in-memory → `appProfiles`)
 
 ## How to run (include when explaining)
 

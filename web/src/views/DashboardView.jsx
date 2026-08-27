@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './DashboardView.css';
 import { apiUrl } from '../apiBase';
 import AiSetupBanner from '../components/AiSetupBanner';
-import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
+import { applyProviderToAllAgents, countActiveAgents, preferredConfiguredProvider } from '../lib/aiSetup';
 import { computeRunProgress, formatDuration, runElapsedMs } from '../lib/runProgress';
 
 function fmtDate(ts) {
@@ -123,14 +123,14 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
       {!aiLoading && onNavigate && (
         <AiSetupBanner
           variant="dashboard"
-          geminiConfigured={!!aiKeys.gemini}
+          configuredProvider={preferredConfiguredProvider(aiKeys)}
           activeCount={activeAgentCount}
           onGoApiKeys={() => onNavigate('apikeys')}
           onGoAgents={() => onNavigate('agents')}
-          onEnableGemini={aiKeys.gemini ? async () => {
+          onEnableAi={preferredConfiguredProvider(aiKeys) ? async () => {
             setEnablingAi(true);
             try {
-              await applyGeminiToAllAgents(apiUrl);
+              await applyProviderToAllAgents(apiUrl, preferredConfiguredProvider(aiKeys));
               const agentsRes = await fetch(apiUrl('/agent-settings')).then(r => r.json());
               const byAgent = {};
               for (const i of agentsRes.items || []) byAgent[i.agent] = i;

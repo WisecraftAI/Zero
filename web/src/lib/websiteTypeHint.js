@@ -3,9 +3,10 @@
  * Runtime detection uses @zero/analyzer Web Analyzer during the pipeline.
  */
 export function detectWebsiteTypeFromUrl(url) {
-  if (!url || !String(url).trim()) return null;
+  const normalized = normalizeTargetUrl(url);
+  if (!normalized) return null;
   try {
-    const hostname = new URL(url.trim()).hostname.toLowerCase();
+    const hostname = new URL(normalized).hostname.toLowerCase();
 
     if (hostname.includes('supersaravanastores') || hostname.includes('saravana')) {
       return 'Retail Store';
@@ -70,9 +71,28 @@ export function detectWebsiteTypeFromUrl(url) {
   }
 }
 
+/**
+ * Prefix https:// when omitted and reject non-http(s) values.
+ * Returns a fully-qualified URL, or '' if the input is empty/invalid.
+ */
 export function normalizeTargetUrl(raw) {
   const trimmed = String(raw || '').trim();
-  if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+  if (!trimmed || /\s/.test(trimmed)) return '';
+
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
+  if (!hasScheme && /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return '';
+
+  const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname) return '';
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+    const isIp = /^\d+(\.\d+){3}$/.test(hostname);
+    if (!isLocal && !isIp && !hostname.includes('.')) return '';
+    return parsed.href;
+  } catch {
+    return '';
+  }
 }
