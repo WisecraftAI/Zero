@@ -31,14 +31,12 @@ module.exports = function registerRunsRoutes(app, ctx) {
 
       const tcFile = req.files && req.files.tcFile ? req.files.tcFile[0] : null;
       const recordingFile = req.files && req.files.recordingFile ? req.files.recordingFile[0] : null;
-      const tcExt = tcFile ? path.extname(tcFile.originalname).toLowerCase() : "";
-      
       // Determine execution mode based on input
-      const hasCsv = tcFile && tcExt === ".csv";
+      const hasUploadedTcFile = Boolean(tcFile);
       const hasManualCases = manualTestCases.length > 0 && manualTestCases.some(tc => tc.feature || tc.scenario);
       
       let executionMode = "standard";
-      if (hasCsv) {
+      if (hasUploadedTcFile) {
         executionMode = "uploaded_tc_only";
       } else if (hasManualCases) {
         executionMode = "manual_tc_only";
@@ -53,7 +51,7 @@ module.exports = function registerRunsRoutes(app, ctx) {
       if (!figmaUrl && !tcFile && !hasManualCases && !notes && !canRunWithAutoGeneration) {
         return res.status(400).json({ error: "Upload a CSV, enter manual test cases, or use URL Analyzer auto-generation" });
       }
-      if (hasCsv) {
+      if (hasUploadedTcFile) {
         // CSV is primary: run only uploaded test cases, no built-in manual TC
       }
 
@@ -137,7 +135,8 @@ module.exports = function registerRunsRoutes(app, ctx) {
         run.status = "awaiting_uploads";
         const uploads = [];
         for (const field of requestedUploads) {
-          const key = ctx.cloudHttp.objectKey(run.id, "inputs", field);
+          const objectName = uploadObjectNameForField(field);
+          const key = ctx.cloudHttp.objectKey(run.id, "inputs", objectName);
           objectKeys[field] = key;
           uploads.push({
             field,
@@ -182,6 +181,13 @@ module.exports = function registerRunsRoutes(app, ctx) {
     return [];
   }
 
+  function uploadObjectNameForField(field) {
+    const normalized = String(field || "").trim();
+    if (normalized === "tcFile") return "tcFile.csv";
+    if (normalized === "recordingFile") return "recordingFile.json";
+    return normalized || "upload.bin";
+  }
+
   app.post("/runs/:id/commit", async (req, res) => {
     const run = await ctx.loadRunForRequest(req, res);
     if (!run) return;
@@ -197,7 +203,9 @@ module.exports = function registerRunsRoutes(app, ctx) {
         run.input.tcFileContent = buf.toString("utf8");
         run.input.tcFileName = path.basename(keys.tcFile);
         const ext = path.extname(run.input.tcFileName).toLowerCase();
-        if (ext === ".csv") run.input.executionMode = "uploaded_tc_only";
+        if (ext === ".csv" || ext === ".xlsx" || ext === ".xls" || ext === ".json" || ext === ".txt" || ext === ".md") {
+          run.input.executionMode = "uploaded_tc_only";
+        }
         await fs.mkdir(run.runDir, { recursive: true });
         await fs.writeFile(path.join(run.runDir, run.input.tcFileName), buf);
       }

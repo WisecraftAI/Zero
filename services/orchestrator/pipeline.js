@@ -603,10 +603,30 @@ function generateCasesFromUploadedOnly(requirements) {
   const structured = requirements.testCaseRowsStructured || [];
   const uploadedSeeds = requirements.testCaseSeedFromUpload || [];
 
-  const source = structured.length ? structured : uploadedSeeds.map((seed) => {
-    const parts = String(seed).split("|").map((p) => p.trim());
-    return { feature: parts[0] || "General", scenario: parts[1] || "Scenario", expectedResult: parts[2] || "Expected" };
-  });
+  const source = structured.length ? structured : uploadedSeeds
+    .map((seed) => {
+      const raw = String(seed || "").trim();
+      if (!raw) return null;
+
+      // Fallback parser: support both "feature | scenario | expected" and plain CSV rows.
+      const parts = raw.includes("|")
+        ? raw.split("|").map((p) => p.trim())
+        : parseCsvLine(raw, ",").map((p) => p.trim());
+
+      const first = String(parts[0] || "").toLowerCase();
+      const second = String(parts[1] || "").toLowerCase();
+      const third = String(parts[2] || "").toLowerCase();
+      if (first === "feature" && second === "scenario" && third.includes("expected")) {
+        return null;
+      }
+
+      return {
+        feature: parts[0] || "General",
+        scenario: parts[1] || "Scenario",
+        expectedResult: parts[2] || "Expected"
+      };
+    })
+    .filter(Boolean);
 
   const testCases = source.map((row, i) => {
     const feature = row.feature || "General";

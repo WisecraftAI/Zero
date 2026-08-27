@@ -23,6 +23,60 @@ function createJobs(deps) {
       .slice(0, 25);
   }
 
+  function normalizeForMatch(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+
+  function escapeRegExp(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function hasStrictSearchPhraseMatch(haystack, term) {
+    const text = normalizeForMatch(haystack);
+    const needle = normalizeForMatch(term);
+    if (!needle || !text) return false;
+    if (text.includes(needle)) return true;
+
+    const compactText = text.replace(/\s+/g, "");
+    const compactNeedle = needle.replace(/\s+/g, "");
+    return compactNeedle.length >= 4 && compactText.includes(compactNeedle);
+  }
+
+  function hasSearchTermMatch(haystack, term) {
+    const normalizedTerm = normalizeForMatch(term);
+    if (!normalizedTerm) return false;
+    if (/\d/.test(normalizedTerm)) {
+      // Model-number queries must match as a phrase (e.g. "iphone 15").
+      return hasStrictSearchPhraseMatch(haystack, normalizedTerm);
+    }
+    return hasStrictSearchPhraseMatch(haystack, normalizedTerm) || hasRelevantTermMatch(haystack, normalizedTerm);
+  }
+
+  function hasRelevantTermMatch(haystack, term) {
+    const text = normalizeForMatch(haystack);
+    const needle = normalizeForMatch(term);
+    if (!needle || !text) return false;
+    if (text.includes(needle)) return true;
+
+    const tokens = needle.split(/\s+/).filter((t) => t.length >= 2 || /^\d+$/.test(t));
+    if (!tokens.length) return false;
+
+    const numericTokens = tokens.filter((t) => /\d/.test(t));
+    for (const token of numericTokens) {
+      const rx = new RegExp(`(^|\\s)${escapeRegExp(token)}(\\s|$)`, "i");
+      if (!rx.test(text)) return false;
+    }
+
+    const alphaTokens = tokens.filter((t) => !/\d/.test(t));
+    if (!alphaTokens.length) {
+      return numericTokens.length > 0;
+    }
+
+    const matchedAlpha = alphaTokens.filter((t) => text.includes(t)).length;
+    const requiredAlphaMatches = alphaTokens.length === 1 ? 1 : Math.max(1, Math.ceil(alphaTokens.length / 2));
+    return matchedAlpha >= requiredAlphaMatches;
+  }
+
   async function findXPathForSelector(page, selector) {
     return page.evaluate((sel) => {
       const target = document.querySelector(sel);
@@ -184,6 +238,9 @@ function createJobs(deps) {
     const userFlows = webAnalysis.userFlows || [];
     const resolvedExecutionMode = resolveExecutionMode(run.input, process.env);
     const useDiscoveredFlows = resolvedExecutionMode === EXECUTION_MODES.DISCOVERED_FLOWS;
+    const isUploadedMode = run.input.executionMode === "uploaded_tc_only";
+    const isManualMode = run.input.executionMode === "manual_tc_only";
+    const isTcDrivenMode = isUploadedMode || isManualMode;
 
     console.log(`[Execution] Website type: ${websiteTypeName} (${websiteType})`);
     console.log(`[Execution] Mode: ${resolvedExecutionMode}`);
@@ -493,7 +550,7 @@ function createJobs(deps) {
     }));
 
     const ottUrl = run.input.ottUrl;
-    const useMinimalExecution = process.env.EXECUTION_MODE !== "full";
+    const useMinimalExecution = resolvedExecutionMode === EXECUTION_MODES.MINIMAL;
 
     // Sequential execution state - maintains page state across test cases
     let pageInitialized = false;
@@ -827,6 +884,7 @@ function createJobs(deps) {
                 const resultSelectors = getSelectors(ottUrl, 'results', 'container');
 
                 let found = false;
+                let relevantFound = false;
                 for (const sel of resultSelectors) {
                   try {
                     const results = page.locator(sel);
@@ -834,21 +892,39 @@ function createJobs(deps) {
                     if (count > 0) {
                       found = true;
                       trace.push(`action:search-results-found:${count}-items`);
+
+                      const cards = page.locator("[data-component-type='s-search-result'] h2, .s-result-item h2, [data-asin] h2");
+                      const sampleCount = Math.min(8, await cards.count().catch(() => 0));
+                      for (let i = 0; i < sampleCount; i += 1) {
+                        const titleText = await cards.nth(i).textContent().catch(() => "");
+                        if (hasSearchTermMatch(titleText, term)) {
+                          relevantFound = true;
+                          trace.push(`action:search-relevance-match:${term}`);
+                          break;
+                        }
+                      }
                       break;
                     }
                   } catch { }
                 }
 
                 if (!found) {
-                  // Try text-based verification
-                  const hasText = await page.getByText(term, { exact: false }).first().isVisible({ timeout: 5000 }).catch(() => false);
-                  if (hasText) {
-                    found = true;
-                    trace.push("action:search-term-visible");
+                  // Fallback: check term match inside result title elements only.
+                  const resultTitles = page.locator("[data-component-type='s-search-result'] h2, .s-result-item h2, [data-asin] h2");
+                  const titleCount = await resultTitles.count().catch(() => 0);
+                  for (let i = 0; i < Math.min(titleCount, 8); i += 1) {
+                    const titleText = await resultTitles.nth(i).textContent().catch(() => "");
+                    if (hasSearchTermMatch(titleText, term)) {
+                      found = true;
+                      relevantFound = true;
+                      trace.push(`action:search-term-visible-in-title:${term}`);
+                      break;
+                    }
                   }
                 }
 
                 if (!found) throw new Error(`Search results for "${term}" not displayed`);
+                if (!relevantFound) throw new Error(`Search results displayed but no relevant match found for "${term}"`);
                 break;
               }
 
@@ -1490,8 +1566,23 @@ function createJobs(deps) {
       });
     }
 
-    const uploadedMode = run.input.executionMode === "uploaded_tc_only";
-    const selectedSuite = uploadedMode ? buildUploadedTcExecutionTests() : [...baseTests, ...assertionTests];
+    const tcDrivenSuite = buildUploadedTcExecutionTests();
+    const selectedSuite = isTcDrivenMode ? tcDrivenSuite : [...baseTests, ...assertionTests];
+
+    if (isTcDrivenMode && tcDrivenSuite.length === 0) {
+      return {
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          source: "Execution Service",
+          mode: isManualMode ? "manual_tc_only" : "uploaded_tc_only"
+        },
+        totals: { total: 0, passed: 0, failed: 0, passRate: "0%" },
+        tests: [],
+        locatorAnalysis: [],
+        note: "No executable test cases were found from uploaded/manual input"
+      };
+    }
+
     const allTests = selectedSuite.filter((t) => !failedSet || failedSet.has(t.id));
 
     if (!allTests.length) {
@@ -1526,7 +1617,7 @@ function createJobs(deps) {
 
       // For CSV upload mode (e-commerce flows), skip OTT-specific locator analysis
       // to avoid unnecessary page reloads
-      if (!uploadedMode && Object.keys(selectorCandidates).length > 0) {
+      if (!isTcDrivenMode && Object.keys(selectorCandidates).length > 0) {
         // Navigate once for locator analysis
         await page.goto(run.input.ottUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
 
