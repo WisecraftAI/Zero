@@ -18,6 +18,7 @@ const urlAnalyzerPro = require("@zero/analyzer/urlAnalyzerPro");
 const { startExecutionWorker } = require("./worker");
 const { createJobs } = require("./jobs");
 const { captureCmsScreenshot, captureCmsSignalBulk } = require("./cmsCapture");
+const { isRunCancelRequested, RunStoppedError } = require("@zero/domain");
 
 function hostFromUrl(value) {
   try {
@@ -57,6 +58,10 @@ async function runJob(job) {
   }
   if (kind === "cms-bulk") {
     return captureCmsSignalBulk(job, { cloud, artifactsRoot: store.artifactsRoot });
+  }
+
+  if (await isRunCancelRequested(cloud.cache, job.runId)) {
+    throw new RunStoppedError();
   }
 
   const run = await store.getRun(job.runId);

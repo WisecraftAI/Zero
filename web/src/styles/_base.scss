@@ -1,0 +1,104 @@
+// Global element defaults, focus treatment, scrollbars and utilities.
+// Depends on the custom properties from _tokens.scss and _themes.scss.
+
+@use 'breakpoints' as bp;
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'tnum';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+#root { min-height: 100vh; }
+
+.skip-to-content {
+  position: absolute;
+  left: var(--space-2);
+  top: -120px;
+  z-index: 1000;
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.skip-to-content:focus {
+  top: var(--space-2);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+  color: var(--text);
+}
+p { margin: 0; }
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* Numeric data should align across rows */
+td, .stat-value, .metric-value { font-variant-numeric: tabular-nums; }
+
+/* Monospace label utility */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* Display type utility — the brand voice, used at section openings only */
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  line-height: 1.06;
+}
+
+/* ── Focus ─────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+::selection { background: var(--accent-glow); color: var(--text); }
+
+::placeholder { color: var(--text-3); opacity: 1; }
+
+/* Scrollbar — wide enough to grab, quiet enough to ignore */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-md);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@include bp.reduced-motion {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

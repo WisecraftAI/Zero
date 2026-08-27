@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import PipelineFlow from '../components/PipelineFlow';
 import RunProgressPanel from '../components/RunProgressPanel';
 import { apiUrl, artifactUrl } from '../apiBase';
-import './RunDetailView.css';
+import './RunDetailView.scss';
+import StopRunButton from '../components/StopRunButton';
 
 /* ─── Tab definitions ─────────────────────────────────────── */
 const ALL_TABS = [
@@ -46,12 +47,12 @@ function fmtConfidence(value) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
-export default function RunDetailView({ run, runId, onRerunFailed, onBack, streamTransport }) {
+export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, onBack, streamTransport }) {
   const [activeTab, setActiveTab] = useState('requirements');
   const [tick, setTick] = useState(() => Date.now());
 
   useEffect(() => {
-    if (run?.status !== 'running') return undefined;
+    if (run?.status !== 'running' && run?.status !== 'stopping') return undefined;
     const t = setInterval(() => setTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, [run?.status]);
@@ -81,7 +82,11 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack, strea
   return (
     <div className="run-detail-view">
 
-      {/* Header */}
+      {!run && (
+        <div className={runId ? 'empty-state' : 'empty-state empty-state--error'}>
+          <p>{runId ? 'Loading run…' : 'No run selected. Open a run from the list.'}</p>
+        </div>
+      )}
       <div className="rdt-header">
         <div className="rdt-header-left">
           <div className="rdt-url">
@@ -99,6 +104,7 @@ export default function RunDetailView({ run, runId, onRerunFailed, onBack, strea
           </div>
         </div>
         <div className="rdt-header-right">
+          <StopRunButton run={run} onStop={onStopRun} />
           <button className="btn btn-secondary btn-sm" disabled={!runId || !hasFailures} onClick={onRerunFailed}>
             Re-run Failed
           </button>

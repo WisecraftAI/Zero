@@ -88,17 +88,20 @@ async function main() {
 
   report('Sidebar navigation', sidebarResults);
 
-  // Theme toggle
+  // Theme picker
   const themeResults = [];
   try {
-    const themeBtn = page.locator('.sidebar-foot .nav-item').filter({ hasText: /Light Mode|Dark Mode/ }).first();
+    const themeBtn = page.getByRole('button', { name: /Choose theme/ });
     const before = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     await themeBtn.click();
+    await page.waitForTimeout(150);
+    const next = page.getByRole('radio').filter({ hasNot: page.locator('[aria-checked="true"]') }).first();
+    await next.click();
     await page.waitForTimeout(200);
     const after = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-    themeResults.push({ ok: before !== after, name: 'Theme toggle', detail: `${before} → ${after}` });
+    themeResults.push({ ok: before !== after, name: 'Theme picker', detail: `${before} → ${after}` });
   } catch (e) {
-    themeResults.push({ ok: false, name: 'Theme toggle', detail: e.message.slice(0, 80) });
+    themeResults.push({ ok: false, name: 'Theme picker', detail: e.message.slice(0, 80) });
   }
   report('Theme', themeResults);
 

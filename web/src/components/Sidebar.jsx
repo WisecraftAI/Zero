@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
-import './Sidebar.css';
+import { useState } from 'react';
+import ThemePicker from './ThemePicker';
+import { ZeroMark } from './ZeroLogo';
+import './Sidebar.scss';
 
 /* ── Icons (inline SVG, 16×16 viewport) ─────────────────── */
 const Icons = {
@@ -64,17 +66,6 @@ const Icons = {
       <path d="M8 1.5V3M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
     </svg>
   ),
-  sun: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.4"/>
-      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-    </svg>
-  ),
-  moon: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M13.5 9.5A6 6 0 1 1 6.5 2.5a5 5 0 0 0 7 7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-    </svg>
-  ),
   newRun: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -118,21 +109,13 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ activeView, onNavigate }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
-
-  const toggleTheme = useCallback(() => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('zero-theme', next);
-    setTheme(next);
-  }, [theme]);
 
   return (
     <aside className={`sidebar ${isExpanded ? 'sidebar--expanded' : ''}`}>
-      {/* Z Logo (Always Top Left) */}
+      {/* Brand mark (always top left) */}
       <div className="sidebar-head">
-        <button className="sidebar-logo" onClick={() => onNavigate('dashboard')} title="ZERO Platform">
-          <span className="sidebar-z">Z</span>
+        <button className="sidebar-logo" onClick={() => onNavigate('dashboard')} title="ZERO Platform" aria-label="ZERO — go to dashboard">
+          <ZeroMark size={30} />
           <span className="sidebar-brand-text">ZERO</span>
         </button>
       </div>
@@ -140,9 +123,10 @@ export default function Sidebar({ activeView, onNavigate }) {
       {/* New Run CTA */}
       <div className="sidebar-cta-wrap">
         <button
-          className={`nav-item nav-item--cta ${activeView === 'new-run' ? 'nav-item--active' : ''}`}
+          className={`nav-item ${activeView === 'new-run' ? 'nav-item--active' : ''} nav-item--cta`}
           onClick={() => onNavigate('new-run')}
           title={isExpanded ? undefined : "New Run"}
+          aria-current={activeView === 'new-run' ? 'page' : undefined}
         >
           <span className="nav-icon">{Icons.newRun}</span>
           <span className="nav-label">New Run</span>
@@ -150,7 +134,7 @@ export default function Sidebar({ activeView, onNavigate }) {
       </div>
 
       {/* Main nav */}
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Primary">
         {NAV_ITEMS.map((item, i) =>
           item === null
             ? <div key={`div-${i}`} className="sidebar-divider" />
@@ -161,6 +145,7 @@ export default function Sidebar({ activeView, onNavigate }) {
                 onClick={() => !item.soon && onNavigate(item.id)}
                 title={isExpanded ? undefined : (item.title + (item.soon ? ' (soon)' : ''))}
                 disabled={item.soon}
+                aria-current={activeView === item.id ? 'page' : undefined}
               >
                 <span className="nav-icon">{Icons[item.icon]}</span>
                 <span className="nav-label">{item.title}</span>
@@ -179,20 +164,13 @@ export default function Sidebar({ activeView, onNavigate }) {
           className={`nav-item ${activeView === 'locators' ? 'nav-item--active' : ''}`}
           onClick={() => onNavigate('locators')}
           title={isExpanded ? undefined : "Locator Intelligence"}
+          aria-current={activeView === 'locators' ? 'page' : undefined}
         >
           <span className="nav-icon">{Icons.locators}</span>
           <span className="nav-label">Locators</span>
         </button>
 
-        {/* Theme toggle */}
-        <button
-          className="nav-item"
-          onClick={toggleTheme}
-          title={isExpanded ? undefined : (theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')}
-        >
-          <span className="nav-icon">{theme === 'dark' ? Icons.sun : Icons.moon}</span>
-          <span className="nav-label">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
+        <ThemePicker />
 
         {/* Settings */}
         <button
@@ -209,6 +187,8 @@ export default function Sidebar({ activeView, onNavigate }) {
           className="nav-item sidebar-collapse-toggle"
           onClick={() => setIsExpanded(!isExpanded)}
           title={isExpanded ? "Collapse Menu" : "Expand Menu"}
+          aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
+          aria-expanded={isExpanded}
         >
           <span className="nav-icon">{isExpanded ? Icons.chevronLeft : Icons.chevronRight}</span>
           <span className="nav-label">Collapse</span>
@@ -217,13 +197,13 @@ export default function Sidebar({ activeView, onNavigate }) {
         <div className="sidebar-divider" />
 
         {/* Avatar placeholder */}
-        <div className="sidebar-profile" title="Alex Rivera">
+        <div className="sidebar-profile" title="Operator">
           <div className="sidebar-avatar">
-            <span>A</span>
+            <span>Z</span>
           </div>
           <div className="sidebar-profile-info">
-            <div className="profile-name">Alex Rivera</div>
-            <div className="profile-role">Lead QA</div>
+            <div className="profile-name">Operator</div>
+            <div className="profile-role">Local session</div>
           </div>
         </div>
       </div>

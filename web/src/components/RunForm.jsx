@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { apiUrl, API_BASE } from '../apiBase';
-import './RunForm.css';
+import './RunForm.scss';
 
 export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, run, hasFailures, canDownload }) {
   const formRef = useRef(null);

@@ -225,7 +225,7 @@ function specDependsOn(text, self) {
   const match = text.match(/##\s*Depends on\s*([\s\S]*?)(?:\n##\s|$)/i);
   if (!match) return [];
   const ids = new Set();
-  for (const m of match[1].matchAll(/\b([MS]\d)\b/g)) {
+  for (const m of match[1].matchAll(/\b([MSQU]\d+)\b/g)) {
     if (m[1] !== self) ids.add(m[1]);
   }
   return [...ids];
@@ -268,7 +268,9 @@ function collectWorkflow() {
 
   const capability = buildTrack(progress.milestones, 'capability');
   const packaging = buildTrack(progress.packaging, 'packaging');
-  const tasks = [...capability, ...packaging];
+  const product = buildTrack(progress.product, 'product');
+  const ux = buildTrack(progress.ux, 'ux');
+  const tasks = [...capability, ...packaging, ...product, ...ux];
 
   const byWorkspace = {};
   for (const ws of WORKSPACES) {
@@ -311,7 +313,7 @@ function main() {
     workflow === null
       ? ''
       : `
-export type TaskTrack = 'capability' | 'packaging';
+export type TaskTrack = 'capability' | 'packaging' | 'product' | 'ux';
 export type TaskStatus = 'done' | 'partial' | 'not-done';
 
 export interface GeneratedTask {

@@ -42,7 +42,7 @@ export interface PackageDoc {
 export const PACKAGES_DOC: PackageDoc[] = [
   {
     "id": "domain",
-    "generatedAt": "2026-08-18T07:23:25.186Z",
+    "generatedAt": "2026-08-27T13:17:05.977Z",
     "pkg": "@zero/domain",
     "version": "0.0.0",
     "description": "Shared contracts: stageKeys, appProfiles. No I/O.",
@@ -53,8 +53,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./outputRoots": "./outputRoots.js",
       "./schemas": "./lib/schemas.js"
     },
-    "fileCount": 10,
-    "loc": 441,
+    "fileCount": 11,
+    "loc": 509,
     "dependencies": [],
     "workspaceDeps": [],
     "entries": [
@@ -100,7 +100,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/index.js",
-            "loc": 19,
+            "loc": 21,
             "exports": [
               "stageKeys",
               "optionalStageKeys",
@@ -109,7 +109,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
               "outputRoots",
               "validateRunInput",
               "EXECUTION_MODES",
-              "resolveExecutionMode"
+              "resolveExecutionMode",
+              "normalizeTargetUrl"
             ]
           },
           {
@@ -146,18 +147,25 @@ export const PACKAGES_DOC: PackageDoc[] = [
               "optionalStageKeys",
               "RUNS_REQUESTED"
             ]
+          },
+          {
+            "file": "lib/targetUrl.js",
+            "loc": 66,
+            "exports": [
+              "normalizeTargetUrl"
+            ]
           }
         ]
       }
     ],
-    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js",
+    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js\n│  ├─ targetUrl.js",
     "tests": [
       "test/domain.test.js"
     ]
   },
   {
     "id": "db",
-    "generatedAt": "2026-08-18T07:23:25.193Z",
+    "generatedAt": "2026-08-27T13:17:05.987Z",
     "pkg": "@zero/db",
     "version": "0.0.0",
     "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators.",
@@ -363,7 +371,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "locators",
-    "generatedAt": "2026-08-18T07:23:25.195Z",
+    "generatedAt": "2026-08-27T13:17:05.989Z",
     "pkg": "@zero/locators",
     "version": "0.0.0",
     "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
@@ -540,7 +548,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "builders",
-    "generatedAt": "2026-08-18T07:23:25.196Z",
+    "generatedAt": "2026-08-27T13:17:05.991Z",
     "pkg": "@zero/builders",
     "version": "0.0.0",
     "description": "Playwright spec and Java/Selenium emitters.",
@@ -749,7 +757,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "cloud",
-    "generatedAt": "2026-08-18T07:23:25.198Z",
+    "generatedAt": "2026-08-27T13:17:05.993Z",
     "pkg": "@zero/cloud",
     "version": "0.0.0",
     "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
@@ -822,4 +830,4 @@ export const PACKAGES_DOC: PackageDoc[] = [
     ]
   }
 ];
-export const PACKAGES_DOC_GENERATED_AT = "2026-08-18T07:23:25.198Z";
+export const PACKAGES_DOC_GENERATED_AT = "2026-08-27T13:17:05.994Z";

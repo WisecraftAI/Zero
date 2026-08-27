@@ -1,0 +1,1208 @@
+@use 'sass:map';
+
+// Every operator theme, keyed by the id that ThemePicker writes to
+// <html data-theme>. Adding a palette here is the only edit needed —
+// the loop at the bottom emits the matching selector.
+//
+// Values are quoted strings so Sass hands them to CSS verbatim, exactly
+// as a custom property declaration would. Without the quotes Sass would
+// parse and re-serialize colors and shorthands.
+
+$themes: (
+  // ── Light (default)
+  'light': (
+    'color-scheme': 'light',
+
+    'bg': '#FFFFFF',
+    'bg-sidebar': '#FBFBFC',
+    'bg-topbar': 'rgba(255, 255, 255, 0.82)',
+    'surface': '#FFFFFF',
+    'surface-2': '#F5F6F8',
+    'surface-3': '#ECEEF1',
+    'surface-hover': '#F0F1F4',
+
+    // Soft blue wash — calm, widely preferred over warm tones.
+    'wash': 'linear-gradient(180deg, #EEF4FF 0%, #F4F7FB 42%, #FFFFFF 78%)',
+    'wash-edge': '#E0EAFF',
+
+    'border': 'rgba(16, 17, 19, 0.09)',
+    'border-md': 'rgba(16, 17, 19, 0.16)',
+    'border-strong': 'rgba(16, 17, 19, 0.30)',
+
+    'text': '#101113',
+    'text-2': '#565C64',
+    'text-3': '#7C838C',
+    'text-muted': 'var(--text-2)',
+
+    // Brand — sapphire blue (most universally preferred accent).
+    'brand': '#2563EB',
+    'brand-hover': '#1D4ED8',
+    'brand-bg': 'rgba(37, 99, 235, 0.08)',
+    'brand-border': 'rgba(37, 99, 235, 0.24)',
+
+    'accent': '#2563EB',
+    'accent-hover': '#1D4ED8',
+    'accent-light': '#93C5FD',
+    'accent-dim': '#3B82F6',
+    'accent-strong': '#2563EB',
+    'accent-dark': '#1E40AF',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(37, 99, 235, 0.08)',
+    'accent-glow': 'rgba(37, 99, 235, 0.22)',
+    'accent-border': 'rgba(37, 99, 235, 0.24)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.09)',
+    'green-border': 'rgba(26, 127, 55, 0.24)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.08)',
+    'red-border': 'rgba(207, 34, 46, 0.24)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.10)',
+    'amber-border': 'rgba(154, 103, 0, 0.24)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#2563EB',
+    'blue-bg': 'rgba(37, 99, 235, 0.08)',
+    'blue-border': 'rgba(37, 99, 235, 0.24)',
+
+    // Pipeline stage hues — cool spectrum, no orange.
+    'stage-analyze': '#2563EB',
+    'stage-plan': '#7C3AED',
+    'stage-author': '#0891B2',
+    'stage-execute': '#059669',
+    'stage-report': '#DB2777',
+
+    'shadow-sm': '0 1px 2px rgba(16, 17, 19, 0.05)',
+    'shadow': '0 4px 16px rgba(16, 17, 19, 0.07)',
+    'shadow-lg': '0 18px 48px rgba(16, 17, 19, 0.12)',
+    'shadow-hero': '0 24px 64px -20px rgba(16, 17, 19, 0.22)',
+  ),
+
+  // ── Dark
+  'dark': (
+    'color-scheme': 'dark',
+
+    'bg': '#0E0F11',
+    'bg-sidebar': '#131417',
+    'bg-topbar': 'rgba(19, 20, 23, 0.82)',
+    'surface': '#17191D',
+    'surface-2': '#1D2024',
+    'surface-3': '#24272C',
+    'surface-hover': '#282C32',
+
+    'wash': 'linear-gradient(180deg, #1a2332 0%, #131417 45%, #0E0F11 78%)',
+    'wash-edge': '#1e293b',
+
+    'border': 'rgba(255, 255, 255, 0.09)',
+    'border-md': 'rgba(255, 255, 255, 0.16)',
+    'border-strong': 'rgba(255, 255, 255, 0.28)',
+
+    'text': '#F2F3F5',
+    'text-2': '#A8AEB6',
+    'text-3': '#7E858E',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#60A5FA',
+    'brand-hover': '#93C5FD',
+    'brand-bg': 'rgba(96, 165, 250, 0.12)',
+    'brand-border': 'rgba(96, 165, 250, 0.30)',
+
+    'accent': '#60A5FA',
+    'accent-hover': '#93C5FD',
+    'accent-light': '#BFDBFE',
+    'accent-dim': '#3B82F6',
+    'accent-strong': '#3B82F6',
+    'accent-dark': '#2563EB',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(59, 130, 246, 0.12)',
+    'accent-glow': 'rgba(59, 130, 246, 0.28)',
+    'accent-border': 'rgba(59, 130, 246, 0.32)',
+
+    'green': '#3FB950',
+    'green-dim': '#2EA043',
+    'green-strong': '#238636',
+    'green-bg': 'rgba(63, 185, 80, 0.10)',
+    'green-border': 'rgba(63, 185, 80, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#F85149',
+    'red-dim': '#E5534B',
+    'red-strong': '#C93C37',
+    'red-bg': 'rgba(248, 81, 73, 0.10)',
+    'red-border': 'rgba(248, 81, 73, 0.28)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E3B341',
+    'amber-dim': '#C99A2E',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(227, 179, 65, 0.10)',
+    'amber-border': 'rgba(227, 179, 65, 0.28)',
+    'on-amber': '#101113',
+
+    'blue': '#60A5FA',
+    'blue-bg': 'rgba(96, 165, 250, 0.10)',
+    'blue-border': 'rgba(96, 165, 250, 0.28)',
+
+    'stage-analyze': '#60A5FA',
+    'stage-plan': '#A78BFA',
+    'stage-author': '#22D3EE',
+    'stage-execute': '#34D399',
+    'stage-report': '#F472B6',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.4)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.45)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.55)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.6)',
+  ),
+
+  // ── Mist (light, steel + teal)
+  'mist': (
+    'color-scheme': 'light',
+
+    'bg': '#E7ECF0',
+    'bg-sidebar': '#DDE4EA',
+    'bg-topbar': 'rgba(231, 236, 240, 0.88)',
+    'surface': '#F3F6F8',
+    'surface-2': '#DCE3EA',
+    'surface-3': '#CDD6DE',
+    'surface-hover': '#C5CFD8',
+
+    'wash': 'linear-gradient(180deg, #D5E3E4 0%, #E7ECF0 48%, #E7ECF0 78%)',
+    'wash-edge': '#C5D9DA',
+
+    'border': 'rgba(20, 32, 44, 0.10)',
+    'border-md': 'rgba(20, 32, 44, 0.18)',
+    'border-strong': 'rgba(20, 32, 44, 0.32)',
+
+    'text': '#14202C',
+    'text-2': '#3E4C5A',
+    'text-3': '#4A5A68',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#0B6B6E',
+    'brand-hover': '#09585B',
+    'brand-bg': 'rgba(11, 107, 110, 0.10)',
+    'brand-border': 'rgba(11, 107, 110, 0.28)',
+
+    'accent': '#0B6B6E',
+    'accent-hover': '#09585B',
+    'accent-light': '#5BA3A6',
+    'accent-dim': '#0E7C80',
+    'accent-strong': '#0B6B6E',
+    'accent-dark': '#084F52',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(11, 107, 110, 0.10)',
+    'accent-glow': 'rgba(11, 107, 110, 0.24)',
+    'accent-border': 'rgba(11, 107, 110, 0.28)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.12)',
+    'amber-border': 'rgba(154, 103, 0, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#0B6B6E',
+    'blue-bg': 'rgba(11, 107, 110, 0.10)',
+    'blue-border': 'rgba(11, 107, 110, 0.28)',
+
+    'stage-analyze': '#0B6B6E',
+    'stage-plan': '#5B4B8A',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(20, 32, 44, 0.06)',
+    'shadow': '0 4px 16px rgba(20, 32, 44, 0.09)',
+    'shadow-lg': '0 18px 48px rgba(20, 32, 44, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(20, 32, 44, 0.24)',
+  ),
+
+  // ── Ocean (dark, navy + cyan)
+  'ocean': (
+    'color-scheme': 'dark',
+
+    'bg': '#0A121C',
+    'bg-sidebar': '#0D1826',
+    'bg-topbar': 'rgba(13, 24, 38, 0.86)',
+    'surface': '#12202F',
+    'surface-2': '#182A3C',
+    'surface-3': '#1E3448',
+    'surface-hover': '#243C52',
+
+    'wash': 'linear-gradient(180deg, #123048 0%, #0D1826 48%, #0A121C 78%)',
+    'wash-edge': '#1A3A52',
+
+    'border': 'rgba(227, 238, 246, 0.10)',
+    'border-md': 'rgba(227, 238, 246, 0.18)',
+    'border-strong': 'rgba(227, 238, 246, 0.30)',
+
+    'text': '#E3EEF6',
+    'text-2': '#9BB3C6',
+    'text-3': '#7A93A8',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#2EC4D6',
+    'brand-hover': '#5ED4E2',
+    'brand-bg': 'rgba(46, 196, 214, 0.12)',
+    'brand-border': 'rgba(46, 196, 214, 0.32)',
+
+    'accent': '#2EC4D6',
+    'accent-hover': '#5ED4E2',
+    'accent-light': '#7EE0EA',
+    'accent-dim': '#1A9EAD',
+    'accent-strong': '#22B8C9',
+    'accent-dark': '#1A9EAD',
+    'on-accent': '#0A121C',
+    'accent-bg': 'rgba(46, 196, 214, 0.12)',
+    'accent-glow': 'rgba(46, 196, 214, 0.30)',
+    'accent-border': 'rgba(46, 196, 214, 0.34)',
+
+    'green': '#3FB950',
+    'green-dim': '#2EA043',
+    'green-strong': '#238636',
+    'green-bg': 'rgba(63, 185, 80, 0.12)',
+    'green-border': 'rgba(63, 185, 80, 0.28)',
+    'on-green': '#FFFFFF',
+
+    'red': '#F85149',
+    'red-dim': '#E5534B',
+    'red-strong': '#C93C37',
+    'red-bg': 'rgba(248, 81, 73, 0.12)',
+    'red-border': 'rgba(248, 81, 73, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E3B341',
+    'amber-dim': '#C99A2E',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(227, 179, 65, 0.12)',
+    'amber-border': 'rgba(227, 179, 65, 0.30)',
+    'on-amber': '#0A121C',
+
+    'blue': '#2EC4D6',
+    'blue-bg': 'rgba(46, 196, 214, 0.12)',
+    'blue-border': 'rgba(46, 196, 214, 0.32)',
+
+    'stage-analyze': '#2EC4D6',
+    'stage-plan': '#A78BFA',
+    'stage-author': '#38BDF8',
+    'stage-execute': '#34D399',
+    'stage-report': '#F472B6',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+
+  // ── Signal (dark, warm + amber)
+  'signal': (
+    'color-scheme': 'dark',
+
+    'bg': '#151310',
+    'bg-sidebar': '#1B1814',
+    'bg-topbar': 'rgba(27, 24, 20, 0.86)',
+    'surface': '#211D18',
+    'surface-2': '#2A241E',
+    'surface-3': '#332C24',
+    'surface-hover': '#3A3228',
+
+    'wash': 'linear-gradient(180deg, #2C2418 0%, #1B1814 48%, #151310 78%)',
+    'wash-edge': '#3D3220',
+
+    'border': 'rgba(240, 232, 214, 0.09)',
+    'border-md': 'rgba(240, 232, 214, 0.16)',
+    'border-strong': 'rgba(240, 232, 214, 0.28)',
+
+    'text': '#F0E8DC',
+    'text-2': '#B7AA98',
+    'text-3': '#8F8374',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#E0B03A',
+    'brand-hover': '#F0C14F',
+    'brand-bg': 'rgba(224, 176, 58, 0.12)',
+    'brand-border': 'rgba(224, 176, 58, 0.32)',
+
+    'accent': '#E0B03A',
+    'accent-hover': '#F0C14F',
+    'accent-light': '#F3D58A',
+    'accent-dim': '#C4920A',
+    'accent-strong': '#D4A017',
+    'accent-dark': '#B8860B',
+    'on-accent': '#151310',
+    'accent-bg': 'rgba(224, 176, 58, 0.12)',
+    'accent-glow': 'rgba(224, 176, 58, 0.28)',
+    'accent-border': 'rgba(224, 176, 58, 0.34)',
+
+    'green': '#7BC47A',
+    'green-dim': '#5EAE5D',
+    'green-strong': '#3E8F3D',
+    'green-bg': 'rgba(123, 196, 122, 0.12)',
+    'green-border': 'rgba(123, 196, 122, 0.28)',
+    'on-green': '#151310',
+
+    'red': '#E85D4C',
+    'red-dim': '#D14B3C',
+    'red-strong': '#B53A2E',
+    'red-bg': 'rgba(232, 93, 76, 0.12)',
+    'red-border': 'rgba(232, 93, 76, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E0B03A',
+    'amber-dim': '#C4920A',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(224, 176, 58, 0.12)',
+    'amber-border': 'rgba(224, 176, 58, 0.30)',
+    'on-amber': '#151310',
+
+    'blue': '#E0B03A',
+    'blue-bg': 'rgba(224, 176, 58, 0.12)',
+    'blue-border': 'rgba(224, 176, 58, 0.32)',
+
+    'stage-analyze': '#E0B03A',
+    'stage-plan': '#C4A574',
+    'stage-author': '#D4A017',
+    'stage-execute': '#7BC47A',
+    'stage-report': '#E85D4C',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+
+  // ── Contrast (dark, high-contrast + yellow)
+  'contrast': (
+    'color-scheme': 'dark',
+
+    'bg': '#121212',
+    'bg-sidebar': '#1A1A1A',
+    'bg-topbar': 'rgba(26, 26, 26, 0.9)',
+    'surface': '#1C1C1C',
+    'surface-2': '#2A2A2A',
+    'surface-3': '#333333',
+    'surface-hover': '#3A3A3A',
+
+    'wash': 'linear-gradient(180deg, #1F1F1F 0%, #161616 48%, #121212 78%)',
+    'wash-edge': '#3A3A3A',
+
+    'border': 'rgba(255, 255, 255, 0.18)',
+    'border-md': 'rgba(255, 255, 255, 0.28)',
+    'border-strong': 'rgba(255, 255, 255, 0.45)',
+
+    'text': '#F2F2F2',
+    'text-2': '#D0D0D0',
+    'text-3': '#B4B4B4',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#F5D90A',
+    'brand-hover': '#FFE44D',
+    'brand-bg': 'rgba(245, 217, 10, 0.14)',
+    'brand-border': 'rgba(245, 217, 10, 0.40)',
+
+    'accent': '#F5D90A',
+    'accent-hover': '#FFE44D',
+    'accent-light': '#FFE44D',
+    'accent-dim': '#D4BC00',
+    'accent-strong': '#F5D90A',
+    'accent-dark': '#D4BC00',
+    'on-accent': '#121212',
+    'accent-bg': 'rgba(245, 217, 10, 0.14)',
+    'accent-glow': 'rgba(245, 217, 10, 0.32)',
+    'accent-border': 'rgba(245, 217, 10, 0.42)',
+
+    'green': '#3DDC84',
+    'green-dim': '#2EC072',
+    'green-strong': '#1EA05C',
+    'green-bg': 'rgba(61, 220, 132, 0.14)',
+    'green-border': 'rgba(61, 220, 132, 0.36)',
+    'on-green': '#121212',
+
+    'red': '#FF6B6B',
+    'red-dim': '#F05555',
+    'red-strong': '#D64545',
+    'red-bg': 'rgba(255, 107, 107, 0.14)',
+    'red-border': 'rgba(255, 107, 107, 0.36)',
+    'on-red': '#121212',
+
+    'amber': '#F5D90A',
+    'amber-dim': '#D4BC00',
+    'amber-strong': '#A89400',
+    'amber-bg': 'rgba(245, 217, 10, 0.14)',
+    'amber-border': 'rgba(245, 217, 10, 0.40)',
+    'on-amber': '#121212',
+
+    'blue': '#F5D90A',
+    'blue-bg': 'rgba(245, 217, 10, 0.14)',
+    'blue-border': 'rgba(245, 217, 10, 0.40)',
+
+    'stage-analyze': '#F5D90A',
+    'stage-plan': '#C4B5FD',
+    'stage-author': '#7DD3FC',
+    'stage-execute': '#3DDC84',
+    'stage-report': '#FF6B6B',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.5)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.55)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.62)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.7)',
+  ),
+
+  // ── Glacier (light, polar ice + sky)
+  'glacier': (
+    'color-scheme': 'light',
+
+    'bg': '#F0F5F8',
+    'bg-sidebar': '#E4EEF3',
+    'bg-topbar': 'rgba(240, 245, 248, 0.88)',
+    'surface': '#FAFCFD',
+    'surface-2': '#E2ECF2',
+    'surface-3': '#D2E0E8',
+    'surface-hover': '#C7D8E2',
+
+    'wash': 'linear-gradient(180deg, #D7EAF3 0%, #F0F5F8 48%, #F0F5F8 78%)',
+    'wash-edge': '#C5DCEA',
+
+    'border': 'rgba(15, 39, 64, 0.10)',
+    'border-md': 'rgba(15, 39, 64, 0.18)',
+    'border-strong': 'rgba(15, 39, 64, 0.32)',
+
+    'text': '#0F2740',
+    'text-2': '#3D556A',
+    'text-3': '#4A6578',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#0369A1',
+    'brand-hover': '#075985',
+    'brand-bg': 'rgba(3, 105, 161, 0.10)',
+    'brand-border': 'rgba(3, 105, 161, 0.28)',
+
+    'accent': '#0369A1',
+    'accent-hover': '#075985',
+    'accent-light': '#7DD3FC',
+    'accent-dim': '#0284C7',
+    'accent-strong': '#0369A1',
+    'accent-dark': '#075985',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(3, 105, 161, 0.10)',
+    'accent-glow': 'rgba(3, 105, 161, 0.24)',
+    'accent-border': 'rgba(3, 105, 161, 0.28)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.12)',
+    'amber-border': 'rgba(154, 103, 0, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#0369A1',
+    'blue-bg': 'rgba(3, 105, 161, 0.10)',
+    'blue-border': 'rgba(3, 105, 161, 0.28)',
+
+    'stage-analyze': '#0369A1',
+    'stage-plan': '#5B4B8A',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(15, 39, 64, 0.06)',
+    'shadow': '0 4px 16px rgba(15, 39, 64, 0.09)',
+    'shadow-lg': '0 18px 48px rgba(15, 39, 64, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(15, 39, 64, 0.24)',
+  ),
+
+  // ── Ink (light, cool paper + indigo)
+  'ink': (
+    'color-scheme': 'light',
+
+    'bg': '#F5F6FA',
+    'bg-sidebar': '#EEF0F6',
+    'bg-topbar': 'rgba(245, 246, 250, 0.88)',
+    'surface': '#FFFFFF',
+    'surface-2': '#E8EAF3',
+    'surface-3': '#DCDFEB',
+    'surface-hover': '#D3D7E6',
+
+    'wash': 'linear-gradient(180deg, #E4E7F4 0%, #F5F6FA 48%, #F5F6FA 78%)',
+    'wash-edge': '#D5D9EE',
+
+    'border': 'rgba(26, 31, 53, 0.10)',
+    'border-md': 'rgba(26, 31, 53, 0.18)',
+    'border-strong': 'rgba(26, 31, 53, 0.32)',
+
+    'text': '#1A1F35',
+    'text-2': '#4A5070',
+    'text-3': '#5C6380',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#2A378C',
+    'brand-hover': '#232E75',
+    'brand-bg': 'rgba(42, 55, 140, 0.09)',
+    'brand-border': 'rgba(42, 55, 140, 0.26)',
+
+    'accent': '#2A378C',
+    'accent-hover': '#232E75',
+    'accent-light': '#8B95D4',
+    'accent-dim': '#3D4BA8',
+    'accent-strong': '#2A378C',
+    'accent-dark': '#1E2868',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(42, 55, 140, 0.09)',
+    'accent-glow': 'rgba(42, 55, 140, 0.22)',
+    'accent-border': 'rgba(42, 55, 140, 0.26)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.12)',
+    'amber-border': 'rgba(154, 103, 0, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#2A378C',
+    'blue-bg': 'rgba(42, 55, 140, 0.09)',
+    'blue-border': 'rgba(42, 55, 140, 0.26)',
+
+    'stage-analyze': '#2A378C',
+    'stage-plan': '#6D28D9',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(26, 31, 53, 0.06)',
+    'shadow': '0 4px 16px rgba(26, 31, 53, 0.09)',
+    'shadow-lg': '0 18px 48px rgba(26, 31, 53, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(26, 31, 53, 0.24)',
+  ),
+
+  // ── Ember (dark, graphite + safety orange)
+  'ember': (
+    'color-scheme': 'dark',
+
+    'bg': '#17110E',
+    'bg-sidebar': '#1E1612',
+    'bg-topbar': 'rgba(30, 22, 18, 0.88)',
+    'surface': '#241C17',
+    'surface-2': '#2E241D',
+    'surface-3': '#3A2E25',
+    'surface-hover': '#44362C',
+
+    'wash': 'linear-gradient(180deg, #3A2418 0%, #1E1612 48%, #17110E 78%)',
+    'wash-edge': '#5A321C',
+
+    'border': 'rgba(255, 232, 214, 0.10)',
+    'border-md': 'rgba(255, 232, 214, 0.18)',
+    'border-strong': 'rgba(255, 232, 214, 0.30)',
+
+    'text': '#F6EDE6',
+    'text-2': '#C4B0A2',
+    'text-3': '#9A8778',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#FF7A3D',
+    'brand-hover': '#FF9463',
+    'brand-bg': 'rgba(255, 122, 61, 0.14)',
+    'brand-border': 'rgba(255, 122, 61, 0.36)',
+
+    'accent': '#FF7A3D',
+    'accent-hover': '#FF9463',
+    'accent-light': '#FFB08A',
+    'accent-dim': '#E04E1A',
+    'accent-strong': '#F06020',
+    'accent-dark': '#C94412',
+    'on-accent': '#1A100C',
+    'accent-bg': 'rgba(255, 122, 61, 0.14)',
+    'accent-glow': 'rgba(255, 122, 61, 0.30)',
+    'accent-border': 'rgba(255, 122, 61, 0.38)',
+
+    'green': '#7BC47A',
+    'green-dim': '#5EAE5D',
+    'green-strong': '#3E8F3D',
+    'green-bg': 'rgba(123, 196, 122, 0.12)',
+    'green-border': 'rgba(123, 196, 122, 0.28)',
+    'on-green': '#17110E',
+
+    'red': '#E85D4C',
+    'red-dim': '#D14B3C',
+    'red-strong': '#B53A2E',
+    'red-bg': 'rgba(232, 93, 76, 0.12)',
+    'red-border': 'rgba(232, 93, 76, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#FF7A3D',
+    'amber-dim': '#E04E1A',
+    'amber-strong': '#C94412',
+    'amber-bg': 'rgba(255, 122, 61, 0.12)',
+    'amber-border': 'rgba(255, 122, 61, 0.32)',
+    'on-amber': '#1A100C',
+
+    'blue': '#FF7A3D',
+    'blue-bg': 'rgba(255, 122, 61, 0.14)',
+    'blue-border': 'rgba(255, 122, 61, 0.36)',
+
+    'stage-analyze': '#FF7A3D',
+    'stage-plan': '#E8A070',
+    'stage-author': '#F06020',
+    'stage-execute': '#7BC47A',
+    'stage-report': '#E85D4C',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+
+  // ── Iris (dark, twilight + orchid)
+  'iris': (
+    'color-scheme': 'dark',
+
+    'bg': '#121018',
+    'bg-sidebar': '#18151F',
+    'bg-topbar': 'rgba(24, 21, 31, 0.88)',
+    'surface': '#1E1A28',
+    'surface-2': '#282334',
+    'surface-3': '#322C42',
+    'surface-hover': '#3C3550',
+
+    'wash': 'linear-gradient(180deg, #2A1F40 0%, #18151F 48%, #121018 78%)',
+    'wash-edge': '#3D2F5C',
+
+    'border': 'rgba(240, 234, 246, 0.10)',
+    'border-md': 'rgba(240, 234, 246, 0.18)',
+    'border-strong': 'rgba(240, 234, 246, 0.30)',
+
+    'text': '#F0EAF6',
+    'text-2': '#B8AEC8',
+    'text-3': '#8E849E',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#B794F6',
+    'brand-hover': '#CDB4FA',
+    'brand-bg': 'rgba(183, 148, 246, 0.14)',
+    'brand-border': 'rgba(183, 148, 246, 0.34)',
+
+    'accent': '#B794F6',
+    'accent-hover': '#CDB4FA',
+    'accent-light': '#DDD6FE',
+    'accent-dim': '#7C3AED',
+    'accent-strong': '#7C3AED',
+    'accent-dark': '#6D28D9',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(183, 148, 246, 0.14)',
+    'accent-glow': 'rgba(183, 148, 246, 0.30)',
+    'accent-border': 'rgba(183, 148, 246, 0.36)',
+
+    'green': '#3FB950',
+    'green-dim': '#2EA043',
+    'green-strong': '#238636',
+    'green-bg': 'rgba(63, 185, 80, 0.12)',
+    'green-border': 'rgba(63, 185, 80, 0.28)',
+    'on-green': '#FFFFFF',
+
+    'red': '#F85149',
+    'red-dim': '#E5534B',
+    'red-strong': '#C93C37',
+    'red-bg': 'rgba(248, 81, 73, 0.12)',
+    'red-border': 'rgba(248, 81, 73, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E3B341',
+    'amber-dim': '#C99A2E',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(227, 179, 65, 0.12)',
+    'amber-border': 'rgba(227, 179, 65, 0.30)',
+    'on-amber': '#121018',
+
+    'blue': '#B794F6',
+    'blue-bg': 'rgba(183, 148, 246, 0.14)',
+    'blue-border': 'rgba(183, 148, 246, 0.34)',
+
+    'stage-analyze': '#B794F6',
+    'stage-plan': '#DDD6FE',
+    'stage-author': '#7DD3FC',
+    'stage-execute': '#34D399',
+    'stage-report': '#F472B6',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+
+  // ── Flame (light, warm paper + orange)
+  'flame': (
+    'color-scheme': 'light',
+
+    'bg': '#FFFBF8',
+    'bg-sidebar': '#FFF4EC',
+    'bg-topbar': 'rgba(255, 251, 248, 0.88)',
+    'surface': '#FFFFFF',
+    'surface-2': '#FFF1E6',
+    'surface-3': '#FDE4D0',
+    'surface-hover': '#FAD9BE',
+
+    'wash': 'linear-gradient(180deg, #FFE8D4 0%, #FFF6EE 42%, #FFFBF8 78%)',
+    'wash-edge': '#FFD4B0',
+
+    'border': 'rgba(28, 17, 12, 0.09)',
+    'border-md': 'rgba(28, 17, 12, 0.16)',
+    'border-strong': 'rgba(28, 17, 12, 0.30)',
+
+    'text': '#1C110C',
+    'text-2': '#5C4538',
+    'text-3': '#7A6256',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#C2410C',
+    'brand-hover': '#9A3412',
+    'brand-bg': 'rgba(194, 65, 12, 0.10)',
+    'brand-border': 'rgba(194, 65, 12, 0.28)',
+
+    'accent': '#C2410C',
+    'accent-hover': '#9A3412',
+    'accent-light': '#FB923C',
+    'accent-dim': '#EA580C',
+    'accent-strong': '#C2410C',
+    'accent-dark': '#9A3412',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(194, 65, 12, 0.10)',
+    'accent-glow': 'rgba(194, 65, 12, 0.24)',
+    'accent-border': 'rgba(194, 65, 12, 0.28)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#B45309',
+    'amber-dim': '#92400E',
+    'amber-strong': '#B45309',
+    'amber-bg': 'rgba(180, 83, 9, 0.12)',
+    'amber-border': 'rgba(180, 83, 9, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#C2410C',
+    'blue-bg': 'rgba(194, 65, 12, 0.10)',
+    'blue-border': 'rgba(194, 65, 12, 0.28)',
+
+    'stage-analyze': '#C2410C',
+    'stage-plan': '#7C3AED',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(28, 17, 12, 0.06)',
+    'shadow': '0 4px 16px rgba(28, 17, 12, 0.09)',
+    'shadow-lg': '0 18px 48px rgba(28, 17, 12, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(28, 17, 12, 0.24)',
+  ),
+
+  // ── Sage (light, pale sage + pine)
+  'sage': (
+    'color-scheme': 'light',
+
+    'bg': '#F2F5F0',
+    'bg-sidebar': '#E7EDE4',
+    'bg-topbar': 'rgba(242, 245, 240, 0.88)',
+    'surface': '#F7FAF6',
+    'surface-2': '#E4EBE0',
+    'surface-3': '#D5DFD0',
+    'surface-hover': '#CDD8C8',
+
+    'wash': 'linear-gradient(180deg, #DDE8D8 0%, #EEF3EB 48%, #F2F5F0 78%)',
+    'wash-edge': '#C5D6C0',
+
+    'border': 'rgba(23, 33, 23, 0.10)',
+    'border-md': 'rgba(23, 33, 23, 0.18)',
+    'border-strong': 'rgba(23, 33, 23, 0.32)',
+
+    'text': '#172117',
+    'text-2': '#4A5A4A',
+    'text-3': '#5A6B5A',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#24663C',
+    'brand-hover': '#1B5130',
+    'brand-bg': 'rgba(36, 102, 60, 0.10)',
+    'brand-border': 'rgba(36, 102, 60, 0.28)',
+
+    'accent': '#24663C',
+    'accent-hover': '#1B5130',
+    'accent-light': '#5A9A6E',
+    'accent-dim': '#2F7A48',
+    'accent-strong': '#24663C',
+    'accent-dark': '#1B5130',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(36, 102, 60, 0.10)',
+    'accent-glow': 'rgba(36, 102, 60, 0.24)',
+    'accent-border': 'rgba(36, 102, 60, 0.28)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.12)',
+    'amber-border': 'rgba(154, 103, 0, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#24663C',
+    'blue-bg': 'rgba(36, 102, 60, 0.10)',
+    'blue-border': 'rgba(36, 102, 60, 0.28)',
+
+    'stage-analyze': '#24663C',
+    'stage-plan': '#5B4B8A',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(23, 33, 23, 0.06)',
+    'shadow': '0 4px 16px rgba(23, 33, 23, 0.09)',
+    'shadow-lg': '0 18px 48px rgba(23, 33, 23, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(23, 33, 23, 0.24)',
+  ),
+
+  // ── Sand (light, limestone + umber)
+  'sand': (
+    'color-scheme': 'light',
+
+    'bg': '#F6F1E8',
+    'bg-sidebar': '#EDE6D9',
+    'bg-topbar': 'rgba(246, 241, 232, 0.88)',
+    'surface': '#FBF8F1',
+    'surface-2': '#EBE3D4',
+    'surface-3': '#DDD3C0',
+    'surface-hover': '#D4C8B4',
+
+    'wash': 'linear-gradient(180deg, #E8DCC8 0%, #F3EDDF 48%, #F6F1E8 78%)',
+    'wash-edge': '#DCCDB4',
+
+    'border': 'rgba(28, 24, 18, 0.10)',
+    'border-md': 'rgba(28, 24, 18, 0.18)',
+    'border-strong': 'rgba(28, 24, 18, 0.32)',
+
+    'text': '#1C1812',
+    'text-2': '#5C5348',
+    'text-3': '#6E6558',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#5C4A32',
+    'brand-hover': '#473928',
+    'brand-bg': 'rgba(92, 74, 50, 0.10)',
+    'brand-border': 'rgba(92, 74, 50, 0.28)',
+
+    'accent': '#5C4A32',
+    'accent-hover': '#473928',
+    'accent-light': '#A89070',
+    'accent-dim': '#6E5A3E',
+    'accent-strong': '#5C4A32',
+    'accent-dark': '#473928',
+    'on-accent': '#FFFFFF',
+    'accent-bg': 'rgba(92, 74, 50, 0.10)',
+    'accent-glow': 'rgba(92, 74, 50, 0.22)',
+    'accent-border': 'rgba(92, 74, 50, 0.28)',
+
+    'green': '#1A7F37',
+    'green-dim': '#16682D',
+    'green-strong': '#1A7F37',
+    'green-bg': 'rgba(26, 127, 55, 0.10)',
+    'green-border': 'rgba(26, 127, 55, 0.26)',
+    'on-green': '#FFFFFF',
+
+    'red': '#CF222E',
+    'red-dim': '#A40E26',
+    'red-strong': '#CF222E',
+    'red-bg': 'rgba(207, 34, 46, 0.09)',
+    'red-border': 'rgba(207, 34, 46, 0.26)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#9A6700',
+    'amber-dim': '#7D5300',
+    'amber-strong': '#9A6700',
+    'amber-bg': 'rgba(154, 103, 0, 0.12)',
+    'amber-border': 'rgba(154, 103, 0, 0.26)',
+    'on-amber': '#FFFFFF',
+
+    'blue': '#5C4A32',
+    'blue-bg': 'rgba(92, 74, 50, 0.10)',
+    'blue-border': 'rgba(92, 74, 50, 0.28)',
+
+    'stage-analyze': '#5C4A32',
+    'stage-plan': '#6B4F8A',
+    'stage-author': '#0E7490',
+    'stage-execute': '#047857',
+    'stage-report': '#BE185D',
+
+    'shadow-sm': '0 1px 2px rgba(28, 24, 18, 0.06)',
+    'shadow': '0 4px 16px rgba(28, 24, 18, 0.10)',
+    'shadow-lg': '0 18px 48px rgba(28, 24, 18, 0.14)',
+    'shadow-hero': '0 24px 64px -20px rgba(28, 24, 18, 0.24)',
+  ),
+
+  // ── Rose (dark, wine + magenta)
+  'rose': (
+    'color-scheme': 'dark',
+
+    'bg': '#160E14',
+    'bg-sidebar': '#1D131A',
+    'bg-topbar': 'rgba(29, 19, 26, 0.86)',
+    'surface': '#241820',
+    'surface-2': '#2E1F28',
+    'surface-3': '#3A2832',
+    'surface-hover': '#44303C',
+
+    'wash': 'linear-gradient(180deg, #3A1E2E 0%, #1D131A 48%, #160E14 78%)',
+    'wash-edge': '#5A2840',
+
+    'border': 'rgba(248, 232, 240, 0.10)',
+    'border-md': 'rgba(248, 232, 240, 0.18)',
+    'border-strong': 'rgba(248, 232, 240, 0.30)',
+
+    'text': '#F8E8F0',
+    'text-2': '#C9A8B8',
+    'text-3': '#9A8A9A',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#F9A8D4',
+    'brand-hover': '#FBCFE8',
+    'brand-bg': 'rgba(249, 168, 212, 0.12)',
+    'brand-border': 'rgba(249, 168, 212, 0.32)',
+
+    'accent': '#F9A8D4',
+    'accent-hover': '#FBCFE8',
+    'accent-light': '#FBCFE8',
+    'accent-dim': '#F472B6',
+    'accent-strong': '#F472B6',
+    'accent-dark': '#DB2777',
+    'on-accent': '#160E14',
+    'accent-bg': 'rgba(249, 168, 212, 0.12)',
+    'accent-glow': 'rgba(249, 168, 212, 0.30)',
+    'accent-border': 'rgba(249, 168, 212, 0.34)',
+
+    'green': '#7BC47A',
+    'green-dim': '#5EAE5D',
+    'green-strong': '#3E8F3D',
+    'green-bg': 'rgba(123, 196, 122, 0.12)',
+    'green-border': 'rgba(123, 196, 122, 0.28)',
+    'on-green': '#160E14',
+
+    'red': '#F85149',
+    'red-dim': '#E5534B',
+    'red-strong': '#C93C37',
+    'red-bg': 'rgba(248, 81, 73, 0.12)',
+    'red-border': 'rgba(248, 81, 73, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E3B341',
+    'amber-dim': '#C99A2E',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(227, 179, 65, 0.12)',
+    'amber-border': 'rgba(227, 179, 65, 0.30)',
+    'on-amber': '#160E14',
+
+    'blue': '#F9A8D4',
+    'blue-bg': 'rgba(249, 168, 212, 0.12)',
+    'blue-border': 'rgba(249, 168, 212, 0.32)',
+
+    'stage-analyze': '#F9A8D4',
+    'stage-plan': '#C4B5FD',
+    'stage-author': '#67E8F9',
+    'stage-execute': '#7BC47A',
+    'stage-report': '#FB7185',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+
+  // ── Graphite (dark, charcoal + silver)
+  'graphite': (
+    'color-scheme': 'dark',
+
+    'bg': '#121314',
+    'bg-sidebar': '#18191B',
+    'bg-topbar': 'rgba(24, 25, 27, 0.88)',
+    'surface': '#1C1D20',
+    'surface-2': '#26272B',
+    'surface-3': '#2F3136',
+    'surface-hover': '#383A40',
+
+    'wash': 'linear-gradient(180deg, #222428 0%, #18191B 48%, #121314 78%)',
+    'wash-edge': '#3A3C42',
+
+    'border': 'rgba(236, 237, 239, 0.10)',
+    'border-md': 'rgba(236, 237, 239, 0.18)',
+    'border-strong': 'rgba(236, 237, 239, 0.32)',
+
+    'text': '#ECEDEF',
+    'text-2': '#A8ABB0',
+    'text-3': '#8B8E93',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#E8EAED',
+    'brand-hover': '#FFFFFF',
+    'brand-bg': 'rgba(232, 234, 237, 0.10)',
+    'brand-border': 'rgba(232, 234, 237, 0.28)',
+
+    'accent': '#E8EAED',
+    'accent-hover': '#FFFFFF',
+    'accent-light': '#F4F5F6',
+    'accent-dim': '#C5C8CD',
+    'accent-strong': '#D4D7DC',
+    'accent-dark': '#A8ABB0',
+    'on-accent': '#121314',
+    'accent-bg': 'rgba(232, 234, 237, 0.10)',
+    'accent-glow': 'rgba(232, 234, 237, 0.22)',
+    'accent-border': 'rgba(232, 234, 237, 0.32)',
+
+    'green': '#3FB950',
+    'green-dim': '#2EA043',
+    'green-strong': '#238636',
+    'green-bg': 'rgba(63, 185, 80, 0.12)',
+    'green-border': 'rgba(63, 185, 80, 0.28)',
+    'on-green': '#FFFFFF',
+
+    'red': '#F85149',
+    'red-dim': '#E5534B',
+    'red-strong': '#C93C37',
+    'red-bg': 'rgba(248, 81, 73, 0.12)',
+    'red-border': 'rgba(248, 81, 73, 0.30)',
+    'on-red': '#FFFFFF',
+
+    'amber': '#E3B341',
+    'amber-dim': '#C99A2E',
+    'amber-strong': '#8A6100',
+    'amber-bg': 'rgba(227, 179, 65, 0.12)',
+    'amber-border': 'rgba(227, 179, 65, 0.30)',
+    'on-amber': '#121314',
+
+    'blue': '#E8EAED',
+    'blue-bg': 'rgba(232, 234, 237, 0.10)',
+    'blue-border': 'rgba(232, 234, 237, 0.28)',
+
+    'stage-analyze': '#E8EAED',
+    'stage-plan': '#C4B5FD',
+    'stage-author': '#7DD3FC',
+    'stage-execute': '#34D399',
+    'stage-report': '#F472B6',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.45)',
+    'shadow': '0 4px 16px rgba(0, 0, 0, 0.5)',
+    'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
+    'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
+  ),
+);
+
+// Extra data-theme ids that render an existing palette, kept so older
+// saved preferences keep resolving.
+$aliases: (
+  'ember': ('orange'),
+);
+
+// This palette also seeds :root, so the app has colors before ThemePicker
+// writes an explicit data-theme.
+$root-theme: 'light';
+
+@function selector-for($id) {
+  $sel: '[data-theme="#{$id}"]';
+  @if $id == $root-theme {
+    $sel: ':root, ' + $sel;
+  }
+  @if map.has-key($aliases, $id) {
+    @each $alias in map.get($aliases, $id) {
+      $sel: $sel + ', [data-theme="#{$alias}"]';
+    }
+  }
+  @return $sel;
+}
+
+@mixin emit($tokens) {
+  @each $name, $value in $tokens {
+    @if $name == 'color-scheme' {
+      color-scheme: #{$value};
+    } @else {
+      --#{$name}: #{$value};
+    }
+  }
+}
+
+@each $id, $tokens in $themes {
+  #{selector-for($id)} {
+    @include emit($tokens);
+  }
+}

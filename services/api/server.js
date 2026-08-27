@@ -33,7 +33,7 @@ const dbHelpers = require("@zero/db");
 const { mergeOptionalArtifactsFromFile } = require("@zero/db/runStore");
 const cloud = require("@zero/cloud");
 const cloudHttp = require("@zero/cloud/http");
-const { RUNS_REQUESTED } = require("@zero/domain");
+const { RUNS_REQUESTED, applyCancelToRun } = require("@zero/domain");
 const { requestExecution } = require("@zero/domain/execution");
 const encryption = require("./encryption");
 const auth = require("./auth");
@@ -175,6 +175,7 @@ if (process.env.VERCEL) {
 }
 
 async function persistRun(run) {
+  await applyCancelToRun(run, cloud.cache);
   runs.set(run.id, run);
 
   try {

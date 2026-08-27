@@ -1,0 +1,49 @@
+// Non-color design tokens — radius, type scale, space, layout.
+// Shared by every theme; palettes live in _themes.scss.
+
+:root {
+  /* Radius — generous on containers, tight on controls */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font:         'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
+
+  /* Type scale — 15px base */
+  --fs-xs:  0.75rem;
+  --fs-sm:  0.8125rem;
+  --fs-md:  0.9375rem;
+  --fs-lg:  1.0625rem;
+  --fs-xl:  1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.25rem;
+  --fs-display: clamp(2.1rem, 4.4vw, 3.25rem);
+
+  /* Space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Layout */
+  --sidebar-w: 60px;
+  --sidebar-w-open: 224px;
+  --topbar-h:  56px;
+  --measure:   760px;
+  --measure-wide: 1280px;
+
+  --transition: 0.16s cubic-bezier(0.2, 0, 0, 1);
+  --focus-ring: 0 0 0 3px var(--accent-glow);
+}

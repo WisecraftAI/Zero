@@ -1,0 +1,9 @@
+
+// Global stylesheet entry point, loaded once from main.jsx.
+// Order matters: tokens and theme palettes define the custom properties
+// that the base layer — and every component stylesheet — consumes.
+
+@use 'styles/tokens';
+@use 'styles/themes';
+@use 'styles/base';
+

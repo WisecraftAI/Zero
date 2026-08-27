@@ -7,7 +7,26 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <meta name="theme-color" content="#0E0F11" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#2563EB" media="(prefers-color-scheme: light)" />
+    <script>
+      // Resolve the theme before first paint so the app never flashes the wrong one.
+      // IDs must match THEME_IDS in web/src/lib/themes.js.
+      (function () {
+        try {
+          var known = { light: 1, dark: 1, mist: 1, glacier: 1, ink: 1, flame: 1, sage: 1, sand: 1, ocean: 1, signal: 1, ember: 1, orange: 1, iris: 1, rose: 1, graphite: 1, contrast: 1 };
+          var t = localStorage.getItem('zero-theme');
+          if (t === 'orange') t = 'ember';
+          if (!known[t]) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

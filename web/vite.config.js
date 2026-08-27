@@ -10,6 +10,11 @@ export default defineConfig({
     outDir: '../dist/web',
     emptyOutDir: true,
   },
+  css: {
+    preprocessorOptions: {
+      scss: { api: 'modern-compiler', charset: false },
+    },
+  },
   server: {
     port: 5173,
   },

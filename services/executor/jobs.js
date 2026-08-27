@@ -4,7 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const { chromium, resolveHeadless } = require("./browser");
 const { getSelectors, detectDomain, getDomainConfig } = require("@zero/locators/ecommerceSelectors");
-const { resolveExecutionMode, EXECUTION_MODES } = require("@zero/domain");
+const { resolveExecutionMode, EXECUTION_MODES, isRunCancelRequested, RunStoppedError, isRunStoppedError } = require("@zero/domain");
 const { buildDiscoveredFlowTests } = require("@zero/builders/playwright/discoveredFlows");
 
 function createJobs(deps) {
@@ -14,6 +14,25 @@ function createJobs(deps) {
   const urlAnalyzerPro = deps.urlAnalyzerPro;
   const dbHelpers = deps.dbHelpers;
   const hostFromUrl = deps.hostFromUrl;
+
+  async function assertNotStopped(runId) {
+    if (await isRunCancelRequested(cloud.cache, runId)) {
+      throw new RunStoppedError();
+    }
+  }
+
+  function watchForCancel(runId, getBrowser) {
+    const timer = setInterval(() => {
+      isRunCancelRequested(cloud.cache, runId)
+        .then((stop) => {
+          if (!stop) return;
+          const browser = typeof getBrowser === "function" ? getBrowser() : null;
+          if (browser) browser.close().catch(() => {});
+        })
+        .catch(() => {});
+    }, 750);
+    return () => clearInterval(timer);
+  }
 
   function safeList(text) {
     return (text || "")
@@ -1604,8 +1623,10 @@ function createJobs(deps) {
     let browser;
     const tests = [];
     const locatorAnalysis = [];
+    const unwatch = watchForCancel(run.id, () => browser);
 
     try {
+      await assertNotStopped(run.id);
       const headless = resolveHeadless(run);
       browser = await chromium.launch({
         headless,
@@ -1655,6 +1676,7 @@ function createJobs(deps) {
       pageInitialized = false;
 
       for (const testDef of allTests) {
+        await assertNotStopped(run.id);
         let retries = 0;
         let passed = false;
         let skipped = false;
@@ -1688,6 +1710,9 @@ function createJobs(deps) {
               trace.push(`flow-steps:${execResult.stepResults.length}`);
             }
           } catch (err) {
+            if (isRunStoppedError(err) || (await isRunCancelRequested(cloud.cache, run.id))) {
+              throw new RunStoppedError();
+            }
             error = err.message;
             screenshot = await screenshotForCase(page, run, testDef.id, "failed", retries + 1);
             retries += 1;
@@ -1713,6 +1738,9 @@ function createJobs(deps) {
 
       await context.close();
     } catch (error) {
+      if (isRunStoppedError(error) || (await isRunCancelRequested(cloud.cache, run.id))) {
+        throw isRunStoppedError(error) ? error : new RunStoppedError();
+      }
       return {
         metadata: {
           generatedAt: new Date().toISOString(),
@@ -1734,7 +1762,8 @@ function createJobs(deps) {
         infraError: "Run 'npx playwright install chromium' if browser binary is missing"
       };
     } finally {
-      if (browser) await browser.close();
+      unwatch();
+      if (browser) await browser.close().catch(() => {});
     }
 
     const passed = tests.filter((t) => t.status === "passed").length;
@@ -1813,8 +1842,10 @@ function createJobs(deps) {
     const headless = resolveHeadless(run);
 
     let browser = null;
+    const unwatch = watchForCancel(run.id, () => browser);
 
     try {
+      await assertNotStopped(run.id);
       browser = await chromium.launch({ headless, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
       const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
       const page = await context.newPage();
@@ -2028,8 +2059,13 @@ function createJobs(deps) {
       };
     } catch (err) {
       if (browser) await browser.close().catch(() => {});
+      if (isRunStoppedError(err) || (await isRunCancelRequested(cloud.cache, run.id))) {
+        throw isRunStoppedError(err) ? err : new RunStoppedError();
+      }
       console.error('[Web Analyzer Pro] Error:', err.message);
       return buildFailedWebAnalysis(ottUrl, err.message);
+    } finally {
+      unwatch();
     }
   }
 

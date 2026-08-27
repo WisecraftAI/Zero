@@ -3,7 +3,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const PDFDocument = require("pdfkit");
-const { normalizeTargetUrl } = require("@zero/domain");
+const { normalizeTargetUrl, isStoppableStatus, isTerminalStatus, requestRunCancel } = require("@zero/domain");
 
 module.exports = function registerRunsRoutes(app, ctx) {
   app.post("/runs", ctx.upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }]), async (req, res) => {
@@ -313,7 +313,7 @@ module.exports = function registerRunsRoutes(app, ctx) {
 
     const unsubscribe = ctx.cloud.cache.subscribe(`state.${req.params.id}`, (msg) => {
       writeEvent("state", msg);
-      if (msg && (msg.status === "completed" || msg.status === "failed")) {
+      if (msg && (msg.status === "completed" || msg.status === "failed" || msg.status === "stopped")) {
         writeEvent("done", { runId: req.params.id, status: msg.status });
       }
     });
@@ -346,6 +346,48 @@ module.exports = function registerRunsRoutes(app, ctx) {
     } catch (error) {
       run.status = "failed";
       await ctx.persistRun(run);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * @swagger
+   * /runs/{id}/stop:
+   *   post:
+   *     summary: Stop a queued or running pipeline
+   *     tags: [Runs]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string }
+   *     responses:
+   *       202:
+   *         description: Stop accepted; running jobs halt at the next checkpoint
+   *       409:
+   *         description: Run is already finished
+   */
+  app.post("/runs/:id/stop", async (req, res) => {
+    const run = await ctx.loadRunForRequest(req, res);
+    if (!run) return;
+    if (run.status === "stopped") {
+      return res.json({ ok: true, runId: run.id, status: "stopped" });
+    }
+    if (isTerminalStatus(run.status) || (!isStoppableStatus(run.status) && run.status !== "awaiting_uploads")) {
+      return res.status(409).json({ error: `Cannot stop a ${run.status} run` });
+    }
+
+    try {
+      run.cancelRequested = true;
+      const immediate = run.status === "queued" || run.status === "awaiting_uploads";
+      run.status = immediate ? "stopped" : "stopping";
+      run.error = "Stopped by operator";
+      await requestRunCancel(ctx.cloud.cache, run.id, {
+        by: ctx.auth.identityEmail(req.auth) || null
+      });
+      await ctx.persistRun(run);
+      return res.status(202).json({ ok: true, runId: run.id, status: run.status });
+    } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });

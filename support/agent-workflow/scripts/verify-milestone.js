@@ -40,7 +40,7 @@ function main() {
   const id = requested || data.earliestUnfinished;
 
   if (!id) {
-    console.log('Nothing to verify — capability, packaging, and product probes all green.');
+    console.log('Nothing to verify — capability, packaging, product, and UX probes all green.');
     process.exit(0);
   }
 
@@ -58,8 +58,13 @@ function main() {
       'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7',
       'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7',
       'Q1', 'Q2', 'Q3', 'Q4', 'Q5',
+      'U1', 'U2',
     ];
-    if (order.indexOf(requested) > order.indexOf(data.earliestUnfinished)) {
+    const parallel = new Set(['U1', 'U2']);
+    if (
+      !parallel.has(requested) &&
+      order.indexOf(requested) > order.indexOf(data.earliestUnfinished)
+    ) {
       console.warn(
         `Warning: earliest unfinished is ${data.earliestUnfinished}; verifying ${requested} out of order.`
       );

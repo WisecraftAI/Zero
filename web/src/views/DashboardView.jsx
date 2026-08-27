@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import './DashboardView.css';
+import './DashboardView.scss';
 import { apiUrl } from '../apiBase';
 import AiSetupBanner from '../components/AiSetupBanner';
 import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
 import { computeRunProgress, formatDuration, runElapsedMs } from '../lib/runProgress';
+import { isLiveRunStatus } from '../lib/runControl';
+import StopRunButton from '../components/StopRunButton';
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -29,10 +31,10 @@ function computeStats(runs) {
   return { total, completed, running, failed, avgPass };
 }
 
-export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNavigate }) {
+export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNavigate, onStopRun }) {
   const recent = [...runs].slice(0, 6);
   const st = computeStats(runs);
-  const activeRun = runs.find(r => r.status === 'running');
+  const activeRun = runs.find(r => isLiveRunStatus(r.status));
   const [, setTick] = useState(0);
   const [aiKeys, setAiKeys] = useState({});
   const [aiSettings, setAiSettings] = useState({});
@@ -76,16 +78,20 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
 
       {/* Hero strip */}
       {activeRun ? (
-        <div className="dash-hero dash-hero--active" onClick={() => onOpenRun(activeRun.id || activeRun.runId)}>
+        <div className={`dash-hero dash-hero--active${activeRun.status === 'stopping' ? ' dash-hero--stopping' : ''}`} onClick={() => onOpenRun(activeRun.id || activeRun.runId)}>
           <div className="dash-hero-left">
             <div className="dash-hero-eyebrow">
-              <span className="dash-live-dot" />
-              <span className="dash-live-label">LIVE · {formatDuration(runElapsedMs(activeRun))}</span>
+              <span className={`dash-live-dot${activeRun.status === 'stopping' ? ' dash-live-dot--stopping' : ''}`} />
+              <span className="dash-live-label">
+                {activeRun.status === 'stopping'
+                  ? `STOPPING · ${formatDuration(runElapsedMs(activeRun))}`
+                  : `LIVE · ${formatDuration(runElapsedMs(activeRun))}`}
+              </span>
             </div>
             <div className="dash-hero-url">{truncate(activeRun.input?.ottUrl || activeRun.url, 60)}</div>
             <div className="dash-hero-id">
               <code>{String(activeRun.id || activeRun.runId || '').slice(0, 20)}</code>
-              <span className="chip running" style={{ marginLeft: 8 }}>running</span>
+              <span className={`chip ${activeRun.status}`} style={{ marginLeft: 8 }}>{activeRun.status}</span>
               {(() => {
                 const p = computeRunProgress(activeRun);
                 return p.currentLabel ? (
@@ -97,6 +103,7 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
             </div>
           </div>
           <div className="dash-hero-right">
+            <StopRunButton run={activeRun} onStop={onStopRun} />
             <button className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); onOpenRun(activeRun.id || activeRun.runId); }}>
               View Run →
             </button>
@@ -207,12 +214,15 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
                     <td className="dash-passrate-cell">{passRate || '—'}</td>
                     <td className="dash-date-cell">{fmtDate(run.startedAt || run.createdAt)}</td>
                     <td>
-                      <button
-                        className="btn btn-ghost btn-sm dash-view-btn"
-                        onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}
-                      >
-                        View →
-                      </button>
+                      <div className="dash-row-actions">
+                        <StopRunButton run={run} onStop={onStopRun} className="dash-stop-btn" />
+                        <button
+                          className="btn btn-ghost btn-sm dash-view-btn"
+                          onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}
+                        >
+                          View →
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

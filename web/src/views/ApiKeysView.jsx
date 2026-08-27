@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from '../apiBase';
-import './ApiKeysView.css';
+import './ApiKeysView.scss';
 
 const PROVIDERS = [
   {

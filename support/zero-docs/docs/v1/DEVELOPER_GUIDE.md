@@ -371,7 +371,7 @@ S7 dropped the `/api` prefix. All paths below are on the API service (`http://lo
 
 | Area | Routes | Notes |
 |------|--------|-------|
-| Runs | `POST /runs` (multipart: `tcFile`, `recordingFile`), `GET /runs`, `GET /runs/:id`, `POST …/rerun-failed`, `…/download`, `…/assets` | Core product path |
+| Runs | `POST /runs` (multipart: `tcFile`, `recordingFile`), `GET /runs`, `GET /runs/:id`, `POST …/stop`, `POST …/rerun-failed`, `…/download`, `…/assets` | Core product path |
 | Locators | `POST /element-log`, `GET /locators?host=` | Needs DB to persist across restarts |
 | Recording | `/recordings/*`, `/record`, `/recorder.js` | In-memory sessions today |
 | CMS | `/capture-cms-screenshot`, `/capture-cms-signal-bulk` | Gray Stream tab; separate from pipeline |

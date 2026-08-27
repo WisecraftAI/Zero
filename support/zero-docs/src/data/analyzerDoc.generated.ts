@@ -36,13 +36,13 @@ export interface AnalyzerDoc {
 }
 
 export const ANALYZER_DOC: AnalyzerDoc = {
-  "generatedAt": "2026-08-18T07:23:25.146Z",
+  "generatedAt": "2026-08-27T13:17:05.922Z",
   "pkg": "@zero/analyzer",
   "version": "0.0.0",
   "description": "Optional URL crawl that seeds BA when notes are short.",
   "main": "index.js",
   "fileCount": 31,
-  "loc": 4899,
+  "loc": 5075,
   "dependencies": [
     "@zero/locators"
   ],
@@ -57,16 +57,23 @@ export const ANALYZER_DOC: AnalyzerDoc = {
     {
       "file": "urlAnalyzerPro.js",
       "strategy": "Pro — deep Playwright crawl",
-      "loc": 21,
+      "loc": 36,
       "reExportsFrom": null,
       "exports": [
         "analyzeUrlPro",
         "formatForBAAgent",
         "detectWebsiteType",
+        "detectSubDomain",
+        "scoreSubDomains",
         "generateTestCases",
         "generateBRD",
         "WEBSITE_TYPES",
-        "ELEMENT_CATEGORIES"
+        "ELEMENT_CATEGORIES",
+        "SUB_DOMAINS",
+        "getSubDomains",
+        "hasSubDomains",
+        "subDomainNames",
+        "resolveSubDomain"
       ]
     },
     {
@@ -149,7 +156,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/classify/websiteType.js",
-          "loc": 104,
+          "loc": 125,
           "exports": [
             "detectWebsiteType"
           ]
@@ -177,8 +184,10 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/crawl/multiPage.js",
-          "loc": 250,
+          "loc": 318,
           "exports": [
+            "registrableDomain",
+            "isSameSite",
             "normalizeCrawlUrl",
             "shouldSkipCrawlTarget",
             "parseRawLinks",
@@ -327,7 +336,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/generate/majorFunctionalCases.js",
-          "loc": 216,
+          "loc": 248,
           "exports": [
             "generateMajorFunctionalCases",
             "mergeMajorWithGenerated",
@@ -373,7 +382,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/strategies/pro.js",
-          "loc": 223,
+          "loc": 263,
           "exports": [
             "analyzeUrlPro"
           ]

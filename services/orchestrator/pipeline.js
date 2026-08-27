@@ -109,7 +109,7 @@ function setStage(run, key, status) {
   const now = new Date().toISOString();
   stage.status = status;
   if (status === "running") stage.startedAt = now;
-  if (status === "done" || status === "failed") stage.finishedAt = now;
+  if (status === "done" || status === "failed" || status === "stopped") stage.finishedAt = now;
   run.updatedAt = now;
 }
 

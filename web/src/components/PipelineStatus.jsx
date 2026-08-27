@@ -1,4 +1,4 @@
-import './PipelineStatus.css';
+import './PipelineStatus.scss';
 
 const BASE_STAGES = ['webAnalyzer', 'ba', 'manualQa', 'automationQa', 'execution'];
 const OPTIONAL_STAGES = ['webAnalyzer', 'accessibility', 'performance', 'security'];

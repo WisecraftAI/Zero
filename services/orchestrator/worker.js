@@ -65,6 +65,7 @@ const processRun = createProcessRun({
   generateDeliveryReport: pipeline.generateDeliveryReport,
   javaSeleniumBuilder,
   dbHelpers,
+  cache: cloud.cache,
   get dbEnabled() {
     return store.dbEnabled;
   },

@@ -1,5 +1,7 @@
 "use strict";
 
+const { RunStoppedError } = require("./runCancel");
+
 const EXECUTION_REQUESTED = "execution.requested";
 const EXECUTION_COMPLETED = "execution.completed";
 
@@ -22,6 +24,7 @@ function requestExecution(queue, job, opts = {}) {
       clearTimeout(timer);
       unsubscribe();
       if (msg.ok) resolve(msg.report);
+      else if (msg.cancelled) reject(new RunStoppedError(msg.error || "Stopped by operator"));
       else reject(new Error(msg.error || "execution failed"));
     });
 

@@ -6,6 +6,7 @@ const outputRoots = require("./outputRoots");
 const { validateRunInput } = require("./schemas");
 const { EXECUTION_MODES, resolveExecutionMode } = require("./executionModes");
 const { normalizeTargetUrl } = require("./targetUrl");
+const runCancel = require("./runCancel");
 
 module.exports = {
   stageKeys,
@@ -17,4 +18,5 @@ module.exports = {
   EXECUTION_MODES,
   resolveExecutionMode,
   normalizeTargetUrl,
+  ...runCancel,
 };

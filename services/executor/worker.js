@@ -19,6 +19,7 @@ const {
   EXECUTION_COMPLETED: COMPLETED,
   requestExecution
 } = require("@zero/domain/execution");
+const { isRunStoppedError } = require("@zero/domain");
 
 function startExecutionWorker({
   queue,
@@ -78,6 +79,16 @@ function startExecutionWorker({
           });
           return;
         } catch (err) {
+          if (isRunStoppedError(err)) {
+            await queue.publish(COMPLETED, {
+              batchId,
+              runId,
+              ok: false,
+              cancelled: true,
+              error: err.message
+            });
+            return;
+          }
           lastErr = err;
           logger.warn(`[execution] batch ${batchId} attempt ${attempt}/${attempts} failed: ${err.message}`);
         }

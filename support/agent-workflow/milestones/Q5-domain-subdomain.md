@@ -1,114 +1,215 @@
-# Q5 — Domain + sub-domain classification (two-level site taxonomy)
+# Q5 — Trustworthy site understanding and test-plan quality
 
-The Web Analyzer resolves **two** levels from the target URL — a domain from the existing `WEBSITE_TYPES` enum and a sub-domain from a new `subTypes` map under it — and that pair is what decides which tests get written. Rules resolve what they can, the LLM refines only the unresolved half, and case generation reads the resolved result.
+Q5 is a **recovery milestone**. The first implementation added a large sub-domain
+catalog and several happy-path tests, but it did not prove that a URL-only run
+produces a correct, stable classification or a materially better test plan.
 
-> "Sub-domain" is the taxonomy level (`ECOMMERCE / grocery`), **not** the DNS label in `shop.example.com`. Hostname labels are one detection signal among many; Q5 never routes or branches on them.
+The replacement Q5 closes only when output quality is measured end to end.
 
-## North star
+> “Sub-domain” is a business taxonomy level (`ECOMMERCE / GROCERY`), not the DNS
+> label in `shop.example.com`.
 
-Two sites that share a domain but not a funnel stop receiving identical test plans. A grocery chain and a fashion label both classified `ECOMMERCE` get different major functional cases without a human picking a profile.
+## Outcome
+
+Given only a public URL, ZER0 emits one canonical, evidence-backed domain /
+sub-domain decision and uses it to generate a relevant test plan. When evidence
+is weak, ZER0 abstains or uses one constrained LLM call; it never converts
+free-form prose into a taxonomy key.
+
+## Baseline: what the first attempt left behind
+
+- `domainTaxonomy.js` and `WEBSITE_TYPES` are separate authorities with different
+  shapes and naming conventions.
+- `inferDomain.js` can still replace `websiteType` with a free-form display
+  label, so downstream code cannot rely on an enum key.
+- `domainClassification`, `baInsights`, `metadata`, and `siteOverview` can carry
+  different answers for the same run.
+- Case generation consumes sub-domain lists, but there is no benchmark proving
+  that the top cases are more relevant or that irrelevant cases disappear.
+- `workflow:verify` checks source strings and file existence. It can report a
+  result without exercising the classifier, gate, or pipeline.
+- The current test file proves isolated happy paths; it does not establish
+  accuracy, abstention behaviour, compatibility, or a full run artifact.
+
+These are characterization facts, not permission for a broad rewrite.
 
 ## Depends on
 
-Q1 (rich crawl JSON — `crawledPages`, `navLabels`, form `purpose`), Q2 (`majorFunctionalCases` consumes priorities), Q4 (the LLM gate this widens). M6 (LLM wiring).
+Q1 rich crawl JSON, Q2 major case generation, Q3 discovered-flow execution,
+Q4 conditional LLM inference, and M6 provider wiring.
 
-## Why now
+## Scope boundary
 
-Closed as of Q4, and each is a behaviour in the code today, not a wish:
+Q5 supports six priority domains first:
 
-- `WEBSITE_TYPES` is flat — 14 entries, each with one fixed `testPriorities` / `criticalFlows` array that `detectWebsiteType` attaches verbatim to every site it wins.
-- `inferDomain.js` writes `inferredTestPriorities` and `inferredCriticalFlows` onto `baInsights`; **no module reads either field**. The inference call a run pays for cannot change one generated case.
-- `generateMajorFunctionalCases` runs in the executor `webAnalyzer` job; inference runs afterwards in the orchestrator. Cases are final before the site is understood.
-- On merge, `baInsights.websiteType` is replaced by the free-form `domainLabel`, so it stops being an enum key; `consolidateRequirements` then recovers a profile by substring matching that prose.
-- `detectWebsiteType` reads only landing-page `innerText`, `title`, and meta description, ignoring the crawl signals Q1 already collects.
-- A hostname containing `saravana` is pinned to `RETAIL_STORE` at 0.95 — a sub-domain rule in disguise.
+`ECOMMERCE`, `OTT_STREAMING`, `BANKING_FINANCE`, `HEALTHCARE_PHARMA`,
+`TRAVEL_BOOKING`, and `SAAS`.
 
-## Workspaces
+Other existing domain keys remain valid and fall back to domain-level cases.
+Expanding every domain and sub-domain is follow-up data work, not a condition
+for shipping the quality contract.
 
-| Area | Folder | Skill |
-|------|--------|-------|
-| Taxonomy + sub-domain detection | `packages/analyzer/lib/constants.js`, `lib/classify/` | `/zero-analyzer` |
-| Case generation | `packages/analyzer/lib/generate/majorFunctionalCases.js` | `/zero-analyzer` |
-| Artifact bridge | `services/executor/jobs.js` | `/zero-executor` |
-| Gate + prompt + merge | `services/orchestrator/inferDomain.js`, `llm/index.js`, `pipeline.js` | `/zero-orchestrator` |
-| Classification cache | `packages/db/lib/schema/tables.js` | `/zero-db` |
-| Run view surface + override | `web/src/views/` | `/zero-web` |
-
-## Scope
-
-Six phases, ordered so 1–3 cannot change a run output and 5 is the first a user notices.
-
-1. **Two-level taxonomy** — every `WEBSITE_TYPES` entry gains `subTypes`: key → `{ name, indicators[], urlPatterns[], pathPatterns[], testPriorities[], criticalFlows[] }`. `pathPatterns` is the new field; sub-domains separate on URL paths far more sharply than domains separate on hostnames. Existing fields untouched, nothing reads `subTypes` yet.
-2. **Rule-based sub-domain detection** — new `lib/classify/subDomain.js` scores the winning domain's `subTypes` over the whole crawl corpus (nav labels, path segments, form purposes, element category counts), not just landing-page text. Emit `classification` beside today's `websiteType`. Retire the `saravana` branch into `RETAIL_STORE.subTypes['supermarket-chain'].urlPatterns`.
-3. **Carry the contract** — map `classification` onto `webAnalysis.classification` and through to `run.input._webAnalysisInsights`. `websiteType` / `websiteTypeConfidence` keep today's values and meaning for every existing consumer.
-4. **Constrained LLM gate** — `PROMPT_VERSIONS.domainSubdomain` (`domainSubdomain.v2`) carries `allowedDomains` / `allowedSubDomains` in the context so the model cannot invent a key. Widen the gate to also fire when the domain is confident but the sub-domain is not. Merge into `classification` only — the LLM may refine, never overwrite, the enum `domain`. Values outside the enum are dropped, not coerced; `subDomainLabel` is recorded for taxonomy review and never assigned to `subDomain`.
-5. **Make it change the output** — `resolvePriorities()` prefers sub-domain lists and falls back to domain. Top up `majorFunctionalCases` in the orchestrator after the gate so inferred priorities reach `manualQa`. `consolidateRequirements` maps `classification.domain` to `profileKey` by enum lookup instead of substring matching.
-6. **Cache and surface** — `site_classification` keyed on `host` (`domain`, `sub_domain`, confidences, `source`, `updated_at`) with TTL reuse so repeat runs skip inference. Run view shows `Domain → Sub-domain` with confidence and source, and allows an override before BA.
-
-### Contract
+## Canonical contract
 
 ```js
 webAnalysis.classification = {
-  domain:            'ECOMMERCE',            // always a WEBSITE_TYPES key
-  domainName:        'E-commerce Platform',
-  domainConfidence:  0.9,
-  subDomain:         'grocery',              // key within subTypes, or null
-  subDomainName:     'Online Grocery',
-  subConfidence:     0.62,
-  source:            'rules',                // rules | llm | hybrid | cache
-  signals:           ['urlPattern:bigbasket', 'nav:Fruits & Vegetables', 'form:pincode'],
-  runnerUp:          { domain: 'RETAIL_STORE', domainConfidence: 0.41 },
-  testPriorities:    [...],                  // sub-domain first, domain as fallback
-  criticalFlows:     [...],
+  domain: 'ECOMMERCE',                 // WEBSITE_TYPES key
+  domainName: 'E-commerce Platform',   // display only
+  domainConfidence: 0.91,
+  subDomain: 'GROCERY',                // key within domain, or null
+  subDomainName: 'Grocery and Daily Essentials',
+  subDomainConfidence: 0.78,
+  source: 'rules',                     // rules | llm | hybrid
+  evidence: [
+    { kind: 'nav', value: 'Fruits & Vegetables', weight: 0.18 },
+    { kind: 'path', value: '/fresh', weight: 0.12 },
+  ],
+  runnerUp: { subDomain: 'D2C_BRAND', confidence: 0.31 },
 }
 ```
 
-`signals` exists so a wrong answer is debuggable from `run.json` alone. `runnerUp` is what a UI override offers first.
+Rules:
 
-### Gate
+1. `domain` and `subDomain` are canonical keys or `null`; labels never occupy key
+   fields.
+2. `classification` is the source of truth. Legacy fields are read-only aliases
+   derived from it until Q5 closes.
+3. Confidence is calibrated against fixtures. Weak evidence produces `null`;
+   hostname matching alone cannot produce high confidence.
+4. The LLM receives allowed keys and may fill only unresolved fields. Invalid
+   values are discarded.
+5. Test priorities are resolved from the canonical pair once, after inference,
+   then consumed by Manual QA and execution.
 
-| Rule outcome | Sub-domain outcome | Action |
-|--------------|--------------------|--------|
-| `domainConfidence >= 0.5` | `subConfidence >= 0.5` | No call. Rules win outright. |
-| `domainConfidence >= 0.5` | `subConfidence < 0.5` or null | One call, sub-domain only, enum restricted to that domain's `subTypes`. Domain passed as fixed context, not as a question. |
-| `domainConfidence < 0.5`, or `GENERIC` | unknown | One call for the pair. The Q4 gate, widened to return two fields. |
-| any | cache hit within TTL | No call. Reuse and stamp `source: 'cache'`. |
-| any | `ZERO_LLM=off`, no key, or cap hit | No call. Rules stand, `subDomain` may stay null, run completes as today. |
+## Deliverables
+
+### D1 — Characterize and benchmark
+
+- Add captured crawl fixtures with expected classifications; tests use no live
+  network.
+- Cover at least two sub-domains in each priority domain plus four ambiguous /
+  generic fixtures.
+- Record the first implementation’s accuracy and case relevance before changing
+  scoring.
+
+**Exit:** a failing benchmark explains the current quality gap.
+
+### D2 — One taxonomy and one contract
+
+- Move domain and sub-domain definitions behind one analyzer API.
+- Normalize keys, labels, confidences, source, evidence, and runner-up.
+- Keep current `websiteType` fields as compatibility aliases; no consumer may
+  mutate them independently.
+
+**Exit:** schema and compatibility tests prove one resolved answer per artifact.
+
+### D3 — Calibrated rules and constrained inference
+
+- Reorder the analyzer path to crawl first, classify the canonical pair from the
+  complete corpus second, and generate cases only after that decision.
+- Score the complete crawl corpus: titles, nav labels, paths, form purposes, and
+  element categories.
+- Tune thresholds against the fixture benchmark, including abstention.
+- Call the LLM only for unresolved fields and constrain replies to allowed keys.
+
+**Exit:** benchmark thresholds pass with and without a provider key.
+
+### D4 — Relevant cases, generated once
+
+- Resolve priorities after classification is final.
+- Generate major functional cases in one place; do not “top up” a second copy in
+  the orchestrator.
+- Remove clearly irrelevant domain fallback cases when a confident sub-domain
+  exists.
+
+**Exit:** paired fixtures in the same domain produce measurably different top
+cases while preserving shared essentials.
+
+### D5 — End-to-end proof and operability
+
+- Add a pipeline test from captured crawl data to `run.json`, Manual QA input,
+  and execution input.
+- Stamp classification source, evidence, prompt version, and fallback reason in
+  the artifact without secrets.
+- Make `workflow:verify -- --milestone Q5` execute the targeted tests; static
+  probes remain diagnostics only.
+
+**Exit:** an implementer can reproduce a wrong decision from one artifact and
+the release gate exercises behaviour.
+
+## Success measures
+
+- Domain top-1 accuracy is at least **90%** on the Q5 fixture set.
+- Supported sub-domain precision is at least **85%** with at least **75%**
+  coverage; uncertain fixtures abstain instead of guessing.
+- Repeated classification of the same fixture is deterministic.
+- Grocery versus fashion and insurance versus lending differ in at least three
+  of their top five test modules.
+- No generated top-five case contradicts the fixture’s expected capabilities.
+- A rules-only run completes when no provider key exists.
+- Invalid LLM keys never enter `classification`.
 
 ## Acceptance
 
-- [ ] Every `WEBSITE_TYPES` entry defines `subTypes`; `GENERIC` may define none
-- [ ] `detectWebsiteType` returns `classification` with `domain`, `subDomain`, and separate confidences
-- [ ] Sub-domain scoring reads `crawledPages` nav labels, paths, and form purposes — proven by a fixture with a misleading landing page
-- [ ] `websiteType` / `websiteTypeConfidence` keep their present values and are never overwritten by the LLM
-- [ ] `PROMPT_VERSIONS.domainSubdomain` exists and the prompt carries the allowed enum lists
-- [ ] The gate fires on unresolved sub-domain, not only on low domain confidence or `GENERIC`
-- [ ] `majorFunctionalCases` prefers sub-domain priorities; a grocery fixture yields different cases than a fashion fixture
-- [ ] Without a provider key the pipeline completes on rules alone, `subDomain` null, no error
-- [ ] A second run against the same host reuses the cached classification and makes no LLM call
-- [ ] `test/domain-subdomain.test.js` passes with a mock LLM provider
-- [ ] `npm run workflow:verify -- --milestone Q5` exits 0
+- [ ] A versioned, offline fixture manifest records expected domain, sub-domain,
+      capabilities, and forbidden case areas.
+- [ ] All key fields are enum-validated; display labels are never used as keys.
+- [ ] `classification` is the only mutable answer carried across analyzer,
+      executor, and orchestrator boundaries.
+- [ ] Legacy fields remain compatible and are derived from `classification`.
+- [ ] Low-confidence results abstain or invoke one constrained inference call.
+- [ ] Domain and sub-domain classification run after the bounded crawl and use
+      its structural signals.
+- [ ] Rules-only and mocked-LLM benchmark suites meet the success measures.
+- [ ] Case generation runs once after final classification.
+- [ ] Same-domain fixture pairs produce distinct, relevant top-five modules.
+- [ ] One integration test proves classification reaches Manual QA and execution.
+- [ ] Q1–Q4 regression tests pass.
+- [ ] `npm run workflow:verify -- --milestone Q5` runs behavioural tests and
+      exits 0.
+
+## Rollout and rollback
+
+1. Land fixtures and characterization tests without changing output.
+2. Land the canonical contract with compatibility aliases.
+3. Switch analyzer and inference writers to the contract.
+4. Switch case generation only after benchmark thresholds pass.
+5. If quality regresses, fall back to existing domain-level priorities; do not
+   serve partially normalized classification data.
+
+## Observability
+
+Every run artifact must answer: what was chosen, how confident it was, which
+signals won, whether the LLM ran, why it ran, and which taxonomy entry supplied
+the generated priorities. Keys and prompt payloads are never logged.
 
 ## Out of scope
 
-- DNS subdomain routing or per-hostname run splitting
-- Per-page classification — one answer per run, per host
-- Vision / screenshot models for classification
-- Replacing rule-based detection when both confidences clear 0.5
-- Local models (Ollama)
-- A user-editable taxonomy in the UI; the enum ships in code
+- Classification caching or a new database table
+- A user override or pipeline pause/resume UI
+- A user-editable taxonomy
+- DNS subdomain routing or per-page classification
+- Vision models, local models, or unbounded crawling
+- Exhaustive taxonomy expansion outside the six priority domains
 
-## Risks
+Caching and override are intentionally deferred: persisting or exposing an
+unproven answer makes a bad classifier harder to correct.
 
-- Sub-type indicator lists are hand-written, so a thin one silently scores zero. Phase 2 needs a fixture **per sub-domain**, not per domain.
-- Topping up cases in the orchestrator puts case generation in two places. Extract the generator to a shared call rather than copying it.
-- A cached wrong answer is worse than a fresh wrong one. TTL plus the visible override in phase 6 is the mitigation, not an extra.
+## Definition of done
+
+Q5 is done only when all acceptance checks pass, the behavioural verification
+command is green, the benchmark report is committed, `progress.json` is changed
+to `done`, and the Architecture / Next Milestone docs show the same status.
+File-existence probes alone cannot close Q5.
 
 ## Verify
 
 ```bash
 npm test -- test/domain-subdomain.test.js
+npm test -- test/domain-classification-benchmark.test.js
+npm test -- test/domain-classification-pipeline.test.js
 npm run workflow:verify -- --milestone Q5
 ```
 
-Plan and rationale are also published in the docs site: **Next Milestone** tab (`support/zero-docs/src/pages/NextMilestone.tsx`, `http://localhost:5174/#next-milestone`).
+The execution view is published in the zero-docs **Next Milestone** tab at
+`http://localhost:5174/#next-milestone`.

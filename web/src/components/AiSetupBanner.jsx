@@ -1,4 +1,4 @@
-import './AiSetupBanner.css';
+import './AiSetupBanner.scss';
 
 /**
  * Onboarding callout when AI agents are not fully wired.

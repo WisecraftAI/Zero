@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "northStar": "Autonomous any-URL QA (Q1–Q5) · packaging S0–S7 · capability M1–M7",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
   "track": "product",
   "current": "Q5",
   "acceptanceFloor": "M4",
@@ -96,10 +96,26 @@
     },
     "Q5": {
       "id": "Q5",
-      "name": "Domain + sub-domain classification",
+      "name": "Trustworthy site understanding and test-plan quality",
       "status": "not-done",
       "spec": "milestones/Q5-domain-subdomain.md",
       "completedAt": null
+    }
+  },
+  "ux": {
+    "U1": {
+      "id": "U1",
+      "name": "Professional operator UI/UX",
+      "status": "done",
+      "spec": "milestones/U1-professional-ui-ux.md",
+      "completedAt": "2026-08-27T13:31:00.000Z"
+    },
+    "U2": {
+      "id": "U2",
+      "name": "Ultra-low-friction canvas",
+      "status": "done",
+      "spec": "milestones/U2-low-friction-canvas.md",
+      "completedAt": "2026-08-27T13:31:00.000Z"
     }
   },
   "history": [
@@ -192,6 +208,26 @@
       "at": "2026-08-18T07:20:00.000Z",
       "event": "milestone_opened",
       "note": "Q5 domain + sub-domain classification opened by approved requirement: the Web Analyzer must resolve a domain and a sub-domain from the URL, and that pair must drive case generation. Closes the seam left after Q4 — WEBSITE_TYPES is flat, inferred priorities are written but never read, and majorFunctionalCases is generated before inference runs. Plan published in the zero-docs Next Milestone tab."
+    },
+    {
+      "at": "2026-08-27T13:13:00.000Z",
+      "event": "milestone_reopened",
+      "note": "Q5 replaced after the first implementation attempt failed to prove user value. The recovery milestone now requires an offline accuracy benchmark, one canonical classification contract, measurable test-plan differentiation, behavioural verification, rollout guidance, and an explicit definition of done. Cache and UI override are deferred until classification quality is proven."
+    },
+    {
+      "at": "2026-08-27T13:15:00.000Z",
+      "event": "milestone_opened",
+      "note": "U1 professional operator UI/UX opened by approved requirement: the SPA must become a token-driven, accessible operator console (shell landmarks, type/space scale, daily-flow states, narrow viewport). Parallel to Q5 — DETECT still prefers unfinished product probes; UI work follows /zero-web and prompts/ui-ux.md."
+    },
+    {
+      "at": "2026-08-27T13:24:00.000Z",
+      "event": "milestone_opened",
+      "note": "U2 ultra-low-friction canvas opened by approved requirement: single-canvas New Run, hover rail, progressive disclosure of advanced options. Presentation only. Parallel to Q5 and U1."
+    },
+    {
+      "at": "2026-08-27T13:31:00.000Z",
+      "event": "milestone_done",
+      "note": "U1 operator shell (skip link, aria-current, type/space tokens, theme names) and U2 low-friction canvas (nrv--canvas, disclose, hover rail, always-on Run). Product current remains Q5."
     }
   ]
 }

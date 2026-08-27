@@ -11,8 +11,9 @@ import IntegrationsView from './views/IntegrationsView';
 import { apiUrl } from './apiBase';
 import { mergeRunStreamState } from './data/runStream';
 import { runElapsedMs, formatDuration } from './lib/runProgress';
+import { isLiveRunStatus, isTerminalRunStatus } from './lib/runControl';
 import { useRunStream } from './data/useRunStream';
-import './App.css';
+import './App.scss';
 
 /* Topbar config per view */
 function getTopbarProps(view, run, streamTransport, clockTick = 0) {
@@ -22,14 +23,14 @@ function getTopbarProps(view, run, streamTransport, clockTick = 0) {
       return { title: 'Dashboard', statusBadge: 'System Live' };
     case 'runs':
       return { breadcrumb: ['ZERO', 'Runs'], statusBadge: 'System Stable' };
-    case 'new-run':
-      return { breadcrumb: ['ZERO', 'Create New Run', 'Step 01'] };
+      case 'new-run':
+        return { title: 'New Run' };
     case 'run-detail': {
       const name = run?.input?.ottUrl
         ? run.input.ottUrl.replace(/^https?:\/\//, '').slice(0, 40)
         : 'Loading…';
       const elapsed =
-        run?.status === 'running' && run?.createdAt
+        isLiveRunStatus(run?.status) && run?.createdAt
           ? formatDuration(runElapsedMs(run))
           : null;
       const liveBadge =
@@ -37,9 +38,11 @@ function getTopbarProps(view, run, streamTransport, clockTick = 0) {
           ? 'Live (SSE)'
           : streamTransport === 'poll'
             ? 'Live (poll fallback)'
-            : run?.status === 'running'
-              ? 'Running'
-              : undefined;
+            : run?.status === 'stopping'
+              ? 'Stopping'
+              : run?.status === 'running'
+                ? 'Running'
+                : undefined;
       return {
         breadcrumb: ['Runs', name],
         statusBadge: liveBadge && elapsed ? `${liveBadge} · ${elapsed}` : liveBadge
@@ -67,7 +70,7 @@ export default function App() {
   const [clock, setClock] = useState(0);
 
   useEffect(() => {
-    if (view !== 'run-detail' || activeRun?.status !== 'running') return undefined;
+    if (view !== 'run-detail' || !isLiveRunStatus(activeRun?.status)) return undefined;
     const t = setInterval(() => setClock((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [view, activeRun?.status, activeRunId]);
@@ -90,8 +93,7 @@ export default function App() {
     }
   }, [activeRunId]);
 
-  const runTerminal =
-    activeRun?.status === 'completed' || activeRun?.status === 'failed';
+  const runTerminal = isTerminalRunStatus(activeRun?.status);
 
   useEffect(() => {
     if (!activeRunId) return;
@@ -128,7 +130,7 @@ export default function App() {
   // Keep dashboard / runs list fresh while a pipeline is active.
   useEffect(() => {
     const active =
-      runs.some((r) => r.status === 'running') || activeRun?.status === 'running';
+      runs.some((r) => isLiveRunStatus(r.status)) || isLiveRunStatus(activeRun?.status);
     if (!active) return undefined;
     const t = setInterval(fetchRuns, 4000);
     return () => clearInterval(t);
@@ -145,6 +147,30 @@ export default function App() {
     setActiveRun(null);
     navigate('run-detail', id);
     fetchRuns();
+  };
+
+  const handleStopRun = async (runId) => {
+    if (!runId) return;
+    setRuns((prev) => prev.map((r) => (
+      (r.id === runId || r.runId === runId) ? { ...r, status: 'stopping' } : r
+    )));
+    setActiveRun((prev) => (prev && (prev.id === runId || prev.runId === runId)
+      ? { ...prev, status: 'stopping' }
+      : prev));
+    try {
+      const res = await fetch(apiUrl(`/runs/${runId}/stop`), { method: 'POST' });
+      if (!res.ok) {
+        fetchRuns();
+        if (activeRunId === runId) fetchRun();
+        return;
+      }
+    } catch {
+      fetchRuns();
+      if (activeRunId === runId) fetchRun();
+      return;
+    }
+    fetchRuns();
+    if (activeRunId === runId) fetchRun();
   };
 
   const handleRerunFailed = async () => {
@@ -170,14 +196,15 @@ export default function App() {
             onOpenRun={openRun}
             onNewRun={() => navigate('new-run')}
             onNavigate={navigate}
+            onStopRun={handleStopRun}
           />
         );
       case 'runs':
-        return <RunsListView runs={runs} loading={runsLoading} onOpenRun={openRun} onRefresh={fetchRuns} onNewRun={() => navigate('new-run')} />;
+        return <RunsListView runs={runs} loading={runsLoading} onOpenRun={openRun} onRefresh={fetchRuns} onNewRun={() => navigate('new-run')} onStopRun={handleStopRun} />;
       case 'new-run':
         return <NewRunView onSubmit={handleStartRun} />;
       case 'run-detail':
-        return <RunDetailView run={activeRun} runId={activeRunId} onRerunFailed={handleRerunFailed} onBack={() => navigate('runs')} streamTransport={streamTransport} />;
+        return <RunDetailView run={activeRun} runId={activeRunId} onRerunFailed={handleRerunFailed} onStopRun={handleStopRun} onBack={() => navigate('runs')} streamTransport={streamTransport} />;
       case 'locators':
         return <LocatorsView />;
       case 'apikeys':
