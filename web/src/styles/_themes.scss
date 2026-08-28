@@ -1166,6 +1166,172 @@ $themes: (
     'shadow-lg': '0 18px 48px rgba(0, 0, 0, 0.58)',
     'shadow-hero': '0 24px 64px -20px rgba(0, 0, 0, 0.65)',
   ),
+
+  // ── Obsidian (dark, black glass + ice blue)
+  // Surfaces are translucent white over near-black, so panels tint whatever
+  // sits behind them. The `glass-blur` token opts this palette into the
+  // frosted chrome in _glass.scss; without it the panels would read as flat
+  // tinted cards. Keep surface values as plain rgba — `--surface` is also
+  // consumed as a gradient stop and a border color, which gradients break.
+  'obsidian': (
+    'color-scheme': 'dark',
+    'glass-blur': '22px',
+
+    'bg': '#050507',
+    'bg-sidebar': 'rgba(13, 14, 18, 0.72)',
+    'bg-topbar': 'rgba(9, 10, 13, 0.68)',
+    'surface': 'rgba(255, 255, 255, 0.055)',
+    'surface-2': 'rgba(255, 255, 255, 0.085)',
+    'surface-3': 'rgba(255, 255, 255, 0.12)',
+    'surface-hover': 'rgba(255, 255, 255, 0.15)',
+
+    'wash': 'linear-gradient(180deg, rgba(99, 198, 245, 0.16) 0%, rgba(10, 12, 17, 0.92) 46%, #050507 78%)',
+    'wash-edge': 'rgba(139, 213, 255, 0.22)',
+
+    'border': 'rgba(255, 255, 255, 0.12)',
+    'border-md': 'rgba(255, 255, 255, 0.20)',
+    'border-strong': 'rgba(255, 255, 255, 0.34)',
+
+    'text': '#F4F7FA',
+    'text-2': '#AFB8C4',
+    'text-3': '#828B99',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#8BD5FF',
+    'brand-hover': '#B6E6FF',
+    'brand-bg': 'rgba(139, 213, 255, 0.12)',
+    'brand-border': 'rgba(139, 213, 255, 0.32)',
+
+    'accent': '#8BD5FF',
+    'accent-hover': '#B6E6FF',
+    'accent-light': '#D6F1FF',
+    'accent-dim': '#4FB8EE',
+    'accent-strong': '#63C6F5',
+    'accent-dark': '#2E9CD1',
+    'on-accent': '#04070A',
+    'accent-bg': 'rgba(139, 213, 255, 0.12)',
+    'accent-glow': 'rgba(139, 213, 255, 0.28)',
+    'accent-border': 'rgba(139, 213, 255, 0.34)',
+
+    'green': '#4ADE80',
+    'green-dim': '#33C46B',
+    'green-strong': '#22A554',
+    'green-bg': 'rgba(74, 222, 128, 0.12)',
+    'green-border': 'rgba(74, 222, 128, 0.30)',
+    'on-green': '#050507',
+
+    'red': '#FF7A70',
+    'red-dim': '#EF5F55',
+    'red-strong': '#D24A41',
+    'red-bg': 'rgba(255, 122, 112, 0.12)',
+    'red-border': 'rgba(255, 122, 112, 0.30)',
+    'on-red': '#050507',
+
+    'amber': '#F2C55C',
+    'amber-dim': '#D8A63A',
+    'amber-strong': '#B4851F',
+    'amber-bg': 'rgba(242, 197, 92, 0.12)',
+    'amber-border': 'rgba(242, 197, 92, 0.30)',
+    'on-amber': '#050507',
+
+    'blue': '#8BD5FF',
+    'blue-bg': 'rgba(139, 213, 255, 0.12)',
+    'blue-border': 'rgba(139, 213, 255, 0.32)',
+
+    'stage-analyze': '#8BD5FF',
+    'stage-plan': '#C4B5FD',
+    'stage-author': '#67E8F9',
+    'stage-execute': '#4ADE80',
+    'stage-report': '#F9A8D4',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.6)',
+    'shadow': '0 8px 28px rgba(0, 0, 0, 0.58)',
+    'shadow-lg': '0 24px 60px rgba(0, 0, 0, 0.70)',
+    'shadow-hero': '0 30px 80px -24px rgba(0, 0, 0, 0.85)',
+  ),
+
+  // ── Copper (dark, warm glass + ember orange)
+  // Same translucent construction as `obsidian`: surfaces are white at low
+  // alpha over a near-black canvas, and `glass-blur` opts the palette into
+  // the frosted chrome in _glass.scss. `glass-ambient` overrides the cool
+  // default glow there, which would fight the orange accent.
+  'copper': (
+    'color-scheme': 'dark',
+    'glass-blur': '22px',
+    'glass-ambient': 'radial-gradient(70rem 40rem at 12% -10%, rgba(230, 102, 37, 0.18), transparent 65%), radial-gradient(55rem 34rem at 88% 8%, rgba(244, 232, 225, 0.08), transparent 62%), radial-gradient(60rem 40rem at 50% 108%, rgba(235, 133, 82, 0.10), transparent 60%)',
+
+    'bg': '#101319',
+    'bg-sidebar': 'rgba(17, 24, 39, 0.72)',
+    'bg-topbar': 'rgba(22, 22, 22, 0.68)',
+    'surface': 'rgba(255, 255, 255, 0.05)',
+    'surface-2': 'rgba(255, 255, 255, 0.08)',
+    'surface-3': 'rgba(255, 255, 255, 0.12)',
+    'surface-hover': 'rgba(255, 255, 255, 0.16)',
+
+    'wash': 'linear-gradient(180deg, rgba(230, 102, 37, 0.18) 0%, rgba(16, 19, 25, 0.92) 46%, #101319 78%)',
+    'wash-edge': 'rgba(235, 133, 82, 0.26)',
+
+    'border': 'rgba(255, 255, 255, 0.12)',
+    'border-md': 'rgba(255, 255, 255, 0.22)',
+    'border-strong': 'rgba(255, 255, 255, 0.35)',
+
+    'text': '#FFFFFF',
+    'text-2': 'rgba(229, 234, 242, 0.72)',
+    'text-3': 'rgba(255, 255, 255, 0.52)',
+    'text-muted': 'var(--text-2)',
+
+    'brand': '#E66625',
+    'brand-hover': '#EB8552',
+    'brand-bg': 'rgba(230, 102, 37, 0.14)',
+    'brand-border': 'rgba(230, 102, 37, 0.36)',
+
+    'accent': '#E66625',
+    'accent-hover': '#EB8552',
+    'accent-light': '#F4E8E1',
+    'accent-dim': '#C4551B',
+    'accent-strong': '#EB8552',
+    'accent-dark': '#A8420F',
+    'on-accent': '#161616',
+    'accent-bg': 'rgba(230, 102, 37, 0.14)',
+    'accent-glow': 'rgba(230, 102, 37, 0.30)',
+    'accent-border': 'rgba(230, 102, 37, 0.38)',
+
+    'green': '#4ADE80',
+    'green-dim': '#33C46B',
+    'green-strong': '#22A554',
+    'green-bg': 'rgba(74, 222, 128, 0.12)',
+    'green-border': 'rgba(74, 222, 128, 0.30)',
+    'on-green': '#101319',
+
+    'red': '#FF7A70',
+    'red-dim': '#EF5F55',
+    'red-strong': '#D24A41',
+    'red-bg': 'rgba(255, 122, 112, 0.12)',
+    'red-border': 'rgba(255, 122, 112, 0.30)',
+    'on-red': '#101319',
+
+    'amber': '#F2C55C',
+    'amber-dim': '#D8A63A',
+    'amber-strong': '#B4851F',
+    'amber-bg': 'rgba(242, 197, 92, 0.12)',
+    'amber-border': 'rgba(242, 197, 92, 0.30)',
+    'on-amber': '#101319',
+
+    'blue': '#E66625',
+    'blue-bg': 'rgba(230, 102, 37, 0.14)',
+    'blue-border': 'rgba(230, 102, 37, 0.36)',
+
+    'stage-analyze': '#EB8552',
+    'stage-plan': '#C4B5FD',
+    'stage-author': '#67E8F9',
+    'stage-execute': '#4ADE80',
+    'stage-report': '#F9A8D4',
+
+    'shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.58)',
+    'shadow': '0 8px 28px rgba(0, 0, 0, 0.58)',
+    'shadow-lg': '0 24px 60px rgba(0, 0, 0, 0.70)',
+    'shadow-hero': '0 30px 80px -24px rgba(0, 0, 0, 0.85)',
+  ),
 );
 
 // Extra data-theme ids that render an existing palette, kept so older
@@ -1204,5 +1370,38 @@ $root-theme: 'light';
 @each $id, $tokens in $themes {
   #{selector-for($id)} {
     @include emit($tokens);
+
+    // Brand artwork is drawn as SVG (see zeroBrandArt.js), so each region is
+    // filled from a token rather than baked into a bitmap. Mixing against the
+    // palette accent is what carries the theme into the logo; deriving it here
+    // means a palette added later is themed without a second edit.
+    //
+    // `ink` is the structural color (letterforms, head outline, visor) and
+    // `plate` is the robot face. They swap on dark palettes, matching how the
+    // original light and dark masters relate to each other.
+    //
+    // Each token declares a plain fallback first for engines without
+    // color-mix(), which would otherwise drop the declaration and leave the
+    // artwork unpainted.
+    @if map.get($tokens, 'color-scheme') == 'dark' {
+      --logo-ink: var(--text);
+      --logo-ink: color-mix(in oklab, var(--accent) 20%, #F4F7FB);
+      --logo-ink-lift: #FFFFFF;
+      --logo-plate: var(--bg);
+      --logo-plate: color-mix(in oklab, var(--accent) 24%, #05070E);
+      --logo-eye: var(--accent);
+      --logo-eye: color-mix(in oklab, var(--accent) 72%, #05070E);
+    } @else {
+      --logo-ink: var(--text);
+      --logo-ink: color-mix(in oklab, var(--accent) 40%, #05070E);
+      --logo-ink-lift: color-mix(in oklab, var(--accent) 66%, #05070E);
+      --logo-plate: var(--surface);
+      --logo-plate: color-mix(in oklab, var(--accent) 4%, #FFFFFF);
+      --logo-eye: var(--accent-light);
+    }
+
+    --logo-accent: var(--accent);
+    --logo-accent-soft: var(--accent-light);
+    --logo-accent-deep: var(--accent-dark);
   }
 }

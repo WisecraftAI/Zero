@@ -154,8 +154,10 @@ export function OverviewPage() {
             passes → Manager → Delivery. LLM-enriched stages show model output in artifacts.
           </PipelineStage>
           <PipelineStage id="05" title="Review artifacts">
-            Download requirements, manual TC list, Playwright spec, Java/Selenium class, PDF or
-            JSON reports.
+            On Run Detail, inspect the flow diagram of discovered journeys, then download
+            requirements, manual TC list, Playwright spec, Java/Selenium class, PDF or JSON reports.
+            Shareable paths: <code>/</code>, <code>/runs</code>, <code>/runs/new</code>,{' '}
+            <code>/runs/:id</code>.
           </PipelineStage>
           <PipelineStage id="06" title="Take Java to prod">
             Drop the generated Java class into your Maven/Gradle project, tune the locators, run
@@ -178,7 +180,7 @@ export function OverviewPage() {
           </li>
           <li>
             <strong>Persist:</strong> run metadata upserts to Postgres when{' '}
-            <code>DATABASE_URL</code> is set (M1) — nine tables, hub <code>qa_runs</code>, only{' '}
+            <code>DATABASE_URL</code> is set (M1) — ten tables, hub <code>qa_runs</code>, only{' '}
             <code>qa_assets.run_id</code> is an enforced FK. ER + columns:{' '}
             <a href="#tech-schema">Tech → Schema · ER</a>. Fallback:{' '}
             <code>dist/artifacts/&lt;runId&gt;/run.json</code>.
@@ -190,7 +192,8 @@ export function OverviewPage() {
           </li>
           <li>
             <strong>Stages:</strong> walker follows <code>stageKeys</code> from{' '}
-            <code>@zero/domain</code>. BA / Manual / Automation / Manager call{' '}
+            <code>@zero/domain</code>. Host-scoped agentic memory is recalled into LLM
+            context for the same host. BA / Manual / Automation / Manager call{' '}
             <code>@zero/orchestrator/llm</code> when a decrypted key exists (M6); otherwise templates.
           </li>
           <li>

@@ -21,7 +21,9 @@ export function LldWeb() {
         works={[
           { label: 'DashboardView', detail: <>lists past runs from <code>/runs</code></> },
           { label: 'NewRunView / RunForm', detail: <>multipart or JSON submit to <code>/runs</code></> },
+          { label: 'Pathname router', detail: <> <code>lib/routes.js</code> — <code>/</code>, <code>/runs</code>, <code>/runs/new</code>, <code>/runs/:id</code></> },
           { label: 'RunDetailView + useRunStream', detail: <>SSE <code>/runs/:id/stream</code>; 3s poll fallback after failures</> },
+          { label: 'FlowDiagram', detail: 'discovered journeys rendered on Run Detail' },
           { label: 'PipelineFlow / PipelineStatus', detail: <>renders <code>stageKeys</code></> },
           { label: 'CmsScreenshotCapture', detail: 'Stream-tab bulk capture flow' },
           { label: 'ApiKeysView / AgentsView', detail: 'saves keys + settings; @zero/orchestrator/llm reads them when present' },
@@ -45,13 +47,14 @@ export function LldWeb() {
 ├─ vite.config.js             build → dist/web/ · no API proxy (cross-origin fetch)
 ├─ src/
 │  ├─ main.jsx                bootstraps <App/>
-│  ├─ App.jsx                 router + useRunStream wiring
+│  ├─ App.jsx                 pathname router + useRunStream wiring
 │  ├─ apiBase.js              VITE_API_BASE_URL → http://localhost:3001
+│  ├─ lib/routes.js           / · /runs · /runs/new · /runs/:id
 │  ├─ layouts/AppShell.jsx    Topbar · Sidebar · outlet
 │  ├─ data/
 │  │  ├─ useRunStream.js      EventSource /runs/:id/stream + poll fallback
 │  │  └─ runStream.js         SSE helpers
-│  ├─ components/             RunForm · Pipeline* · TabContent …
+│  ├─ components/             RunForm · Pipeline* · FlowDiagram · TabContent …
 │  └─ views/                  Dashboard · NewRun · RunDetail · Keys · Agents`}
       </Diagram>
 

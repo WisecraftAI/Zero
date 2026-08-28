@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import ThemePicker from './ThemePicker';
-import { ZeroMark } from './ZeroLogo';
+import { ZeroMark, ZeroWordmark } from './ZeroLogo';
 import './Sidebar.scss';
 
 /* ── Icons (inline SVG, 16×16 viewport) ─────────────────── */
 const Icons = {
+  home: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 7.2 8 2l6 5.2V14H9.8v-4H6.2v4H2V7.2z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round"/>
+    </svg>
+  ),
   dashboard: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor" opacity=".9"/>
@@ -68,7 +73,8 @@ const Icons = {
   ),
   newRun: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M2.9 3.35a1 1 0 0 1 1.53-.85l5.35 3.5a1 1 0 0 1 0 1.68l-5.35 3.5a1 1 0 0 1-1.53-.85V3.35z" fill="currentColor"/>
+      <path d="M12.4 9.3v4.2M10.3 11.4h4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
     </svg>
   ),
   locators: (
@@ -96,6 +102,8 @@ const Icons = {
 };
 
 const NAV_ITEMS = [
+  { id: 'home',        icon: 'home',         title: 'Home' },
+  { id: 'new-run',     icon: 'newRun',       title: 'New Run',      cta: true },
   { id: 'dashboard',   icon: 'dashboard',    title: 'Dashboard' },
   { id: 'runs',        icon: 'runs',         title: 'Runs' },
   { id: 'pipelines',   icon: 'pipelines',    title: 'Pipelines',    soon: true },
@@ -114,22 +122,9 @@ export default function Sidebar({ activeView, onNavigate }) {
     <aside className={`sidebar ${isExpanded ? 'sidebar--expanded' : ''}`}>
       {/* Brand mark (always top left) */}
       <div className="sidebar-head">
-        <button className="sidebar-logo" onClick={() => onNavigate('dashboard')} title="ZERO Platform" aria-label="ZERO — go to dashboard">
-          <ZeroMark size={30} />
-          <span className="sidebar-brand-text">ZERO</span>
-        </button>
-      </div>
-
-      {/* New Run CTA */}
-      <div className="sidebar-cta-wrap">
-        <button
-          className={`nav-item ${activeView === 'new-run' ? 'nav-item--active' : ''} nav-item--cta`}
-          onClick={() => onNavigate('new-run')}
-          title={isExpanded ? undefined : "New Run"}
-          aria-current={activeView === 'new-run' ? 'page' : undefined}
-        >
-          <span className="nav-icon">{Icons.newRun}</span>
-          <span className="nav-label">New Run</span>
+        <button className="sidebar-logo" onClick={() => onNavigate('home')} title="ZERO Home" aria-label="ZERO — go to home">
+          <ZeroMark size={32} />
+          <ZeroWordmark size={22} className="sidebar-brand-text" />
         </button>
       </div>
 
@@ -141,7 +136,7 @@ export default function Sidebar({ activeView, onNavigate }) {
             : (
               <button
                 key={item.id}
-                className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''} ${item.soon ? 'nav-item--soon' : ''}`}
+                className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''} ${item.soon ? 'nav-item--soon' : ''} ${item.cta ? 'nav-item--cta' : ''}`}
                 onClick={() => !item.soon && onNavigate(item.id)}
                 title={isExpanded ? undefined : (item.title + (item.soon ? ' (soon)' : ''))}
                 disabled={item.soon}

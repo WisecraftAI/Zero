@@ -46,7 +46,7 @@ npm run start:all              # API + orchestrator + executor`}
         <PipelineStage id="01" title="Configure env (optional)">
           Copy <code>.env.example</code> to <code>.env</code>. Without a DB, runs persist to
           in-memory Maps plus <code>dist/artifacts/&lt;runId&gt;/run.json</code>. Set{' '}
-          <code>DATABASE_URL</code> to enable Postgres (nine tables —{' '}
+          <code>DATABASE_URL</code> to enable Postgres (ten tables —{' '}
           <a href="#tech-schema">schema</a>).
         </PipelineStage>
         <PipelineStage id="02" title="Install dependencies">

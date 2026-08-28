@@ -482,51 +482,87 @@ if (!process.env.VERCEL) {
 }
 
 function buildArchitecturePictureSvg() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="ZER0 Flow">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="640" viewBox="0 0 1400 640" role="img" aria-label="ZER0 pipeline flow">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0c111d"/>
-      <stop offset="100%" stop-color="#121b2f"/>
-    </linearGradient>
     <style>
-      .title { font: 700 28px 'Segoe UI', sans-serif; fill: #d9e8ff; }
-      .label { font: 600 16px 'Segoe UI', sans-serif; fill: #d8f4ff; }
-      .small { font: 500 14px 'Segoe UI', sans-serif; fill: #a5c6d9; }
-      .box { fill: #121b2f; stroke: #46d8d2; stroke-width: 2; rx: 14; }
-      .line { stroke: #66b9ff; stroke-width: 2.5; marker-end: url(#arrow); }
+      .title { font: 700 22px 'IBM Plex Mono', ui-monospace, monospace; fill: #e8eef9; }
+      .lane { font: 600 11px 'IBM Plex Mono', ui-monospace, monospace; fill: #8b9bb8; letter-spacing: 2px; }
+      .label { font: 600 14px 'IBM Plex Mono', ui-monospace, monospace; fill: #e8eef9; }
+      .small { font: 500 11px 'IBM Plex Mono', ui-monospace, monospace; fill: #8b9bb8; }
+      .box { fill: #121c2e; stroke: #3dd6c6; stroke-width: 1.5; rx: 10; }
+      .box-opt { fill: #121c2e; stroke: #3a4d6e; stroke-width: 1.5; stroke-dasharray: 5 4; rx: 10; }
+      .line { stroke: #3a4d6e; stroke-width: 2; marker-end: url(#arrow); fill: none; }
     </style>
-    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
-      <polygon points="0 0, 10 4, 0 8" fill="#66b9ff"/>
+    <marker id="arrow" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+      <polygon points="0 0, 8 3.5, 0 7" fill="#3a4d6e"/>
     </marker>
   </defs>
-  <rect x="0" y="0" width="1400" height="560" fill="url(#bg)"/>
-  <text x="40" y="55" class="title">ZER0 - Architect Flow</text>
-  <rect class="box" x="40" y="120" width="220" height="88"/>
-  <text x="68" y="155" class="label">User Input</text>
-  <text x="68" y="180" class="small">URL + Figma or TC File</text>
-  <rect class="box" x="310" y="120" width="220" height="88"/>
-  <text x="375" y="155" class="label">BA Agent</text>
-  <text x="338" y="180" class="small">Channel Requirements</text>
-  <rect class="box" x="580" y="120" width="220" height="88"/>
-  <text x="623" y="155" class="label">Manual QA</text>
-  <text x="602" y="180" class="small">App-specific TC</text>
-  <rect class="box" x="850" y="120" width="230" height="88"/>
-  <text x="883" y="155" class="label">Automation QA</text>
-  <text x="865" y="180" class="small">Adaptive Locators</text>
-  <rect class="box" x="1130" y="120" width="230" height="88"/>
-  <text x="1170" y="155" class="label">Execution</text>
-  <text x="1145" y="180" class="small">Playwright + Retries</text>
-  <rect class="box" x="580" y="290" width="240" height="100"/>
-  <text x="618" y="332" class="label">Manager Review</text>
-  <text x="620" y="357" class="small">Architect Report</text>
-  <line class="line" x1="260" y1="164" x2="310" y2="164"/>
-  <line class="line" x1="530" y1="164" x2="580" y2="164"/>
-  <line class="line" x1="800" y1="164" x2="850" y2="164"/>
-  <line class="line" x1="1080" y1="164" x2="1130" y2="164"/>
-  <line class="line" x1="1245" y1="208" x2="820" y2="290"/>
-  <rect class="box" x="40" y="430" width="1320" height="90"/>
-  <text x="66" y="468" class="label">Artifacts</text>
-  <text x="66" y="496" class="small">requirements + manual_tc + automation_bundle + execution + manager_report</text>
+  <rect x="0" y="0" width="1400" height="640" fill="#0b1220"/>
+  <text x="40" y="42" class="title">ZER0 pipeline</text>
+
+  <text x="40" y="78" class="lane">INTAKE</text>
+  <rect class="box" x="40" y="90" width="180" height="70"/>
+  <text x="58" y="118" class="label">React SPA</text>
+  <text x="58" y="138" class="small">web/</text>
+  <line class="line" x1="220" y1="125" x2="260" y2="125"/>
+  <rect class="box" x="260" y="90" width="200" height="70"/>
+  <text x="278" y="118" class="label">@zero/api</text>
+  <text x="278" y="138" class="small">POST /runs</text>
+  <line class="line" x1="460" y1="125" x2="500" y2="125"/>
+  <rect class="box" x="500" y="90" width="220" height="70"/>
+  <text x="518" y="118" class="label">Queue</text>
+  <text x="518" y="138" class="small">runs.requested</text>
+
+  <text x="40" y="198" class="lane">ORCHESTRATOR</text>
+  <rect class="box-opt" x="40" y="210" width="180" height="70"/>
+  <text x="52" y="238" class="label">Web Analyzer</text>
+  <text x="52" y="258" class="small">optional crawl</text>
+  <line class="line" x1="220" y1="245" x2="250" y2="245"/>
+  <rect class="box-opt" x="250" y="210" width="170" height="70"/>
+  <text x="262" y="238" class="label">Domain infer</text>
+  <text x="262" y="258" class="small">if low confidence</text>
+  <line class="line" x1="420" y1="245" x2="450" y2="245"/>
+  <rect class="box" x="450" y="210" width="140" height="70"/>
+  <text x="478" y="238" class="label">BA</text>
+  <text x="462" y="258" class="small">requirements</text>
+  <line class="line" x1="590" y1="245" x2="620" y2="245"/>
+  <rect class="box" x="620" y="210" width="160" height="70"/>
+  <text x="638" y="238" class="label">Manual QA</text>
+  <text x="638" y="258" class="small">test cases</text>
+  <line class="line" x1="780" y1="245" x2="810" y2="245"/>
+  <rect class="box" x="810" y="210" width="180" height="70"/>
+  <text x="828" y="238" class="label">Automation</text>
+  <text x="828" y="258" class="small">locators + scripts</text>
+
+  <text x="40" y="318" class="lane">EXECUTOR</text>
+  <rect class="box" x="40" y="330" width="220" height="70"/>
+  <text x="58" y="358" class="label">Playwright</text>
+  <text x="58" y="378" class="small">@zero/executor</text>
+  <line class="line" x1="260" y1="365" x2="300" y2="365"/>
+  <rect class="box-opt" x="300" y="330" width="140" height="70"/>
+  <text x="330" y="358" class="label">A11y</text>
+  <text x="318" y="378" class="small">optional</text>
+  <line class="line" x1="440" y1="365" x2="480" y2="365"/>
+  <rect class="box-opt" x="480" y="330" width="140" height="70"/>
+  <text x="512" y="358" class="label">Perf</text>
+  <text x="498" y="378" class="small">optional</text>
+  <line class="line" x1="620" y1="365" x2="660" y2="365"/>
+  <rect class="box-opt" x="660" y="330" width="150" height="70"/>
+  <text x="682" y="358" class="label">Security</text>
+  <text x="678" y="378" class="small">optional</text>
+
+  <text x="40" y="438" class="lane">REPORTS</text>
+  <rect class="box" x="40" y="450" width="200" height="70"/>
+  <text x="58" y="478" class="label">Manager</text>
+  <text x="58" y="498" class="small">executive review</text>
+  <line class="line" x1="240" y1="485" x2="280" y2="485"/>
+  <rect class="box" x="280" y="450" width="200" height="70"/>
+  <text x="298" y="478" class="label">Delivery</text>
+  <text x="298" y="498" class="small">stakeholder pack</text>
+  <line class="line" x1="480" y1="485" x2="520" y2="485"/>
+  <rect class="box" x="520" y="450" width="520" height="70"/>
+  <text x="538" y="478" class="label">Artifacts</text>
+  <text x="538" y="498" class="small">run.json · screenshots · Postgres when DATABASE_URL set</text>
 </svg>`;
 }
 

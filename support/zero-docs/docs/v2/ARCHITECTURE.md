@@ -133,7 +133,7 @@ Prioritized against the live code, not the marketing surface.
 
 ### P0 — blockers
 
-1. **~~Re-enable real persistence~~ (done — M1)** — Postgres activates when `DATABASE_URL`/`PGHOST` is set; `qa_runs` / `qa_assets` DDL + `migrations/` via `@zero/db`. Remaining durability gaps: recordings / selector memory / multi-instance Maps (partially addressed by M2–M3).
+1. **~~Re-enable real persistence~~ (done — M1)** — Postgres activates when `DATABASE_URL`/`PGHOST` is set; `qa_runs` / `qa_assets` / `agent_memory` DDL + `migrations/` (`001_initial.sql`, `002_agent_memory.sql`) via `@zero/db`. Remaining durability gaps: recordings / in-process Maps across instances (partially addressed by M2–M3). Classification is still not cached (Q5).
 2. **~~Real authentication & authorization~~ (done — M5 partial)** — Verified API keys / JWT; tenant-scoped runs and artifacts. Remaining: full hosted OIDC JWKS fetch (PEM/`OIDC_PUBLIC_KEY` works today); UI has no login screen yet (`ZERO_AUTH=off` locally).
 3. **Do not serve secrets or raw artifacts publicly** — `/artifacts` static serving is removed (M2). Recording CORS is allowlisted (M5). Login passwords stay in process memory. Production requires `KEY_ENC_SECRET`.
 4. **~~Job isolation for Playwright~~ (done — M4)** — execution is queue-triggered (`execution.requested`) with concurrency/retry caps. Split API / execution across machines with Compose or `ZERO_CLOUD=aws|gcp|azure|vercel` (M7). `npm start` is API-only; `npm run start:all` co-locates for local dev. Web Analyzer / optional a11y/perf/security use the executor Chromium path.

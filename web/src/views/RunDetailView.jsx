@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PipelineFlow from '../components/PipelineFlow';
+import FlowDiagram from '../components/FlowDiagram';
 import RunProgressPanel from '../components/RunProgressPanel';
+import AgentRunLine from '../components/AgentRunLine';
 import { apiUrl, artifactUrl } from '../apiBase';
+import { isTerminalRunStatus } from '../lib/runControl';
 import './RunDetailView.scss';
 import StopRunButton from '../components/StopRunButton';
 
@@ -18,8 +21,22 @@ const ALL_TABS = [
   { id: 'manager',      label: 'Manager Report' },
   { id: 'recording',    label: 'Recording',     optional: true },
   { id: 'element-log',  label: 'Element Log' },
-  { id: 'flow',         label: 'Flow Diagram',  optional: true },
+  { id: 'flow',         label: 'Flow Diagram' },
 ];
+
+/* Each tab is fed by one pipeline stage and one artifact, so a tab can tell the
+   difference between "still being produced" and "this run never produced it". */
+const TAB_SOURCES = {
+  webAnalysis:   { stage: 'webAnalyzer',  artifact: 'webAnalysis',         label: 'Web Analyzer' },
+  requirements:  { stage: 'ba',           artifact: 'requirements',        label: 'BA Agent' },
+  manual:        { stage: 'manualQa',     artifact: 'manualTestCases',     label: 'Manual QA Agent' },
+  automation:    { stage: 'automationQa', artifact: 'automationBundle',    label: 'Automation QA Agent' },
+  execution:     { stage: 'execution',    artifact: 'executionReport',     label: 'Execution' },
+  accessibility: { stage: 'accessibility',artifact: 'accessibilityReport', label: 'Accessibility Agent' },
+  performance:   { stage: 'performance',  artifact: 'performanceReport',   label: 'Performance Agent' },
+  security:      { stage: 'security',     artifact: 'securityReport',      label: 'Security Agent' },
+  manager:       { stage: 'manager',      artifact: 'managerReport',       label: 'Manager Agent' },
+};
 
 function getVisibleTabs(run) {
   return ALL_TABS.filter(t => {
@@ -29,7 +46,6 @@ function getVisibleTabs(run) {
     if (t.id === 'performance')   return !!run?.stages?.performance;
     if (t.id === 'security')      return !!run?.stages?.security;
     if (t.id === 'recording')     return !!(run?.artifacts?.recording || run?.input?.recording);
-    if (t.id === 'flow')          return !!run?.picture;
     return false;
   });
 }
@@ -47,9 +63,18 @@ function fmtConfidence(value) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
-export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, onBack, streamTransport }) {
-  const [activeTab, setActiveTab] = useState('requirements');
+export default function RunDetailView({ run, runId, activeTab, onTabChange, onRerunFailed, onStopRun, onBack, streamTransport }) {
   const [tick, setTick] = useState(() => Date.now());
+
+  const visibleTabs = getVisibleTabs(run);
+  const defaultTabId = visibleTabs[0]?.id || 'requirements';
+  const tabIsValid = visibleTabs.some(t => t.id === activeTab);
+  // Optional tabs only appear once the run is loaded, so a deep link keeps its
+  // tab while the fetch is in flight instead of snapping to the default.
+  const currentTabId = tabIsValid || (!run && activeTab) ? activeTab : defaultTabId;
+
+  // A tab the operator picked (or deep-linked) wins over the execution auto-jump.
+  const followPipeline = useRef(!activeTab);
 
   useEffect(() => {
     if (run?.status !== 'running' && run?.status !== 'stopping') return undefined;
@@ -57,15 +82,26 @@ export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, on
     return () => clearInterval(t);
   }, [run?.status]);
 
+  useEffect(() => {
+    followPipeline.current = !activeTab;
+  }, [runId]);
+
+  // Put the resolved tab in the address bar so the view is linkable and reloadable.
+  useEffect(() => {
+    if (!run || tabIsValid) return;
+    onTabChange?.(defaultTabId, { replace: true });
+  }, [run, tabIsValid, defaultTabId, onTabChange]);
+
   // While execution runs, surface the execution tab so results appear as they land.
   useEffect(() => {
-    if (run?.stages?.execution?.status === 'running') {
-      setActiveTab('execution');
-    }
-  }, [run?.stages?.execution?.status]);
+    if (run?.stages?.execution?.status !== 'running' || !followPipeline.current) return;
+    onTabChange?.('execution', { replace: true });
+  }, [run?.stages?.execution?.status, onTabChange]);
 
-  const visibleTabs = getVisibleTabs(run);
-  const currentTabId = visibleTabs.find(t => t.id === activeTab) ? activeTab : 'requirements';
+  const selectTab = (tabId) => {
+    followPipeline.current = false;
+    onTabChange?.(tabId);
+  };
 
   const hasFailures = run?.artifacts?.executionReport?.totals?.failed > 0;
   const canDownload = run?.status === 'completed';
@@ -77,6 +113,8 @@ export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, on
 
   const idStr = String(runId || '').slice(0, 20);
   const runStatus = run?.status;
+  // No run at all reads as `idle`; a run id with no payload yet is `pending`.
+  const headerState = runStatus || (runId ? 'pending' : 'idle');
 
 
   return (
@@ -84,10 +122,14 @@ export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, on
 
       {!run && (
         <div className={runId ? 'empty-state' : 'empty-state empty-state--error'}>
-          <p>{runId ? 'Loading run…' : 'No run selected. Open a run from the list.'}</p>
+          <p>
+            {runId
+              ? <span className="rdt-loading-inline"><Spinner /> Loading run…</span>
+              : 'No run selected. Open a run from the list.'}
+          </p>
         </div>
       )}
-      <div className="rdt-header">
+      <div className={`rdt-header rdt-header--${headerState}`}>
         <div className="rdt-header-left">
           <div className="rdt-url">
             {run?.input?.ottUrl
@@ -116,6 +158,7 @@ export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, on
             ← Runs
           </button>
         </div>
+        <AgentRunLine run={run} />
       </div>
 
       {/* Pipeline flow */}
@@ -135,7 +178,7 @@ export default function RunDetailView({ run, runId, onRerunFailed, onStopRun, on
               <button
                 key={tab.id}
                 className={`rdt-tab${currentTabId === tab.id ? ' rdt-tab--active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectTab(tab.id)}
               >
                 {tab.label}
                 {tab.id === 'execution' && run?.artifacts?.executionReport?.totals && (
@@ -182,12 +225,17 @@ function TabBadge({ passed, failed }) {
 /* ─── Tab content switch ─────────────────────────────────── */
 function TabContent({ run, tab, runId }) {
   if (!run) {
-    return (
-      <div className="tab-empty">
-        {runId ? 'Pipeline starting…' : 'No active run. Start one from New Run.'}
-      </div>
-    );
+    if (!runId) return <div className="tab-empty">No active run. Start one from New Run.</div>;
+    return <TabLoading title="Loading run…" detail="Fetching pipeline state." />;
   }
+
+  const pending = pendingStage(run, tab);
+  if (pending) {
+    return pending.status === 'running'
+      ? <TabLoading title={`${pending.label} is running…`} detail="Output appears here as the agent reports it." />
+      : <TabLoading title={`${pending.label} is queued`} detail="Waiting for earlier pipeline stages." queued />;
+  }
+
   switch (tab) {
     case 'webAnalysis':   return <WebAnalysisTab run={run} />;
     case 'requirements':  return <RequirementsTab run={run} />;
@@ -725,8 +773,7 @@ function ElementLogTab() {
 }
 
 function FlowTab({ run }) {
-  if (!run?.picture) return <Awaiting />;
-  return <div className="flow-wrap" dangerouslySetInnerHTML={{ __html: run.picture }} />;
+  return <FlowDiagram run={run} />;
 }
 
 function ActualFlowContent({ run }) {
@@ -883,6 +930,47 @@ function StatusGlyph({ status }) {
 }
 
 /* ─── Shared sub-components ─────────────────────────────── */
+
+/* Returns the stage a tab is still waiting on, or null when there is something
+   to render (artifact landed, or the run finished without producing one). */
+function pendingStage(run, tab) {
+  const source = TAB_SOURCES[tab];
+  if (!source) return null;
+  if (run.artifacts?.[source.artifact]) return null;
+  if (isTerminalRunStatus(run.status)) return null;
+  const status = run.stages?.[source.stage]?.status;
+  if (status === 'done' || status === 'failed' || status === 'stopped') return null;
+  return { label: source.label, status: status || 'pending' };
+}
+
+function TabLoading({ title, detail, queued = false }) {
+  return (
+    <div className={`tab-loading${queued ? ' tab-loading--queued' : ''}`} role="status" aria-live="polite">
+      <div className="tab-loading-head">
+        {queued ? <span className="tab-loading-dots"><i /><i /><i /></span> : <Spinner />}
+        <div>
+          <div className="tab-loading-title">{title}</div>
+          {detail && <div className="tab-loading-detail">{detail}</div>}
+        </div>
+      </div>
+      <div className="tab-skeleton">
+        <span className="tab-skeleton-line" />
+        <span className="tab-skeleton-line" />
+        <span className="tab-skeleton-line" />
+      </div>
+    </div>
+  );
+}
+
+function Spinner({ size = 16 }) {
+  return (
+    <svg className="rdt-spinner" width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.2" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function Awaiting({ msg = 'Awaiting…' }) {
   return <div className="tab-awaiting">{msg}</div>;
 }

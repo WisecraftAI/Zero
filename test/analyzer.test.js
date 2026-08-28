@@ -5,6 +5,7 @@ const proEntry = require("@zero/analyzer/urlAnalyzerPro");
 const lightEntry = require("@zero/analyzer/urlAnalyzer");
 const { detectWebsiteType } = require("../packages/analyzer/lib/classify/websiteType");
 const { detectAntiBot, detectDynamicContent } = require("../packages/analyzer/lib/crawl/signals");
+const { hasInsufficientEvidence } = require("../packages/analyzer/lib/strategies/pro");
 const { detectUserFlows: detectProFlows } = require("../packages/analyzer/lib/flows/proFlows");
 const { detectUserFlows: detectLightFlows } = require("../packages/analyzer/lib/flows/lightFlows");
 const { formatForBAAgent } = require("../packages/analyzer/lib/format/baPro");
@@ -208,6 +209,51 @@ describe("website classification and page signals", () => {
 
     await expect(detectAntiBot(page)).resolves.toBe(true);
     await expect(detectDynamicContent(page)).resolves.toBe(true);
+  });
+
+  it("detects the JavaScript robot-verification copy returned by protected sites", async () => {
+    const page = {
+      content: jest.fn().mockResolvedValue("<html><h1>JavaScript is disabled</h1></html>"),
+      locator: jest.fn().mockReturnValue({
+        textContent: jest.fn().mockResolvedValue(
+          "In order to continue, we need to verify that you're not a robot."
+        )
+      })
+    };
+
+    await expect(detectAntiBot(page)).resolves.toBe(true);
+  });
+
+  it("detects an AWS WAF challenge even when it returns an empty DOM", async () => {
+    const page = {
+      content: jest.fn().mockResolvedValue("<html><body></body></html>"),
+      locator: jest.fn().mockReturnValue({
+        textContent: jest.fn().mockResolvedValue("")
+      })
+    };
+    const response = {
+      allHeaders: jest.fn().mockResolvedValue({
+        "x-amzn-waf-action": "challenge"
+      })
+    };
+
+    await expect(detectAntiBot(page, response)).resolves.toBe(true);
+  });
+
+  it("abstains when a generic crawl contains no meaningful site evidence", () => {
+    expect(hasInsufficientEvidence({
+      websiteType: { type: "GENERIC", confidence: 0 },
+      elements: [],
+      forms: [],
+      crawledPages: [{ navLabels: [] }]
+    })).toBe(true);
+
+    expect(hasInsufficientEvidence({
+      websiteType: { type: "GENERIC", confidence: 0 },
+      elements: [],
+      forms: [],
+      crawledPages: [{ navLabels: ["Groceries", "Cart"] }]
+    })).toBe(false);
   });
 });
 

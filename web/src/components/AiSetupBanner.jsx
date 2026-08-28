@@ -2,10 +2,10 @@ import './AiSetupBanner.scss';
 
 /**
  * Onboarding callout when AI agents are not fully wired.
- * variant: 'dashboard' | 'agents' | 'compact'
+ * variant: 'marketing' | 'agents' | 'compact'
  */
 export default function AiSetupBanner({
-  variant = 'dashboard',
+  variant = 'marketing',
   geminiConfigured,
   activeCount,
   totalAgents = 4,
@@ -34,7 +34,7 @@ export default function AiSetupBanner({
           <button type="button" className="btn btn-primary btn-sm" onClick={onGoApiKeys}>
             Add Gemini key →
           </button>
-          {variant === 'dashboard' && onGoAgents && (
+          {onGoAgents && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={onGoAgents}>
               Agent settings
             </button>

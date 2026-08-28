@@ -7,7 +7,8 @@ const {
   TABLE_ELEMENT_LOCATORS,
   TABLE_ELEMENT_LOGS,
   TABLE_PROVIDER_KEYS,
-  TABLE_AGENT_SETTINGS
+  TABLE_AGENT_SETTINGS,
+  TABLE_AGENT_MEMORY
 } = require("./tables");
 
 async function initProjectsTables(pool) {
@@ -44,11 +45,18 @@ async function initProviderTables(pool) {
   await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_settings_user ON agent_settings(user_email)");
 }
 
+async function initAgentMemoryTables(pool) {
+  await pool.query(TABLE_AGENT_MEMORY);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_memory_host ON agent_memory(host)");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_memory_tenant_host ON agent_memory(tenant_id, host)");
+}
+
 async function initAllTables(pool) {
   await initRunsTables(pool);
   await initElementTables(pool);
   await initProjectsTables(pool);
   await initProviderTables(pool);
+  await initAgentMemoryTables(pool);
 }
 
 module.exports = {
@@ -56,5 +64,6 @@ module.exports = {
   initRunsTables,
   initElementTables,
   initProjectsTables,
-  initProviderTables
+  initProviderTables,
+  initAgentMemoryTables
 };

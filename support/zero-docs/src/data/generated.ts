@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-27T15:57:02.067Z",
+  "generatedAt": "2026-08-27T23:36:26.222Z",
   "totals": {
     "modules": 10,
-    "fileCount": 211,
-    "loc": 32573
+    "fileCount": 223,
+    "loc": 34739
   },
   "modules": [
     {
@@ -77,7 +77,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 15,
-      "loc": 3036,
+      "loc": 3072,
       "filesByExt": {
         ".js": 15
       },
@@ -110,14 +110,14 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 8,
-      "loc": 2396,
+      "fileCount": 13,
+      "loc": 3242,
       "filesByExt": {
-        ".js": 8
+        ".js": 13
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "services/orchestrator/\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ inferDomain.js\n├─ pipeline.js\n├─ processRun.js\n├─ worker.js\n├─ llm/\n│  ├─ index.js"
+      "tree": "services/orchestrator/\n├─ agentMemory.js\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ inferDomain.js\n├─ pipeline.js\n├─ processRun.js\n├─ worker.js\n├─ llm/\n│  ├─ enrichment.js\n│  ├─ index.js\n│  ├─ prompts.js\n│  ├─ providers.js\n│  ├─ utils.js"
     },
     {
       "id": "executor",
@@ -145,7 +145,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 5,
-      "loc": 2994,
+      "loc": 3015,
       "filesByExt": {
         ".js": 5
       },
@@ -176,16 +176,16 @@ export const GENERATED_LLD: GeneratedLld = {
         "sass",
         "vite"
       ],
-      "fileCount": 58,
-      "loc": 13831,
+      "fileCount": 64,
+      "loc": 14729,
       "filesByExt": {
-        ".jsx": 23,
-        ".scss": 26,
-        ".js": 9
+        ".jsx": 25,
+        ".scss": 28,
+        ".js": 11
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n├─ src/\n│  ├─ App.jsx\n│  ├─ App.scss\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.scss\n│  ├─ layouts/\n│  ├─ lib/"
+      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.png\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n│  ├─ zero-icon-dark.png\n│  ├─ zero-icon.png\n│  ├─ zero-logo-dark.png\n├─ src/\n│  ├─ App.jsx\n│  ├─ App.scss\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.scss\n│  ├─ layouts/\n│  ├─ lib/"
     },
     {
       "id": "cloud",
@@ -249,14 +249,14 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/domain"
       ],
       "devDeps": [],
-      "fileCount": 15,
-      "loc": 851,
+      "fileCount": 16,
+      "loc": 923,
       "filesByExt": {
-        ".js": 15
+        ".js": 16
       },
       "hasDockerfile": false,
       "hasTests": false,
-      "tree": "packages/db/\n├─ index.js\n├─ runStore.js\n├─ lib/\n│  ├─ assets.js\n│  ├─ config.js\n│  ├─ elements.js\n│  ├─ index.js\n│  ├─ projects.js\n│  ├─ providers.js\n│  ├─ runStore.js\n│  ├─ runs.js\n├─ migrations/\n│  ├─ 001_initial.sql"
+      "tree": "packages/db/\n├─ index.js\n├─ runStore.js\n├─ lib/\n│  ├─ assets.js\n│  ├─ config.js\n│  ├─ elements.js\n│  ├─ index.js\n│  ├─ memory.js\n│  ├─ projects.js\n│  ├─ providers.js\n│  ├─ runStore.js\n├─ migrations/\n│  ├─ 001_initial.sql\n│  ├─ 002_agent_memory.sql"
     },
     {
       "id": "locators",
@@ -296,7 +296,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 19,
-      "loc": 895,
+      "loc": 1140,
       "filesByExt": {
         ".js": 19
       },
@@ -319,7 +319,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 31,
-      "loc": 5075,
+      "loc": 5123,
       "filesByExt": {
         ".js": 31
       },
@@ -358,7 +358,7 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-27T15:57:02.067Z",
+  "generatedAt": "2026-08-27T23:36:26.222Z",
   "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
   "current": "Q5",
@@ -795,5 +795,5 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "Q2"
     ]
   },
-  "latestNote": "milestone_done: U1 operator shell (skip link, aria-current, type/space tokens, theme names) and U2 low-friction canvas (nrv--canvas, disclose, hover rail, always-on Run). Product current remains Q5."
+  "latestNote": "docs_runtime_sync: zero-docs + workflow prompts synced to runtime: host-scoped agent_memory (002), llm/ split, pathname SPA routes, Run Detail FlowDiagram. Q5 still current; classification keys remain uncached."
 };

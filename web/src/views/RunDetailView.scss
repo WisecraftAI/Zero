@@ -8,13 +8,64 @@
   max-width: 100%;
 }
 
-/* Header */
+/* Header — a status-tinted card. `--rdt-status` is the one hook the state
+   modifiers set; the rail, wash, and run id all read from it, so the header
+   follows both the palette and the run outcome. */
 .rdt-header {
+  --rdt-status: var(--accent);
+  --rdt-wash: var(--accent-bg);
+
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px 20px;
   flex-wrap: wrap;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(130% 180% at 0% 0%, var(--rdt-wash) 0%, transparent 62%),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+
+  /* Status rail — the fastest read on the run's state. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--rdt-status) 0%, transparent 150%);
+  }
+
+  &--completed {
+    --rdt-status: var(--green);
+    --rdt-wash: var(--green-bg);
+  }
+
+  &--failed {
+    --rdt-status: var(--red);
+    --rdt-wash: var(--red-bg);
+  }
+
+  &--stopping {
+    --rdt-status: var(--amber);
+    --rdt-wash: var(--amber-bg);
+  }
+
+  &--stopped,
+  &--pending {
+    --rdt-status: var(--text-3);
+    --rdt-wash: transparent;
+  }
+
+  &--idle {
+    --rdt-status: var(--border-md);
+    --rdt-wash: transparent;
+    border-style: dashed;
+    box-shadow: none;
+  }
 
   &-left {
     display: flex; flex-direction: column; gap: 8px; min-width: 0;
@@ -22,17 +73,22 @@
 }
 
 .rdt-url {
-  font-size: 0.98rem;
-  font-weight: 600;
+  font-size: 1.02rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--text);
   word-break: break-all;
 
   a {
     color: var(--text);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color var(--transition), border-color var(--transition);
   }
 
   a:hover {
-    color: var(--accent); text-decoration: none;
+    color: var(--accent);
+    border-bottom-color: var(--accent-border);
   }
 }
 
@@ -44,13 +100,23 @@
 }
 
 .rdt-run-id {
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--accent);
 }
 
 .rdt-passrate {
-  font-size: 0.82rem; color: var(--text-2);
+  font-size: 0.82rem;
+  color: var(--text-2);
+
+  strong {
+    color: var(--text);
+    font-weight: 650;
+  }
 }
 .rdt-date {
   font-size: 0.78rem; color: var(--text-3);
@@ -65,6 +131,11 @@
   align-items: center;
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+/* The agent track takes its own row under the meta and actions. */
+.rdt-header .agent-run-line {
+  flex: 1 0 100%;
 }
 
 /* Pipeline panel */
@@ -96,6 +167,9 @@
 .rdt-tab-panel {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 200px);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -107,6 +181,7 @@
   display: flex;
   align-items: center;
   gap: 0;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   padding: 0 4px;
@@ -148,7 +223,11 @@
   }
 
   &-content {
-    padding: 20px 24px; min-height: 280px;
+    padding: 20px 24px;
+    min-height: 280px;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -266,6 +345,103 @@
   font-style: italic;
   padding: 32px 0;
   font-size: 0.9rem;
+}
+
+/* Loading / queued state for a tab whose stage has not produced output yet */
+.rdt-spinner {
+  color: var(--accent);
+  flex-shrink: 0;
+  animation: rdt-spin 0.9s linear infinite;
+}
+
+.rdt-loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-loading {
+  padding: 24px 0;
+
+  &--queued .tab-loading-title {
+    color: var(--text-2);
+  }
+}
+
+.tab-loading-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tab-loading-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tab-loading-detail {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.tab-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+
+  i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-3);
+    animation: rdt-blink 1.4s infinite;
+
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+.tab-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.tab-skeleton-line {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--border) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: rdt-shimmer 1.4s ease-in-out infinite;
+
+  &:nth-child(2) { width: 82%; }
+  &:nth-child(3) { width: 64%; }
+}
+
+@keyframes rdt-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rdt-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@include bp.reduced-motion {
+  .rdt-spinner,
+  .tab-skeleton-line,
+  .tab-loading-dots i {
+    animation: none;
+  }
 }
 
 .req-list {
@@ -753,8 +929,12 @@
   .rdt-actual-flow-panel {
     width: 100%;
   }
+  .rdt-tab-panel {
+    max-height: none;
+  }
   .rdt-tab-content {
     padding: 14px 16px;
+    overflow-y: visible;
   }
   .vitals-grid {
     grid-template-columns: 1fr;

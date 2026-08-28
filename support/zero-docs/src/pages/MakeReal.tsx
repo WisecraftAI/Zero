@@ -13,7 +13,7 @@ const NORTH_STAR = `You are implementing ZER0 (ai-qa-orchestrator) so the Target
 1. AGENTS.md — layout, pipeline, conventions
 2. zero-docs (this site) — target, sequence, per-workspace patterns, done/not-done
 3. public/architectureV2.html — reference HTML (same blueprint)
-4. support/agent-workflow/WORKFLOW.md + prompts/packaging.md (S0–S7) + prompts/autonomous-qa.md (Q1–Q4) + prompts/target-arch.md (M1–M7, frozen)
+4. support/agent-workflow/WORKFLOW.md + prompts/packaging.md (S0–S7) + prompts/autonomous-qa.md (Q1–Q5, Q5 open) + prompts/ui-ux.md (U1–U2 done) + prompts/target-arch.md (M1–M7, frozen)
 5. support/agent-workflow/prompts/repos/<name>.md for the workspace you are touching
 6. Live code: services/api/server.js (HTTP API composition root) + packages/* + web/
 
@@ -33,7 +33,7 @@ Talk only through Cloud adapters: folder packages/cloud/ · npm @zero/cloud · s
 ## How to work
 1. npm run workflow:status
 2. If the user named a workspace, read that prompt and invoke its Cursor skill (/zero-web, /zero-api, …).
-3. If they asked to advance architecture, verify completed boundaries (M/S/Q probes). Do not re-do M1–M7 or Q1–Q4 unless a probe regresses.
+3. If they asked to advance architecture, verify completed boundaries (M/S/Q probes). Do not re-do M1–M7 or Q1–Q4 unless a probe regresses. Q5 is the open product milestone.
 4. Small PR. Preserve stageKeys order and locator merge.
 5. npm run workflow:verify. Ask before destructive migrations or public API breaks.`;
 
@@ -44,9 +44,11 @@ export function MakeRealPage() {
         <h2>What is agent-workflow?</h2>
         <p className="sub">
           A state machine in <code>support/agent-workflow/</code> that kept coding agents on the
-          Target architecture. Capability M1–M7, packaging S0–S7, and product Q1–Q4 are complete — use
-          agent-workflow now to verify boundaries and scope per-workspace edits. For system parts,
-          read <a href="#architecture">Architecture</a> and <a href="#tech-stack">Tech Stack</a>.
+          Target architecture. Capability M1–M7, packaging S0–S7, product Q1–Q4, and UX U1–U2 are
+          complete. Product <strong>Q5</strong> (trustworthy classification) is the open
+          milestone. Use agent-workflow to verify boundaries and scope per-workspace edits. For
+          system parts, read <a href="#architecture">Architecture</a> and{' '}
+          <a href="#tech-stack">Tech Stack</a>.
         </p>
         <Diagram ariaLabel="Agent workflow loop">
 {`  DETECT  →  PLAN (planner.md)  →  IMPLEMENT (implementer + repo skill)  →  VERIFY
@@ -56,7 +58,7 @@ export function MakeRealPage() {
                                                                       │
                                                          STOP / ASK if blocked`}
         </Diagram>
-        <CardGrid columns={3}>
+        <CardGrid columns={2}>
           <Card title="Capability track · M1–M7">
             <p>
               Durable store → object store → queue → execution farm → auth → LLM → multi-cloud.
@@ -71,11 +73,19 @@ export function MakeRealPage() {
               are <StatusBadge status="done" />. Specs in <code>milestones/S*-*.md</code>.
             </p>
           </Card>
-          <Card title="Product track · Q1–Q4">
+          <Card title="Product track · Q1–Q5">
             <p>
               Autonomous any-URL QA — multi-page crawl, major functional cases, discovered flow
-              execution, domain inference gate — <StatusBadge status="done" />. Specs in{' '}
+              execution, domain inference gate — Q1–Q4 <StatusBadge status="done" />. Q5
+              trustworthy site understanding is <StatusBadge status="not-done" />. Specs in{' '}
               <code>milestones/Q*-*.md</code>.
+            </p>
+          </Card>
+          <Card title="UX track · U1–U2">
+            <p>
+              Operator console (tokens, landmarks) and low-friction New Run canvas.{' '}
+              <StatusBadge status="done" />. Pathname routes and Run Detail flow diagram shipped
+              after close. Specs in <code>milestones/U*-*.md</code>.
             </p>
           </Card>
         </CardGrid>
@@ -94,7 +104,7 @@ export function MakeRealPage() {
             <strong>Pick the lane.</strong> Understanding parts → Architecture / Tech Stack tabs.
             Changing one workspace → that repo&apos;s skill (<code>/zero-api</code>,{' '}
             <code>/zero-web</code>, …). Boundary checks after a split-sensitive change →{' '}
-            <code>npm run workflow:verify -- --milestone Q4</code>. Explaining only →{' '}
+            <code>npm run workflow:verify -- --milestone Q5</code>. Explaining only →{' '}
             <code>/zero-architecture</code>.
           </li>
           <li>
@@ -106,7 +116,7 @@ export function MakeRealPage() {
             <strong>Plan → implement → verify.</strong> Role prompts:{' '}
             <code>agents/planner.md</code>, <code>agents/implementer.md</code>,{' '}
             <code>agents/verifier.md</code>. Then{' '}
-            <code>npm run workflow:verify -- --milestone Q4</code> (or the named M / S / Q id).
+            <code>npm run workflow:verify -- --milestone Q5</code> (or the named M / S / Q / U id).
           </li>
           <li>
             <strong>Say what flipped.</strong> Done vs not-done on this site must stay honest.
@@ -118,7 +128,7 @@ export function MakeRealPage() {
 npm run workflow:status
 
 # 2. In Cursor, ask one of:
-#    /zero-target-arch          → verify M/S/Q probes (all done)
+#    /zero-target-arch          → verify M/S/Q/U probes (Q5 open)
 #    /zero-api                  → HTTP API · folder services/api/ · npm @zero/api
 #    /zero-orchestrator         → Orchestrator worker · folder services/orchestrator/
 #    /zero-executor             → Playwright executor · folder services/executor/
@@ -127,7 +137,7 @@ npm run workflow:status
 #    /zero-domain  /zero-db /zero-locators /zero-builders /zero-analyzer
 
 # 3. After the change
-npm run workflow:verify -- --milestone Q4
+npm run workflow:verify -- --milestone Q5
 npm test -- --testPathPattern=smoke`}
         </CodeBlock>
         <Note tone="info">
@@ -167,17 +177,18 @@ npm test -- --testPathPattern=smoke`}
 {`support/agent-workflow/
 ├── README.md                 how to run the loop
 ├── WORKFLOW.md               DETECT → PLAN → IMPLEMENT → VERIFY → ADVANCE
-├── progress.json             M1–M7 + S0–S7 + Q1–Q4
+├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U2
 ├── agents/
 │   ├── planner.md            one milestone, files + risks
 │   ├── implementer.md        code against the plan
 │   ├── verifier.md           probes + red flags
 │   └── repo-coder.md         route a "update X" ask to the right prompt
-├── milestones/               M1–M7 · S0–S7 · Q1–Q4 (all done)
+├── milestones/               M1–M7 · S0–S7 · Q1–Q5 · U1–U2
 ├── prompts/
 │   ├── target-arch.md        capability north-star (frozen)
 │   ├── packaging.md          packaging north-star (S0–S7)
-│   ├── autonomous-qa.md      product north-star (Q1–Q4)
+│   ├── autonomous-qa.md      product north-star (Q1–Q5)
+│   ├── ui-ux.md              UX north-star (U1–U2)
 │   └── repos/                one prompt per target workspace
 │       ├── web.md
 │       ├── api.md

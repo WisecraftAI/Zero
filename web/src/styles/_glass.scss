@@ -1,0 +1,55 @@
+@use 'sass:map';
+@use 'themes';
+
+// Frosted chrome for the glass palettes. A palette opts in by declaring a
+// `glass-blur` token in _themes.scss; the loop below finds it, so no edit is
+// needed here to add another one.
+//
+// Blur costs a compositing layer per element, so it is applied to the
+// containers that actually have something behind them — sticky chrome,
+// popovers and page panels — not to every surface that happens to be
+// translucent.
+$panels:
+  // App chrome and popovers
+  '.sidebar', '.topbar', '.header', '.theme-menu', '.agv-menu',
+  // Shared containers
+  '.card', '.stat-card',
+  // Run detail
+  '.rdt-pipeline-panel', '.rdt-tab-panel', '.rdt-side-panel',
+  '.rdt-actual-flow-panel', '.af-summary', '.af-node', '.fd-journey',
+  // New run
+  '.nrv-steps', '.nrv-pane-card', '.nrv-prompt', '.nrv-disclose',
+  // Remaining views
+  '.locator-panel', '.int-card', '.int-guide-container',
+  '.apk-stat-card', '.apk-guide', '.apk-list', '.apk-advisory',
+  '.agv-stat-card', '.agv-table', '.agv-card';
+
+@each $id, $tokens in themes.$themes {
+  @if map.has-key($tokens, 'glass-blur') {
+    [data-theme='#{$id}'] {
+      // Ambient light behind the panels. Without it the blur has nothing to
+      // pick up on a flat black canvas and the glass reads as plain grey.
+      // The cool default below is the var() fallback, so a palette whose
+      // accent fights it only has to declare `glass-ambient` in _themes.scss.
+      // Negative z-index keeps the glow under the in-flow app content.
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: var(
+          --glass-ambient,
+          radial-gradient(70rem 40rem at 12% -10%, rgba(99, 198, 245, 0.16), transparent 65%),
+          radial-gradient(55rem 34rem at 88% 8%, rgba(167, 139, 250, 0.12), transparent 62%),
+          radial-gradient(60rem 40rem at 50% 108%, rgba(45, 212, 191, 0.09), transparent 60%)
+        );
+      }
+
+      #{$panels} {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+        backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+      }
+    }
+  }
+}

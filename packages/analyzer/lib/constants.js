@@ -243,6 +243,9 @@ const ANTI_BOT_INDICATORS = [
   'access denied',
   'blocked',
   'verify you are human',
+  'verify that you are not a robot',
+  'not a robot',
+  'javascript is disabled',
   'please enable javascript'
 ];
 

@@ -19,8 +19,9 @@ Stateless HTTP intake. Auth, validate, persist metadata, presign uploads, publis
 ## You may change
 
 - Route handlers and HTTP middleware
-- SSE hub (`/api/runs/:id/stream`)
+- SSE hub (`GET /runs/:id/stream`)
 - Presign + commit paths
+- Cooperative `POST /runs/:id/stop` (does not unwind in-flight Chromium)
 
 ## You must not
 
@@ -33,4 +34,4 @@ Stateless HTTP intake. Auth, validate, persist metadata, presign uploads, publis
 
 - `ZERO_AUTH=on` in production; verified API key or Bearer JWT
 - Tenant-scoped `qa_runs` reads/writes
-- Ask before breaking `POST /api/runs` or `POST /api/runs/:id/commit`
+- Ask before breaking `POST /runs` or `POST /runs/:id/commit` (no `/api` prefix since S7)

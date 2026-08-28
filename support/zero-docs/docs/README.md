@@ -26,7 +26,7 @@ Markdown lead briefings live next to the interactive docs site under `support/ze
 
 ## Versions
 
-- **V1** — shipped runtime: S7 four-image deploy (`:3000` web / `:3001` API), Q1–Q4 autonomous pipeline, persistence, auth, LLM, HTTP surface (`docs/v1/ARCHITECTURE.md`).
+- **V1** — shipped runtime: S7 four-image deploy (`:3000` web / `:3001` API), Q1–Q4 autonomous pipeline, U1–U2 operator console, host-scoped `agent_memory`, persistence, auth, LLM, HTTP surface (`docs/v1/ARCHITECTURE.md`).
 - **V2** — IDE-style target + remaining ops/product gaps (pairs with `web/public/architectureV2.html` and the Architecture tab on this site).
 - **V3** — packaging / workspaces / Docker / S0–S7 + product Q1–Q4 (React sections under `src/pages/v3/` and `migration.ts`, not markdown; all tracks done).
 

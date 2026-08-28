@@ -22,6 +22,19 @@ function resolveMaxPages(options) {
   return 8;
 }
 
+function hasInsufficientEvidence(result) {
+  const hasNavigationEvidence = (result.crawledPages || []).some(
+    (crawled) => (crawled.navLabels || []).length > 0
+  );
+  return (
+    (result.elements || []).length === 0 &&
+    (result.forms || []).length === 0 &&
+    !hasNavigationEvidence &&
+    result.websiteType?.type === 'GENERIC' &&
+    Number(result.websiteType?.confidence || 0) < 0.5
+  );
+}
+
 /**
  * Main URL Analyzer Pro entry — Playwright deep crawl.
  */
@@ -49,14 +62,15 @@ async function analyzeUrlPro(page, url, options = {}) {
     pagesAnalyzed: 0,
     analysisTime: 0,
     antiBot: false,
-    dynamicContent: false
+    dynamicContent: false,
+    insufficientEvidence: false
   };
 
   let navigated = false;
 
   try {
     console.log(`[URL Analyzer Pro] Analyzing: ${url}`);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const initialResponse = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(3000);
     navigated = true;
 
@@ -73,7 +87,7 @@ async function analyzeUrlPro(page, url, options = {}) {
       indicators: result.websiteType.indicators
     });
 
-    result.antiBot = await detectAntiBot(page);
+    result.antiBot = await detectAntiBot(page, initialResponse);
     if (result.antiBot) {
       result.warnings.push(
         'Anti-bot protection detected. Some automated tests may fail. Consider using headed browser mode.'
@@ -218,11 +232,32 @@ async function analyzeUrlPro(page, url, options = {}) {
       });
     }
 
+    result.insufficientEvidence = hasInsufficientEvidence(result);
+
     result.brd = generateBRD(result);
-    const generatedCases = generateTestCases(result);
-    const majorFunctionalCases = generateMajorFunctionalCases(result);
-    result.majorFunctionalCases = majorFunctionalCases;
-    result.testCases = mergeMajorWithGenerated(majorFunctionalCases, generatedCases);
+    if (result.insufficientEvidence) {
+      const reason = result.antiBot
+        ? 'Anti-bot verification blocked meaningful DOM discovery'
+        : 'The loaded page exposed no meaningful DOM, form, navigation, or domain evidence';
+      result.warnings.unshift(`${reason}; domain inference or manual input is required.`);
+      result.observations.push({
+        type: 'warning',
+        category: 'Evidence',
+        message: reason,
+        recommendation: result.antiBot
+          ? 'Retry in headed mode or use an approved test environment'
+          : 'Verify the page loaded, increase the render wait, or supply BA notes'
+      });
+      // Generic catalog cases would look valid while describing behavior that
+      // was never observed on this site.
+      result.majorFunctionalCases = [];
+      result.testCases = [];
+    } else {
+      const generatedCases = generateTestCases(result);
+      const majorFunctionalCases = generateMajorFunctionalCases(result);
+      result.majorFunctionalCases = majorFunctionalCases;
+      result.testCases = mergeMajorWithGenerated(majorFunctionalCases, generatedCases);
+    }
     result.analysisTime = Date.now() - startTime;
 
     result.observations.unshift({
@@ -259,4 +294,4 @@ async function analyzeUrlPro(page, url, options = {}) {
   return result;
 }
 
-module.exports = { analyzeUrlPro };
+module.exports = { analyzeUrlPro, hasInsufficientEvidence };

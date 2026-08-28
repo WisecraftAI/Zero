@@ -31,6 +31,101 @@ function flattenElements(allElements) {
 }
 
 /**
+ * Real signals observed during the crawl. Case text is written from these so a
+ * step names the actual menu entry, path or form field instead of echoing the
+ * catalog word that produced the case.
+ */
+function collectSiteEvidence(analysis) {
+  const navLabels = [];
+  const pages = [];
+
+  for (const page of analysis.crawledPages || []) {
+    for (const label of page.navLabels || []) {
+      const text = String(label || "").trim();
+      if (text) navLabels.push(text);
+    }
+    const path = page.path || page.url;
+    if (path) pages.push({ path, title: String(page.title || "").trim() });
+  }
+
+  const forms = (analysis.forms || []).map((form) => ({
+    purpose: String(form.purpose || "").trim(),
+    fields: (form.fields || [])
+      .map((field) => field.label || field.name || field.placeholder || field.type)
+      .map((name) => String(name || "").trim())
+      .filter(Boolean),
+    submit: form.submitButton?.text ? String(form.submitButton.text).trim() : null,
+  }));
+
+  return {
+    navLabels: [...new Set(navLabels)],
+    pages,
+    forms,
+    homeTitle: String(analysis.pageStructure?.title || "").trim(),
+  };
+}
+
+/** Significant words, so "Store Locator" can match a "Locator" nav entry. */
+function keyWords(area) {
+  return String(area || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 3);
+}
+
+function matchesArea(haystack, area) {
+  const hay = String(haystack || "").toLowerCase();
+  if (!hay) return false;
+  const key = String(area || "").toLowerCase();
+  if (key && (hay.includes(key) || key.includes(hay))) return true;
+  return keyWords(area).some((word) => hay.includes(word));
+}
+
+function findNavLabel(evidence, area) {
+  return evidence.navLabels.find((label) => matchesArea(label, area)) || null;
+}
+
+function findPage(evidence, area) {
+  return evidence.pages.find((page) => matchesArea(`${page.path} ${page.title}`, area)) || null;
+}
+
+function findForm(evidence, area) {
+  return evidence.forms.find((form) => matchesArea(form.purpose, area)) || null;
+}
+
+/** Concrete entry step for an area, using the strongest evidence available. */
+function entryStep(evidence, area) {
+  const navLabel = findNavLabel(evidence, area);
+  if (navLabel) return `From the homepage, open "${navLabel}" in the main navigation`;
+
+  const page = findPage(evidence, area);
+  if (page) {
+    return page.title
+      ? `Navigate to ${page.path} ("${page.title}")`
+      : `Navigate to ${page.path}`;
+  }
+  return `Navigate to the ${area} entry point`;
+}
+
+/** Form-aware action step naming real fields and the real submit control. */
+function actionStep(evidence, area) {
+  const form = findForm(evidence, area);
+  if (form && form.fields.length) {
+    const named = form.fields.slice(0, 5).join(", ");
+    const submit = form.submit ? `"${form.submit}"` : "the submit control";
+    return `Complete the ${form.purpose} form (${named}) and submit using ${submit}`;
+  }
+  return `Validate primary ${area} user action completes`;
+}
+
+function evidenceTag(evidence, area) {
+  if (findNavLabel(evidence, area)) return "nav";
+  if (findPage(evidence, area)) return "page";
+  if (findForm(evidence, area)) return "form";
+  return "catalog";
+}
+
+/**
  * Domain-driven major functional cases from crawl + type + flows (rules only).
  */
 /** Merge sub-domain entries ahead of domain entries, case-insensitively deduped. */
@@ -62,6 +157,10 @@ function generateMajorFunctionalCases(analysis = {}) {
   const userFlows = analysis.userFlows || [];
   const crawledPages = analysis.crawledPages || [];
   const elements = flattenElements(analysis.elements || analysis.allElements);
+  const evidence = collectSiteEvidence(analysis);
+  const landingContext = evidence.homeTitle
+    ? `Homepage "${evidence.homeTitle}" loaded`
+    : "Homepage loaded";
   const testCases = [];
   let counter = 1;
 
@@ -113,17 +212,18 @@ function generateMajorFunctionalCases(analysis = {}) {
       title: `${typeName}: ${area}`,
       type: "Functional",
       priority: fromSubDomain ? "Critical" : "High",
-      preconditions: "Homepage loaded",
+      preconditions: landingContext,
       testData: "N/A",
       steps: [
-        `Navigate to the ${area} entry point`,
-        `Verify ${area} UI is visible and usable`,
-        `Validate primary ${area} user action completes`,
+        entryStep(evidence, area),
+        `Verify the ${area} UI is visible and usable`,
+        actionStep(evidence, area),
       ],
       expectedResult: `${area} works as expected for this site type`,
       traceability: fromSubDomain
         ? "majorFunctionalCases:subDomainPriority"
         : "majorFunctionalCases:testPriority",
+      evidenceSource: evidenceTag(evidence, area),
       domain: websiteType.typeName || null,
       subDomain: subDomain?.name || null,
     });
@@ -141,24 +241,28 @@ function generateMajorFunctionalCases(analysis = {}) {
       title: `${typeName}: ${flowName}`,
       type: "End-to-End",
       priority: "Critical",
-      preconditions: "Site is accessible",
+      preconditions: landingContext,
       testData: "N/A",
       steps: [
-        `Start ${flowName} from the homepage`,
-        `Complete each step in ${flowName}`,
+        entryStep(evidence, flowName),
+        actionStep(evidence, flowName),
         `Confirm ${flowName} outcome matches site expectations`,
       ],
       expectedResult: `${flowName} succeeds end-to-end`,
       traceability: subDomainAreaKeys.has(key)
         ? "majorFunctionalCases:subDomainCriticalFlow"
         : "majorFunctionalCases:criticalFlow",
+      evidenceSource: evidenceTag(evidence, flowName),
       domain: websiteType.typeName || null,
       subDomain: subDomain?.name || null,
     });
   });
 
   if (crawledPages.length > 1 && testCases.length < MAX_CASES) {
-    const paths = crawledPages.slice(0, 5).map((p) => p.path || p.url);
+    const targets = crawledPages.slice(0, 5).map((p) => ({
+      path: p.path || p.url,
+      title: String(p.title || "").trim(),
+    }));
     testCases.push({
       id: makeId(),
       module: "Site Crawl",
@@ -168,9 +272,14 @@ function generateMajorFunctionalCases(analysis = {}) {
       priority: "High",
       preconditions: "Crawl discovered internal pages",
       testData: "N/A",
-      steps: paths.map((path) => `Navigate to ${path} and verify page loads with main content`),
+      steps: targets.map(({ path, title }) =>
+        title
+          ? `Navigate to ${path} and verify "${title}" loads with main content`
+          : `Navigate to ${path} and verify page loads with main content`
+      ),
       expectedResult: "All crawled pages load without fatal errors",
       traceability: "majorFunctionalCases:crawledPages",
+      evidenceSource: "page",
     });
   }
 

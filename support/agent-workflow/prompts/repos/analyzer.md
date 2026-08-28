@@ -13,18 +13,21 @@ Optional crawl that seeds BA when notes are short and no TC file is uploaded.
 
 - Strategy: light heuristics vs Playwright pro crawl
 - Isolated Chromium from the executor farm (V3 may keep this in the orchestrator image until traffic proves a split)
+- Crawl signals (`lib/crawl/signals.js`) — anti-bot / WAF / SPA-root detection
 
 ## You may change
 
 - Crawl depth, BRD insight shape, suggested TCs
+- Pro strategy (`lib/strategies/pro.js`) and signal heuristics
 
 ## You must not
 
 - Run on every request (only when the pipeline selects `webAnalyzer`)
 - Persist login passwords from the crawled site
 - Import AWS/GCP SDKs
+- Treat `websiteType` display labels as taxonomy keys (Q5)
 
 ## Honour
 
-- Called from the BA path, not from `/api/runs` request handlers directly
+- Called from the orchestrator **webAnalyzer** stage (`processRun`), not from `/runs` request handlers
 - Pro crawl uses Playwright — that is why analyzer is *not* in the API image after S4

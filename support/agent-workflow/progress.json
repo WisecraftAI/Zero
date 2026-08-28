@@ -228,6 +228,11 @@
       "at": "2026-08-27T13:31:00.000Z",
       "event": "milestone_done",
       "note": "U1 operator shell (skip link, aria-current, type/space tokens, theme names) and U2 low-friction canvas (nrv--canvas, disclose, hover rail, always-on Run). Product current remains Q5."
+    },
+    {
+      "at": "2026-08-28T00:00:00.000Z",
+      "event": "docs_runtime_sync",
+      "note": "zero-docs + workflow prompts synced to runtime: host-scoped agent_memory (002), llm/ split, pathname SPA routes, Run Detail FlowDiagram. Q5 still current; classification keys remain uncached."
     }
   ]
 }
