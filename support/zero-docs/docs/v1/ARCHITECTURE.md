@@ -41,7 +41,7 @@ React web/ ──npm run build──▶ dist/web/
 
 | Unit | Folder · package | Port / role |
 |------|------------------|-------------|
-| Web | `web/` · `@zero/web` | nginx `:3000` — SPA only (no `/api` proxy) |
+| Web | `web/` · `@zero/web` | nginx `:3000` — SPA only (no `/api` proxy). Pathname routes: `/`, `/runs`, `/runs/new`, `/runs/:id`. Run Detail renders a flow diagram of discovered journeys. |
 | API | `services/api/` · `@zero/api` | Express `:3001` — intake, SSE, signed URLs; **no Playwright** |
 | Orchestrator | `services/orchestrator/` · `@zero/orchestrator` | DAG worker on `runs.requested` + LLM |
 | Executor | `services/executor/` · `@zero/executor` | Playwright on `execution.requested` |
@@ -110,6 +110,7 @@ In-app Manager Go/No-Go is **orchestration confidence**, not full product E2E pr
 | Login secrets | `runSecrets` `Map` | No |
 | Recordings | in-memory Maps | No |
 | Learned selectors | `selectorMemory` | No |
+| Agentic memory | `agentMemory` Map | No unless DB (`agent_memory`) |
 | Provider keys / agent settings | memory Maps (or DB if enabled) | No unless DB |
 | Screenshots | object store (`runs/<id>/files/*`) + local cache under `dist/artifacts/` | Yes (object store) |
 
@@ -125,6 +126,7 @@ erDiagram
   qa_runs ||--|{ qa_assets : "run_id CASCADE"
   qa_runs ||--o{ element_locators : "run_id logical"
   qa_runs ||--o{ element_logs : "run_id logical"
+  qa_runs ||--o{ agent_memory : "source_run_id logical"
   provider_keys {
     text user_email
     text provider
@@ -132,6 +134,11 @@ erDiagram
   }
   agent_settings {
     text user_email
+    text agent
+  }
+  agent_memory {
+    text tenant_id
+    text host
     text agent
   }
 ```
@@ -150,7 +157,9 @@ erDiagram
 - Production refuses to boot if `KEY_ENC_SECRET` is missing or still the dev default.
 - Remaining: no OIDC login UI yet.
 
-**LLM surface (M6 shipped):** UI stores Claude / OpenAI / Gemini keys (`/provider-keys`) and per-agent model/prompt (`/agent-settings`). `processRun` decrypts the key and calls the provider through `@zero/orchestrator/llm`. Template output is always the base; enrichment is best-effort. **Automatic domain inference** runs once after Web Analyzer when rule-based confidence is low (`domainInference` prompt). Guardrails: `ZERO_LLM_RPM` (default 20), `ZERO_LLM_MAX_USD_PER_RUN` (default $0.50), prompt versions `ba.v1` / `manager.v1` / `manualQa.v1` / `automationQa.v1` / `domainInference.v1`. `ZERO_LLM=off` forces templates. Env keys (`OPENAI_API_KEY` etc.) are used only when `ZERO_LLM_ENV_KEYS=1`. Artifacts stamp `metadata.llm` (`used`, `provider`, `promptVersion`, `fallbackReason`). Keys are never logged in full.
+**LLM surface (M6 shipped):** UI stores Claude / OpenAI / Gemini keys (`/provider-keys`) and per-agent model/prompt (`/agent-settings`). `processRun` decrypts the key and calls the provider through `@zero/orchestrator/llm` (`index.js` facade plus `providers.js`, `enrichment.js`, `prompts.js`, `utils.js`). Template output is always the base; enrichment is best-effort. **Automatic domain inference** runs once after Web Analyzer when rule-based confidence is low (`domainInference` prompt). Guardrails: `ZERO_LLM_RPM` (default 20), `ZERO_LLM_MAX_USD_PER_RUN` (default $0.50), prompt versions `ba.v1` / `manager.v1` / `manualQa.v1` / `automationQa.v1` / `domainInference.v1`. `ZERO_LLM=off` forces templates. Env keys (`OPENAI_API_KEY` etc.) are used only when `ZERO_LLM_ENV_KEYS=1`. Artifacts stamp `metadata.llm` (`used`, `provider`, `promptVersion`, `fallbackReason`). Keys are never logged in full.
+
+**Agentic memory:** After each run, BA / Manual / Automation / Manager / execution observations are upserted per tenant+host (`agentMemory.js` → `agent_memory` when Postgres is on, otherwise an in-process Map). Later runs for the same host recall that blob into LLM context. Classification keys are **not** stored (Q5 forbids caching an unproven taxonomy answer). Passwords and key-like values are stripped.
 
 **Multi-cloud (M7 shipped):** `ZERO_CLOUD=local|aws|gcp|azure|vercel`. Primary production paths with IaC: `aws` (S3 / SQS / Secrets Manager / Redis) and `gcp` (GCS / Pub/Sub / Secret Manager / Redis). Azure and Vercel adapters ship under `packages/cloud/**` with GATE-9 conformance; SDKs are lazy-required. Default remains `local`. IaC: `infra/aws`, `infra/gcp`. CI: `.github/workflows/ci.yml`.
 

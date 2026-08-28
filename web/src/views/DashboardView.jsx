@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 import './DashboardView.scss';
-import { apiUrl } from '../apiBase';
-import AiSetupBanner from '../components/AiSetupBanner';
-import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
 import { computeRunProgress, formatDuration, runElapsedMs } from '../lib/runProgress';
 import { isLiveRunStatus } from '../lib/runControl';
 import StopRunButton from '../components/StopRunButton';
@@ -31,41 +28,11 @@ function computeStats(runs) {
   return { total, completed, running, failed, avgPass };
 }
 
-export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNavigate, onStopRun }) {
+export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onStopRun }) {
   const recent = [...runs].slice(0, 6);
   const st = computeStats(runs);
   const activeRun = runs.find(r => isLiveRunStatus(r.status));
   const [, setTick] = useState(0);
-  const [aiKeys, setAiKeys] = useState({});
-  const [aiSettings, setAiSettings] = useState({});
-  const [aiLoading, setAiLoading] = useState(true);
-  const [enablingAi, setEnablingAi] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [agentsRes, keysRes] = await Promise.all([
-          fetch(apiUrl('/agent-settings')).then(r => r.json()),
-          fetch(apiUrl('/provider-keys')).then(r => r.json()),
-        ]);
-        if (cancelled) return;
-        const byAgent = {};
-        for (const i of agentsRes.items || []) byAgent[i.agent] = i;
-        const byProvider = {};
-        for (const i of keysRes.items || []) byProvider[i.provider] = i.configured;
-        setAiSettings(byAgent);
-        setAiKeys(byProvider);
-      } catch {
-        /* banner is optional */
-      } finally {
-        if (!cancelled) setAiLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const activeAgentCount = countActiveAgents(aiSettings, aiKeys);
 
   useEffect(() => {
     if (!activeRun) return undefined;
@@ -76,8 +43,8 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
   return (
     <div className="view dash-view">
 
-      {/* Hero strip */}
-      {activeRun ? (
+      {/* Active pipeline status */}
+      {activeRun && (
         <div className={`dash-hero dash-hero--active${activeRun.status === 'stopping' ? ' dash-hero--stopping' : ''}`} onClick={() => onOpenRun(activeRun.id || activeRun.runId)}>
           <div className="dash-hero-left">
             <div className="dash-hero-eyebrow">
@@ -109,45 +76,6 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
             </button>
           </div>
         </div>
-      ) : (
-        <div className="dash-hero dash-hero--idle">
-          <div className="dash-hero-left">
-            <div className="dash-hero-eyebrow">
-              <span className="dash-idle-dot" />
-              <span className="dash-idle-label">ZERO — AI QA Orchestration Platform</span>
-            </div>
-            <div className="dash-hero-headline">All pipelines idle</div>
-            <div className="dash-hero-sub">Launch a new run to start the AI agent pipeline</div>
-          </div>
-          <div className="dash-hero-right">
-            <button className="btn btn-primary" onClick={onNewRun}>
-              <PlusIcon /> New Run
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!aiLoading && onNavigate && (
-        <AiSetupBanner
-          variant="dashboard"
-          geminiConfigured={!!aiKeys.gemini}
-          activeCount={activeAgentCount}
-          onGoApiKeys={() => onNavigate('apikeys')}
-          onGoAgents={() => onNavigate('agents')}
-          onEnableGemini={aiKeys.gemini ? async () => {
-            setEnablingAi(true);
-            try {
-              await applyGeminiToAllAgents(apiUrl);
-              const agentsRes = await fetch(apiUrl('/agent-settings')).then(r => r.json());
-              const byAgent = {};
-              for (const i of agentsRes.items || []) byAgent[i.agent] = i;
-              setAiSettings(byAgent);
-            } finally {
-              setEnablingAi(false);
-            }
-          } : undefined}
-          enabling={enablingAi}
-        />
       )}
 
       {/* Stats row */}
@@ -232,25 +160,6 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onNa
         )}
       </div>
 
-      {/* Capability cards */}
-      <div className="dash-capabilities">
-        <CapabilityCard
-          icon={<PipelineIcon />}
-          title="7-Stage AI Pipeline"
-          desc="BA → Manual QA → Automation → Execution → Manager. From URL to report in minutes."
-        />
-        <CapabilityCard
-          icon={<LocatorIcon />}
-          title="Locator Intelligence"
-          desc="Selectors are learned and stored across runs, making automation smarter over time."
-        />
-        <CapabilityCard
-          icon={<ReportIcon />}
-          title="Go / No-Go Reports"
-          desc="Manager agent generates executive verdicts with RCA analysis and risk summaries."
-        />
-      </div>
-
     </div>
   );
 }
@@ -260,18 +169,6 @@ function StatCard({ label, value, color }) {
     <div className="stat-card">
       <div className="stat-label">{label}</div>
       <div className={`stat-value${color ? ` stat-value--${color}` : ''}`}>{value ?? '—'}</div>
-    </div>
-  );
-}
-
-function CapabilityCard({ icon, title, desc }) {
-  return (
-    <div className="dash-cap-card">
-      <div className="dash-cap-icon">{icon}</div>
-      <div>
-        <div className="dash-cap-title">{title}</div>
-        <div className="dash-cap-desc">{desc}</div>
-      </div>
     </div>
   );
 }
@@ -291,27 +188,5 @@ const EmptyIcon = () => (
 const SpinIcon = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ animation: 'dash-spin 1s linear infinite' }}>
     <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeDasharray="36 18" />
-  </svg>
-);
-const PipelineIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <circle cx="3" cy="9" r="2" stroke="currentColor" strokeWidth="1.4" />
-    <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.4" />
-    <circle cx="15" cy="9" r="2" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M5 9h2M11 9h2" stroke="currentColor" strokeWidth="1.4" />
-  </svg>
-);
-const LocatorIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <circle cx="9" cy="9" r="7.5" stroke="currentColor" strokeWidth="1.4" />
-    <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M9 1.5v4M9 12.5v4M1.5 9h4M12.5 9h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-);
-const ReportIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <path d="M4 3h7l4 4v8H4V3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-    <path d="M11 3v4h4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-    <path d="M7 10h5M7 12.5h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
   </svg>
 );

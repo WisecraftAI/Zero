@@ -5,324 +5,199 @@
  * provider key exists. Template output always remains the base; LLM
  * enrichment is best-effort. Rate limits, cost caps, and prompt versions
  * apply. Keys are never logged.
+ *
+ * `enrichAgent` never throws: every failure path returns the template with a
+ * `metadata.llm` stamp explaining why the model was not used.
  */
 
 "use strict";
 
 const axios = require("axios");
 
-const PROMPT_VERSIONS = {
-  ba: {
-    version: "ba.v2",
-    system:
-      "You are a Business Analyst for web QA on any site type (e-commerce, corporate, SaaS, media, etc.). " +
-      "Reply with JSON only: " +
-      '{"extraRequirements":["..."],"summary":"..."}. No markdown.'
-  },
-  manager: {
-    version: "manager.v2",
-    system:
-      "You are a QA manager reviewing web test execution. Reply with JSON only: " +
-      '{"narrative":"...","extraActions":["..."]}. No markdown.'
-  },
-  manualQa: {
-    version: "manualQa.v2",
-    system:
-      "You suggest extra manual test cases for the target website and domain profile. Reply with JSON only: " +
-      '{"extraCases":[{"id":"LLM-1","module":"...","scenario":"...","priority":"P2","steps":["..."],"expectedResult":"..."}]}. No markdown.'
-  },
-  automationQa: {
-    version: "automationQa.v2",
-    system:
-      "You suggest locator and automation hints for the crawled site. Reply with JSON only: " +
-      '{"hints":["..."]}. No markdown.'
-  },
-  domainInference: {
-    version: "domainInference.v2",
-    system:
-      "You infer the business domain and sub-domain of a website from crawl JSON only. " +
-      "domainLabel is the broad industry (for example Banking and Financial Services). " +
-      "subDomainLabel is the specific line of business inside it (for example Insurance). " +
-      "When context.subDomainOptions is non-empty you must choose subDomainLabel from that list, " +
-      "or return null if none apply. Reply with JSON only: " +
-      '{"domainLabel":"...","confidence":0.0,"subDomainLabel":"...","subDomainConfidence":0.0,' +
-      '"testPriorities":["..."],"criticalFlows":["..."],"summary":"..."}. No markdown.'
-  }
-};
+const { PROMPT_VERSIONS } = require("./prompts");
+const { applyEnrichment, stampLlm } = require("./enrichment");
+const {
+  DEFAULT_MODELS,
+  SUPPORTED_PROVIDERS,
+  createProviderCaller,
+  estimateCost,
+  isSupportedProvider,
+  normalizeProvider
+} = require("./providers");
+const {
+  parseJsonContent,
+  providerFailure,
+  redact,
+  resolveNumber
+} = require("./utils");
 
-const DEFAULT_MODELS = {
-  openai: "gpt-4o-mini",
-  claude: "claude-3-5-haiku-latest",
-  gemini: "gemini-2.0-flash"
-};
+const DEFAULTS = { rpm: 20, maxUsdPerRun: 0.5, timeoutMs: 8000 };
+const MIN_TIMEOUT_MS = 1000;
+const RATE_WINDOW_MS = 60_000;
+/**
+ * Context budget. Agents now receive a crawl fact sheet, so this has to fit a
+ * real site description; the marker below keeps a cut payload obvious to the
+ * model rather than handing it JSON that just stops mid-object.
+ */
+const CONTEXT_CHARS = 12000;
+const TRUNCATION_MARKER = "\n…context truncated…";
+/** Ceiling on per-run spend entries so a long-lived worker cannot leak memory. */
+const MAX_TRACKED_RUNS = 500;
+/** Fallback probe order when the agent has no usable provider preference. */
+const PROVIDER_ORDER = ["gemini", "openai", "claude"];
 
-const COST_PER_MTOK = {
-  openai: { in: 0.15, out: 0.6 },
-  claude: { in: 0.8, out: 4 },
-  gemini: { in: 0.1, out: 0.4 }
-};
-
-function redact(value) {
-  if (!value) return "";
-  const s = String(value);
-  if (s.length <= 8) return "••••";
-  return `••••${s.slice(-4)}`;
-}
-
-function estimateCost(provider, usage) {
-  const table = COST_PER_MTOK[provider] || COST_PER_MTOK.openai;
-  const input = Number((usage && usage.prompt_tokens) || 0);
-  const output = Number((usage && usage.completion_tokens) || 0);
-  return (input * table.in + output * table.out) / 1_000_000;
-}
-
-function parseJsonContent(text) {
-  if (!text) return null;
-  const trimmed = String(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+function safeStringify(value) {
   try {
-    return JSON.parse(trimmed);
+    const json = JSON.stringify(value ?? {});
+    if (json.length <= CONTEXT_CHARS) return json;
+    return json.slice(0, CONTEXT_CHARS) + TRUNCATION_MARKER;
   } catch {
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(trimmed.slice(start, end + 1));
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    return "{}";
   }
 }
 
-function stampLlm(target, meta) {
-  if (!target || typeof target !== "object") return target;
-  if (!target.metadata) target.metadata = {};
-  target.metadata.llm = {
-    used: Boolean(meta.used),
-    provider: meta.provider || null,
-    model: meta.model || null,
-    promptVersion: meta.promptVersion || null,
-    fallbackReason: meta.fallbackReason || null,
-    costUsd: meta.costUsd || 0
-  };
-  return target;
+function buildUserPrompt(agent, context, customPrompt) {
+  return [
+    customPrompt ? `Custom instructions:\n${customPrompt}\n` : "",
+    `Agent: ${agent}`,
+    `Context JSON:\n${safeStringify(context)}`
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function createLlm(options = {}) {
   const http = options.http || axios;
   const logger = options.logger || console;
   const env = options.env || process.env;
-  const rpm = Math.max(1, Number(options.rpm ?? env.ZERO_LLM_RPM ?? 20));
-  const maxUsdPerRun = Math.max(0, Number(options.maxUsdPerRun ?? env.ZERO_LLM_MAX_USD_PER_RUN ?? 0.5));
-  const timeoutMs = Math.max(1000, Number(options.timeoutMs ?? env.ZERO_LLM_TIMEOUT_MS ?? 8000));
-  const windowMs = 60_000;
-  const calls = [];
+  const rpm = resolveNumber([options.rpm, env.ZERO_LLM_RPM], DEFAULTS.rpm, 1);
+  const maxUsdPerRun = resolveNumber(
+    [options.maxUsdPerRun, env.ZERO_LLM_MAX_USD_PER_RUN],
+    DEFAULTS.maxUsdPerRun,
+    0
+  );
+  const timeoutMs = resolveNumber(
+    [options.timeoutMs, env.ZERO_LLM_TIMEOUT_MS],
+    DEFAULTS.timeoutMs,
+    MIN_TIMEOUT_MS
+  );
+
+  const callProvider = createProviderCaller({ http, timeoutMs });
+  const callTimes = [];
   const spendByRun = new Map();
 
   function resetGuards() {
-    calls.length = 0;
+    callTimes.length = 0;
     spendByRun.clear();
   }
 
-  function checkRateLimit() {
+  /** Reserves one slot in the sliding per-minute window. */
+  function consumeRateSlot() {
     const now = Date.now();
-    while (calls.length && now - calls[0] > windowMs) calls.shift();
-    if (calls.length >= rpm) return false;
-    calls.push(now);
+    while (callTimes.length && now - callTimes[0] > RATE_WINDOW_MS) callTimes.shift();
+    if (callTimes.length >= rpm) return false;
+    callTimes.push(now);
     return true;
   }
 
-  function checkCost(runId) {
-    const spent = spendByRun.get(runId) || 0;
-    return spent < maxUsdPerRun;
+  function withinCostCap(runKey) {
+    return (spendByRun.get(runKey) || 0) < maxUsdPerRun;
   }
 
-  function addSpend(runId, usd) {
-    spendByRun.set(runId, (spendByRun.get(runId) || 0) + usd);
+  function addSpend(runKey, usd) {
+    spendByRun.set(runKey, (spendByRun.get(runKey) || 0) + usd);
+    for (const key of spendByRun.keys()) {
+      if (spendByRun.size <= MAX_TRACKED_RUNS) break;
+      if (key !== runKey) spendByRun.delete(key);
+    }
   }
 
-  async function callProvider({ provider, apiKey, model, messages, system }) {
-    if (!apiKey) {
-      const err = new Error("API key required");
-      err.code = "no_key";
-      throw err;
-    }
-    const name = String(provider || "").toLowerCase();
-    const chosen = model || DEFAULT_MODELS[name] || DEFAULT_MODELS.openai;
-
-    if (name === "openai") {
-      const res = await http.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: chosen,
-          temperature: 0.2,
-          messages: [
-            ...(system ? [{ role: "system", content: system }] : []),
-            ...messages
-          ]
-        },
-        {
-          timeout: timeoutMs,
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      const data = res.data || {};
-      return {
-        provider: "openai",
-        model: chosen,
-        content: data.choices && data.choices[0] && data.choices[0].message
-          ? data.choices[0].message.content
-          : "",
-        usage: data.usage || {}
-      };
-    }
-
-    if (name === "claude") {
-      const res = await http.post(
-        "https://api.anthropic.com/v1/messages",
-        {
-          model: chosen,
-          max_tokens: 1024,
-          system: system || undefined,
-          messages
-        },
-        {
-          timeout: timeoutMs,
-          headers: {
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      const data = res.data || {};
-      const text = Array.isArray(data.content)
-        ? data.content.map((p) => p.text || "").join("")
-        : "";
-      return {
-        provider: "claude",
-        model: chosen,
-        content: text,
-        usage: {
-          prompt_tokens: (data.usage && data.usage.input_tokens) || 0,
-          completion_tokens: (data.usage && data.usage.output_tokens) || 0
-        }
-      };
-    }
-
-    if (name === "gemini") {
-      const res = await http.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/${chosen}:generateContent`,
-        {
-          systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-          contents: messages.map((m) => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: [{ text: m.content }]
-          }))
-        },
-        {
-          timeout: timeoutMs,
-          headers: {
-            "x-goog-api-key": apiKey,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      const data = res.data || {};
-      const text =
-        data.candidates &&
-        data.candidates[0] &&
-        data.candidates[0].content &&
-        data.candidates[0].content.parts
-          ? data.candidates[0].content.parts.map((p) => p.text || "").join("")
-          : "";
-      const usage = data.usageMetadata || {};
-      return {
-        provider: "gemini",
-        model: chosen,
-        content: text,
-        usage: {
-          prompt_tokens: usage.promptTokenCount || 0,
-          completion_tokens: usage.candidatesTokenCount || 0
-        }
-      };
-    }
-
-    const err = new Error(`Unknown provider: ${name}`);
-    err.code = "unknown_provider";
-    throw err;
+  function llmDisabled() {
+    return String(env.ZERO_LLM || "").trim().toLowerCase() === "off";
   }
 
+  /**
+   * Resolves the provider/model/key triple for an agent: the configured
+   * provider first, then the remaining providers that have a stored key.
+   */
   async function pickBinding(store, agent) {
     if (!store || typeof store.getKey !== "function") return null;
-    const settings = store.getSettings
-      ? await store.getSettings(agent)
-      : null;
-    const preferred = settings && settings.provider;
-    const order = preferred
-      ? [preferred, "gemini", "openai", "claude"]
-      : ["gemini", "openai", "claude"];
+
+    const settings =
+      typeof store.getSettings === "function" ? await store.getSettings(agent) : null;
+    const preferred =
+      settings && isSupportedProvider(settings.provider)
+        ? normalizeProvider(settings.provider)
+        : null;
+
     const seen = new Set();
-    for (const provider of order) {
-      if (!provider || seen.has(provider)) continue;
+    for (const provider of preferred ? [preferred, ...PROVIDER_ORDER] : PROVIDER_ORDER) {
+      if (seen.has(provider)) continue;
       seen.add(provider);
-      const key = await store.getKey(provider);
-      if (key) {
-        return {
-          provider,
-          apiKey: key,
-          model: (settings && settings.model) || DEFAULT_MODELS[provider],
-          prompt: settings && settings.prompt
-        };
-      }
+
+      const apiKey = await store.getKey(provider);
+      if (!apiKey) continue;
+
+      // A configured model belongs to the provider it was configured for;
+      // never carry it over to a fallback provider.
+      const configuredModel = provider === preferred && settings ? settings.model : null;
+      return {
+        provider,
+        apiKey,
+        model: configuredModel || DEFAULT_MODELS[provider],
+        prompt: settings && settings.prompt ? String(settings.prompt) : null
+      };
     }
     return null;
   }
 
-  async function enrichAgent({ agent, template, context, store, runId }) {
-    const spec = PROMPT_VERSIONS[agent];
+  async function enrichAgent({ agent, template, context, store, runId } = {}) {
     const base = template && typeof template === "object" ? template : {};
-    if (String(env.ZERO_LLM || "").toLowerCase() === "off") {
+    const runKey = runId || "global";
+
+    if (llmDisabled()) {
       return stampLlm(base, { used: false, fallbackReason: "disabled" });
     }
+    const spec = PROMPT_VERSIONS[agent];
     if (!spec) {
       return stampLlm(base, { used: false, fallbackReason: "unknown_agent" });
     }
 
-    const binding = await pickBinding(store, agent);
+    let binding = null;
+    try {
+      binding = await pickBinding(store, agent);
+    } catch (err) {
+      // Key/settings lookup hits Postgres; a lookup failure degrades to
+      // templates rather than failing the stage.
+      const failure = providerFailure(err);
+      logger.warn(`[llm] ${agent} fallback: store_error ${failure.detail}`);
+      return stampLlm(base, {
+        used: false,
+        fallbackReason: "store_error",
+        fallbackStatus: failure.status,
+        fallbackDetail: failure.detail
+      });
+    }
     if (!binding) {
       return stampLlm(base, { used: false, fallbackReason: "no_key" });
     }
-    if (!checkRateLimit()) {
-      logger.warn(`[llm] ${agent} skipped: rate_limit (rpm=${rpm})`);
-      return stampLlm(base, {
-        used: false,
-        provider: binding.provider,
-        model: binding.model,
-        promptVersion: spec.version,
-        fallbackReason: "rate_limit"
-      });
-    }
-    if (!checkCost(runId || "global")) {
-      logger.warn(`[llm] ${agent} skipped: cost_cap (maxUsd=${maxUsdPerRun})`);
-      return stampLlm(base, {
-        used: false,
-        provider: binding.provider,
-        model: binding.model,
-        promptVersion: spec.version,
-        fallbackReason: "cost_cap"
-      });
-    }
 
-    const userPrompt = [
-      binding.prompt ? `Custom instructions:\n${binding.prompt}\n` : "",
-      `Agent: ${agent}`,
-      `Context JSON:\n${JSON.stringify(context || {}).slice(0, 6000)}`
-    ].join("\n");
+    const attempt = {
+      provider: binding.provider,
+      model: binding.model,
+      promptVersion: spec.version
+    };
+
+    // Cost is checked before the rate slot so a capped run does not burn
+    // window capacity that other runs could use.
+    if (!withinCostCap(runKey)) {
+      logger.warn(`[llm] ${agent} skipped: cost_cap (maxUsd=${maxUsdPerRun})`);
+      return stampLlm(base, { ...attempt, used: false, fallbackReason: "cost_cap" });
+    }
+    if (!consumeRateSlot()) {
+      logger.warn(`[llm] ${agent} skipped: rate_limit (rpm=${rpm})`);
+      return stampLlm(base, { ...attempt, used: false, fallbackReason: "rate_limit" });
+    }
 
     try {
       const result = await callProvider({
@@ -330,34 +205,42 @@ function createLlm(options = {}) {
         apiKey: binding.apiKey,
         model: binding.model,
         system: spec.system,
-        messages: [{ role: "user", content: userPrompt }]
+        messages: [{ role: "user", content: buildUserPrompt(agent, context, binding.prompt) }]
       });
+
       const costUsd = estimateCost(binding.provider, result.usage);
-      addSpend(runId || "global", costUsd);
+      addSpend(runKey, costUsd);
       logger.info(
         `[llm] ${agent} ${binding.provider} ${result.model} v=${spec.version} ` +
-          `tokens=${(result.usage.prompt_tokens || 0) + (result.usage.completion_tokens || 0)} ` +
+          `tokens=${result.usage.prompt_tokens + result.usage.completion_tokens} ` +
           `cost=${costUsd.toFixed(6)} key=${redact(binding.apiKey)}`
       );
 
+      const stamp = { ...attempt, model: result.model, costUsd };
       const parsed = parseJsonContent(result.content);
-      applyEnrichment(agent, base, parsed);
+      if (!parsed) {
+        logger.warn(`[llm] ${agent} fallback: unparsable_response`);
+        return stampLlm(base, { ...stamp, used: false, fallbackReason: "unparsable_response" });
+      }
+
+      const enriched = applyEnrichment(agent, base, parsed);
       return stampLlm(base, {
-        used: true,
-        provider: binding.provider,
-        model: result.model,
-        promptVersion: spec.version,
-        costUsd
+        ...stamp,
+        used: enriched,
+        fallbackReason: enriched ? null : "empty_response"
       });
     } catch (err) {
-      const message = err && err.message ? err.message : "llm_error";
-      logger.warn(`[llm] ${agent} fallback: ${message.replace(/sk-[a-zA-Z0-9-]+/g, "sk-••••")}`);
+      const failure = providerFailure(err);
+      logger.warn(
+        `[llm] ${agent} fallback: ${failure.reason}` +
+          `${failure.status ? ` status=${failure.status}` : ""} ${failure.detail}`
+      );
       return stampLlm(base, {
+        ...attempt,
         used: false,
-        provider: binding.provider,
-        model: binding.model,
-        promptVersion: spec.version,
-        fallbackReason: err.code || "provider_error"
+        fallbackReason: failure.reason,
+        fallbackStatus: failure.status,
+        fallbackDetail: failure.detail
       });
     }
   }
@@ -368,104 +251,19 @@ function createLlm(options = {}) {
     pickBinding,
     resetGuards,
     estimateCost,
-    getSpend: (runId) => spendByRun.get(runId) || 0
+    providerFailure,
+    getSpend: (runId) => spendByRun.get(runId || "global") || 0,
+    limits: { rpm, maxUsdPerRun, timeoutMs }
   };
 }
 
-function applyEnrichment(agent, target, parsed) {
-  if (!parsed || typeof parsed !== "object") return;
-
-  if (agent === "ba") {
-    const extra = Array.isArray(parsed.extraRequirements)
-      ? parsed.extraRequirements.map(String).filter(Boolean).slice(0, 8)
-      : [];
-    if (extra.length) {
-      target.requirementStatements = [...new Set([...(target.requirementStatements || []), ...extra])];
-    }
-    if (parsed.summary) target.llmSummary = String(parsed.summary).slice(0, 2000);
-    if (target.metadata) target.metadata.source = `${target.metadata.source || "BA Agent"} + LLM`;
-  }
-
-  if (agent === "manager") {
-    if (parsed.narrative) {
-      if (!target.analysis) target.analysis = {};
-      target.analysis.llmNarrative = String(parsed.narrative).slice(0, 4000);
-    }
-    const extras = Array.isArray(parsed.extraActions)
-      ? parsed.extraActions.map(String).filter(Boolean).slice(0, 5)
-      : [];
-    if (extras.length) {
-      target.actionPlan = [...(target.actionPlan || []), ...extras];
-    }
-    if (target.metadata) target.metadata.source = `${target.metadata.source || "Manager Agent"} + LLM`;
-  }
-
-  if (agent === "manualQa") {
-    const extras = Array.isArray(parsed.extraCases) ? parsed.extraCases.slice(0, 3) : [];
-    if (!target.testCases) target.testCases = [];
-    extras.forEach((raw, i) => {
-      if (!raw || !raw.scenario) return;
-      target.testCases.push({
-        id: String(raw.id || `LLM-${i + 1}`),
-        module: String(raw.module || "LLM"),
-        scenario: String(raw.scenario),
-        priority: raw.priority || "P2",
-        preconditions: raw.preconditions || "",
-        steps: Array.isArray(raw.steps) ? raw.steps.map(String) : [String(raw.scenario)],
-        expectedResult: String(raw.expectedResult || "Behaves as specified"),
-        type: "llm_suggested"
-      });
-    });
-  }
-
-  if (agent === "automationQa") {
-    const hints = Array.isArray(parsed.hints) ? parsed.hints.map(String).slice(0, 8) : [];
-    if (hints.length) target.llmHints = hints;
-  }
-
-  if (agent === "domainInference") {
-    if (parsed.domainLabel) target.inferredDomain = String(parsed.domainLabel).slice(0, 120);
-    if (parsed.summary) target.inferredSummary = String(parsed.summary).slice(0, 2000);
-    if (Number.isFinite(Number(parsed.confidence))) {
-      target.inferredConfidence = Math.max(0, Math.min(1, Number(parsed.confidence)));
-    }
-    if (Array.isArray(parsed.testPriorities)) {
-      target.inferredTestPriorities = parsed.testPriorities.map(String).slice(0, 8);
-    }
-    if (Array.isArray(parsed.criticalFlows)) {
-      target.inferredCriticalFlows = parsed.criticalFlows.map(String).slice(0, 6);
-    }
-    if (parsed.subDomainLabel) {
-      target.inferredSubDomain = String(parsed.subDomainLabel).slice(0, 120);
-    }
-    if (Number.isFinite(Number(parsed.subDomainConfidence))) {
-      target.inferredSubDomainConfidence = Math.max(0, Math.min(1, Number(parsed.subDomainConfidence)));
-    }
-    if (target.inferredDomain) {
-      target.websiteType = target.inferredDomain;
-      if (target.inferredConfidence != null) {
-        target.websiteTypeConfidence = Math.max(
-          Number(target.websiteTypeConfidence || 0),
-          target.inferredConfidence
-        );
-      }
-    }
-    if (target.inferredSubDomain) {
-      target.subDomain = target.inferredSubDomain;
-      target.subDomainConfidence = Math.max(
-        Number(target.subDomainConfidence || 0),
-        Number(target.inferredSubDomainConfidence || 0)
-      );
-      target.subDomainSource = "llm";
-    }
-  }
-}
-
+/** Env-provided keys are opt-in so local shells cannot bill a shared account. */
 function envKey(provider, env = process.env) {
   if (String(env.ZERO_LLM_ENV_KEYS || "").toLowerCase() !== "1") return null;
-  if (provider === "openai") return env.OPENAI_API_KEY || null;
-  if (provider === "claude") return env.ANTHROPIC_API_KEY || env.CLAUDE_API_KEY || null;
-  if (provider === "gemini") return env.GEMINI_API_KEY || env.GOOGLE_API_KEY || null;
+  const name = normalizeProvider(provider);
+  if (name === "openai") return env.OPENAI_API_KEY || null;
+  if (name === "claude") return env.ANTHROPIC_API_KEY || env.CLAUDE_API_KEY || null;
+  if (name === "gemini") return env.GEMINI_API_KEY || env.GOOGLE_API_KEY || null;
   return null;
 }
 
@@ -480,12 +278,14 @@ const defaultLlm = createLlm();
 module.exports = {
   PROMPT_VERSIONS,
   DEFAULT_MODELS,
+  SUPPORTED_PROVIDERS,
   createLlm,
   callProvider: defaultLlm.callProvider,
   enrichAgent: defaultLlm.enrichAgent,
   resetGuards: defaultLlm.resetGuards,
   estimateCost,
   parseJsonContent,
+  providerFailure,
   redact,
   envKey,
   ownerEmailForRun

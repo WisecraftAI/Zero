@@ -1,0 +1,194 @@
+@use '../styles/breakpoints' as bp;
+
+/* Every color here resolves from the active palette via `--line-hue`, which the
+   state modifiers set. No literal colors, so a palette added to _themes.scss is
+   themed here without an edit. */
+.agent-run-line {
+  --line-hue: var(--accent);
+  --line-glow: var(--accent-glow);
+  --agent-pos: 0%;
+
+  position: relative;
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  /* Keeps the carriage off the card edge at 0% and 100%. */
+  padding: 0 22px;
+
+  &--completed {
+    --line-hue: var(--green);
+    --line-glow: var(--green-bg);
+  }
+
+  &--failed {
+    --line-hue: var(--red);
+    --line-glow: var(--red-bg);
+  }
+
+  &--stopping {
+    --line-hue: var(--amber);
+    --line-glow: var(--amber-bg);
+  }
+
+  &--stopped,
+  &--pending {
+    --line-hue: var(--text-3);
+    --line-glow: transparent;
+  }
+}
+
+.agent-run-line-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: visible;
+}
+
+.agent-run-line-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--agent-pos);
+  border-radius: var(--radius-pill);
+  background: var(--line-hue);
+  box-shadow: 0 0 12px -2px var(--line-glow);
+  transition: width 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Reads as the agent probing ahead of itself: a short sweep that starts at the
+   mark and fades into untouched track. */
+.agent-run-line-scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--agent-pos);
+  width: 82px;
+  max-width: 30%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--line-hue), transparent);
+  opacity: 0.45;
+  transform-origin: left center;
+  animation: agent-scan 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.agent-run-line-tick {
+  position: absolute;
+  top: 50%;
+  left: var(--tick-at);
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-md);
+  transition: background var(--transition), border-color var(--transition);
+
+  &.is-completed {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  &.is-failed {
+    background: var(--red);
+    border-color: var(--red);
+  }
+
+  &.is-skipped {
+    background: var(--amber-bg);
+    border-color: var(--amber-border);
+  }
+
+  &.is-running {
+    background: var(--accent);
+    border-color: var(--accent);
+    animation: agent-tick-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+.agent-run-line-runner {
+  position: absolute;
+  top: 50%;
+  left: var(--agent-pos);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  transition: left 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.agent-run-line-halo {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--line-glow) 0%, transparent 68%);
+}
+
+/* A carriage plate lifts the mark off the rail — without it the artwork reads
+   as a smudge on the line at this size. */
+.agent-run-line-runner::before {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line-hue);
+  box-shadow: var(--shadow-sm);
+}
+
+.agent-run-line-mark {
+  position: relative;
+}
+
+/* Motion is a live-run signal, so only the running states animate. */
+.agent-run-line--running,
+.agent-run-line--stopping {
+  .agent-run-line-mark {
+    animation: agent-stride 1.6s ease-in-out infinite;
+  }
+
+  .agent-run-line-halo {
+    animation: agent-halo 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes agent-stride {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50%      { transform: translateY(-2.5px) rotate(1.5deg); }
+}
+
+@keyframes agent-halo {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+@keyframes agent-scan {
+  0%   { opacity: 0;    transform: scaleX(0.2); }
+  35%  { opacity: 0.45; transform: scaleX(1); }
+  100% { opacity: 0;    transform: scaleX(1.4); }
+}
+
+@keyframes agent-tick-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%      { box-shadow: 0 0 0 4px var(--accent-glow); }
+}
+
+@include bp.reduced-motion {
+  .agent-run-line-mark,
+  .agent-run-line-halo,
+  .agent-run-line-scan,
+  .agent-run-line-tick {
+    animation: none;
+  }
+
+  .agent-run-line-fill,
+  .agent-run-line-runner {
+    transition: none;
+  }
+
+  .agent-run-line-scan {
+    display: none;
+  }
+}

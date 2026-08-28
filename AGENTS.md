@@ -100,7 +100,7 @@ Prefer ZERO for: **URL-only** → crawl → major cases → flow execution → M
 
 ## Persistence
 
-**Today:** runs live in an in-memory `Map`, are written to `dist/artifacts/<runId>/run.json`, and — when `DATABASE_URL` or `PGHOST` is set — are upserted to Postgres (`qa_runs` / `qa_assets` plus locator/project/provider tables via `@zero/db` `initAllTables`). If Postgres is unset or unreachable, the process falls back to memory + file.
+**Today:** runs live in an in-memory `Map`, are written to `dist/artifacts/<runId>/run.json`, and — when `DATABASE_URL` or `PGHOST` is set — are upserted to Postgres (`qa_runs` / `qa_assets` plus locator/project/provider/`agent_memory` tables via `@zero/db` `initAllTables`). If Postgres is unset or unreachable, the process falls back to memory + file. Host-scoped agentic memory (BA summaries, extra cases, locator hints, execution failures) is recalled on later runs for the same host; classification keys are not cached.
 
 **Object store (M2):** `ZERO_CLOUD=local` stores blobs under `dist/artifacts/cloud-store` with HMAC-signed `/cloud/local` URLs (S7 dropped the `/api` prefix). `POST /runs` can return presigned `uploads[]`; `POST /runs/:id/commit` starts the run. `/artifacts` is not statically served.
 
@@ -135,7 +135,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
 - **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
-- **Styles**: SCSS (dart-sass via Vite). Each component keeps a sibling `.scss`; shared partials live in `web/src/styles/` — `_tokens.scss` (radius/type/space), `_themes.scss` (the `$themes` map that emits every `[data-theme]` palette), `_base.scss`, `_breakpoints.scss` (`bp.below($width)`). Theming stays on CSS custom properties because `ThemePicker` swaps `data-theme` at runtime; Sass variables would compile away.
+- **Styles**: SCSS (dart-sass via Vite). Each component keeps a sibling `.scss`; shared partials live in `web/src/styles/` — `_tokens.scss` (radius/type/space), `_themes.scss` (the `$themes` map that emits every `[data-theme]` palette), `_base.scss`, `_breakpoints.scss` (`bp.below($width)`), `_glass.scss` (frosted chrome for any palette that declares a `glass-blur` token). Theming stays on CSS custom properties because `ThemePicker` swaps `data-theme` at runtime; Sass variables would compile away.
 - **Server changes**: HTTP routes live in `services/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`services/executor/`). Compose splits that into its own image; locally use `npm run start:all` (or separate `npm run orchestrator` / `npm run execution`) when you need workers. Shared code is `@zero/*` packages.
 - **Output roots**: regenerable files under `dist/` via `@zero/domain` `outputRoots` (`web`, `artifacts`, `coverage`, `logs`). Override with `ZERO_DIST_ROOT`.
 - **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.

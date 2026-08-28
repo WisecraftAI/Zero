@@ -5,7 +5,8 @@ const {
   initRunsTables,
   initElementTables,
   initProjectsTables,
-  initProviderTables
+  initProviderTables,
+  initAgentMemoryTables
 } = require("./schema/init");
 const { runPendingMigrations } = require("./schema/migrate");
 const { upsertRun, getRunById, listRunRows } = require("./runs");
@@ -27,6 +28,7 @@ const {
   listAgentSettings,
   upsertAgentSettings
 } = require("./providers");
+const { upsertAgentMemory, getAgentMemoryByHost } = require("./memory");
 
 module.exports = {
   isDatabaseConfigured,
@@ -36,6 +38,7 @@ module.exports = {
   initElementTables,
   initProjectsTables,
   initProviderTables,
+  initAgentMemoryTables,
   runPendingMigrations,
   upsertRun,
   getRunById,
@@ -57,5 +60,7 @@ module.exports = {
   deleteProviderKey,
   getEncryptedProviderKey,
   listAgentSettings,
-  upsertAgentSettings
+  upsertAgentSettings,
+  upsertAgentMemory,
+  getAgentMemoryByHost
 };

@@ -1,0 +1,827 @@
+@use '../styles/breakpoints' as bp;
+
+.marketing-home {
+  position: relative;
+  overflow: hidden;
+  min-height: 100%;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 78% 15%, var(--brand-bg) 0, transparent 28rem),
+    linear-gradient(180deg, var(--surface) 0, var(--bg) 42rem);
+}
+
+.marketing-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .9fr);
+  align-items: center;
+  gap: clamp(36px, 6vw, 88px);
+  width: min(1380px, calc(100% - 64px));
+  min-height: min(720px, calc(100vh - var(--topbar-h)));
+  margin: 0 auto;
+  padding: 72px 0 88px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 36px;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-md) 12%, var(--border-md) 88%, transparent);
+  }
+}
+
+.marketing-hero-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+
+  h1 {
+    margin: 20px 0 24px;
+    font-family: var(--font-display);
+    font-size: clamp(3.2rem, 6.4vw, 6.7rem);
+    font-weight: 700;
+    line-height: .93;
+    letter-spacing: -.065em;
+    color: var(--text);
+
+    span {
+      display: block;
+      color: var(--brand);
+    }
+  }
+}
+
+.marketing-kicker,
+.marketing-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.marketing-kicker-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--brand);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--brand-bg);
+}
+
+.marketing-lede {
+  max-width: 650px;
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  line-height: 1.7;
+  color: var(--text-2);
+}
+
+.marketing-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.marketing-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: 600 .88rem/1 var(--font);
+  cursor: pointer;
+  transition: transform var(--transition), background var(--transition), border-color var(--transition), color var(--transition);
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+  }
+
+  &--primary {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--on-accent);
+    box-shadow: 0 14px 34px -18px var(--accent-glow);
+
+    &:hover {
+      background: var(--brand-hover);
+      border-color: var(--brand-hover);
+    }
+  }
+
+  // For the closing panel, which paints its own accent background: invert the
+  // pair so the button stays legible without depending on page surface tokens.
+  &--on-accent {
+    background: var(--on-accent);
+    border-color: var(--on-accent);
+    color: var(--accent-dark);
+
+    &:hover {
+      background: color-mix(in srgb, var(--on-accent) 88%, var(--accent-dark));
+    }
+
+    &:focus-visible {
+      outline-color: var(--on-accent);
+    }
+  }
+
+  &--secondary {
+    background: var(--surface);
+    border-color: var(--border-md);
+    color: var(--text);
+
+    &:hover {
+      background: var(--surface-2);
+      border-color: var(--border-strong);
+    }
+  }
+
+}
+
+.marketing-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 28px;
+  font-family: var(--font-mono);
+  font-size: .64rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+
+  span {
+    position: relative;
+
+    &:not(:last-child)::after {
+      content: '•';
+      position: absolute;
+      right: -12px;
+      color: var(--brand);
+    }
+  }
+}
+
+.marketing-brand-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 520px;
+  isolation: isolate;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    border: 1px solid var(--brand-border);
+    border-radius: 50%;
+  }
+
+  &::before {
+    width: min(35vw, 500px);
+    aspect-ratio: 1;
+  }
+
+  &::after {
+    width: min(28vw, 400px);
+    aspect-ratio: 1;
+    border-style: dashed;
+    animation: marketing-orbit 36s linear infinite;
+  }
+}
+
+.marketing-brand-glow {
+  position: absolute;
+  z-index: -2;
+  width: 80%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow), transparent 66%);
+  filter: blur(22px);
+  opacity: .58;
+}
+
+.marketing-brand-logo {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 24px 34px var(--accent-glow));
+}
+
+.marketing-pass {
+  position: absolute;
+  right: 3%;
+  /* Sits under the lockup's tagline, which now ends lower than the raster did. */
+  bottom: 2%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.marketing-pass-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px var(--green-bg);
+}
+
+.marketing-ai-setup {
+  width: min(1380px, calc(100% - 64px));
+  margin: 0 auto 64px;
+
+  .ai-banner {
+    margin-bottom: 0;
+  }
+}
+
+.marketing-pipeline {
+  padding: 96px max(32px, calc((100% - 1380px) / 2));
+  background: var(--surface-2);
+  border-block: 1px solid var(--border);
+}
+
+.marketing-section-heading {
+  display: grid;
+  // Eyebrow spans the top so the title and lede can each use real width,
+  // instead of the label holding a column of its own.
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  grid-template-areas:
+    'eyebrow eyebrow'
+    'title lede';
+  gap: 14px clamp(40px, 5vw, 72px);
+  margin-bottom: 48px;
+
+  > span {
+    grid-area: eyebrow;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+
+  h2 {
+    grid-area: title;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.4vw, 3.8rem);
+    line-height: 1.08;
+    letter-spacing: -.045em;
+    color: var(--text);
+  }
+
+  .marketing-section-lede {
+    grid-area: lede;
+    // The grid gap already separates the eyebrow row, and the lede reads as a
+    // caption to the title, so it settles on the title's last line.
+    align-self: end;
+    max-width: 52ch;
+    margin-top: 0;
+  }
+}
+
+.marketing-section-lede {
+  max-width: 620px;
+  margin-top: 18px;
+  font-size: clamp(.94rem, 1.1vw, 1.05rem);
+  line-height: 1.68;
+  color: var(--text-2);
+}
+
+.marketing-pipeline-track {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    // Rail strength climbs across the four stages so the row reads as momentum
+    // toward the release call rather than four equal-weight cards.
+    --stage-rail: color-mix(in srgb, var(--brand) 40%, var(--border));
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 280px;
+    padding: 24px 22px 26px;
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--stage-rail);
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: var(--surface);
+    transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+
+    &:nth-child(2) { --stage-rail: color-mix(in srgb, var(--brand) 60%, var(--border)); }
+    &:nth-child(3) { --stage-rail: color-mix(in srgb, var(--brand) 80%, var(--border)); }
+    &:nth-child(4) { --stage-rail: var(--brand); }
+
+    // Chevron on the seam, so the reading order between cards is explicit.
+    &:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 34px;
+      right: -11px;
+      z-index: 1;
+      width: 8px;
+      height: 8px;
+      border-top: 1.5px solid var(--stage-rail);
+      border-right: 1.5px solid var(--stage-rail);
+      transform: rotate(45deg);
+    }
+
+    &:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-md);
+      border-top-color: var(--brand);
+      box-shadow: var(--shadow);
+    }
+  }
+}
+
+.marketing-stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  letter-spacing: .06em;
+}
+
+.marketing-stage-number {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.marketing-stage-agents {
+  text-align: right;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.marketing-stage-copy {
+  flex: 1;
+
+  h3 {
+    margin-bottom: 10px;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    letter-spacing: -.02em;
+    color: var(--text);
+  }
+
+  p {
+    font-size: .86rem;
+    line-height: 1.68;
+    color: var(--text-2);
+  }
+}
+
+.marketing-stage-artifacts {
+  display: flex;
+  align-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  // Reserve two chip rows (24px each + 6px gap + 16px divider padding) so the
+  // dashed line lands on the same baseline in every card, however many
+  // artifacts a stage names.
+  min-height: 71px;
+  margin: 0;
+  padding: 16px 0 0;
+  border-top: 1px dashed var(--border);
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 9px;
+    border: 1px solid var(--brand-border);
+    border-radius: var(--radius-pill);
+    background: var(--brand-bg);
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    letter-spacing: .04em;
+    color: var(--text-2);
+  }
+}
+
+.marketing-pipeline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 640px;
+  margin-top: 28px;
+  font-size: .82rem;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.marketing-pipeline-note-mark {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-bg);
+}
+
+.marketing-outcomes {
+  display: grid;
+  grid-template-columns: minmax(320px, .8fr) 1fr;
+  gap: clamp(56px, 9vw, 140px);
+  width: min(1380px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 112px 0;
+}
+
+.marketing-outcomes-intro {
+  position: sticky;
+  // Holds the framing beside the list while the three outcomes scroll past.
+  top: calc(var(--topbar-h) + 48px);
+  align-self: start;
+
+  h2 {
+    margin-top: 18px;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.5vw, 3.75rem);
+    line-height: 1.1;
+    letter-spacing: -.045em;
+    color: var(--text);
+  }
+}
+
+.marketing-audience {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 11px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+}
+
+.marketing-outcome-list {
+  border-top: 1px solid var(--border-strong);
+
+  article {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 20px;
+    padding: 28px 18px 28px 0;
+    border-bottom: 1px solid var(--border);
+    // Accent rail is drawn on hover only, so the resting list stays a quiet
+    // reading column rather than three competing cards.
+    box-shadow: inset 2px 0 0 -2px var(--brand);
+    transition: box-shadow var(--transition), background var(--transition);
+
+    &:hover {
+      box-shadow: inset 2px 0 0 0 var(--brand);
+      background: linear-gradient(90deg, var(--brand-bg), transparent 62%);
+    }
+  }
+}
+
+.marketing-outcome-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  background: var(--brand-bg);
+  color: var(--brand);
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.marketing-outcome-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 8px;
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1.18rem;
+    letter-spacing: -.02em;
+    color: var(--text);
+  }
+
+  > span {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: .66rem;
+    color: var(--text-3);
+  }
+}
+
+.marketing-outcome-body {
+  p {
+    font-size: .88rem;
+    line-height: 1.68;
+    color: var(--text-2);
+  }
+
+  .marketing-outcome-proof {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: .64rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-3);
+
+    > span {
+      flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-bg);
+    }
+  }
+}
+
+.marketing-final-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  width: min(1380px, calc(100% - 64px));
+  margin: 0 auto 64px;
+  padding: 42px 46px;
+  border-radius: var(--radius-lg);
+  // Deepest accent + its paired foreground, so the closing panel keeps its
+  // contrast in every palette instead of staying navy under a warm theme.
+  background:
+    linear-gradient(115deg, color-mix(in srgb, var(--accent-light) 30%, transparent), transparent 42%),
+    var(--accent-dark);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-lg);
+
+  span {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--on-accent);
+    opacity: .78;
+  }
+
+  h2 {
+    margin-top: 8px;
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.6vw, 2.6rem);
+    letter-spacing: -.03em;
+    color: var(--on-accent);
+  }
+}
+
+.marketing-final-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.marketing-final-signal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--on-accent);
+
+  span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--on-accent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--on-accent) 20%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes marketing-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@include bp.below(980px) {
+  .marketing-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding-top: 64px;
+  }
+
+  .marketing-brand-stage {
+    min-height: 470px;
+  }
+
+  .marketing-brand-stage::before {
+    width: 460px;
+  }
+
+  .marketing-brand-stage::after {
+    width: 370px;
+  }
+
+  .marketing-pipeline-track {
+    grid-template-columns: repeat(2, 1fr);
+
+    // The chevron only makes sense inside a row, never across a wrap.
+    > li:nth-child(2)::after {
+      display: none;
+    }
+  }
+
+  .marketing-outcomes {
+    grid-template-columns: 1fr;
+  }
+
+  // Stacked layout: there is nothing left to stay beside.
+  .marketing-outcomes-intro {
+    position: static;
+  }
+}
+
+@include bp.below(640px) {
+  .marketing-hero,
+  .marketing-ai-setup,
+  .marketing-outcomes,
+  .marketing-final-cta {
+    width: calc(100% - 32px);
+  }
+
+  .marketing-hero {
+    padding: 48px 0 64px;
+
+    h1 {
+      font-size: clamp(3rem, 15vw, 4.6rem);
+    }
+  }
+
+  .marketing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marketing-brand-stage {
+    min-height: 360px;
+  }
+
+  .marketing-brand-stage::before {
+    width: 330px;
+  }
+
+  .marketing-brand-stage::after {
+    width: 270px;
+  }
+
+  /* A narrow stage has no corner to spare, so let the badge stack under the
+     lockup rather than float over its tagline. */
+  .marketing-pass {
+    position: static;
+  }
+
+  .marketing-pipeline {
+    padding: 72px 16px;
+  }
+
+  .marketing-section-heading {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'eyebrow'
+      'title'
+      'lede';
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .marketing-pipeline-track {
+    grid-template-columns: 1fr;
+
+    > li {
+      min-height: 0;
+      padding: 20px 18px 22px;
+    }
+
+    > li::after {
+      display: none;
+    }
+  }
+
+  // Single column: nothing to align against, so drop the reserved chip row.
+  .marketing-stage-artifacts {
+    min-height: 0;
+  }
+
+  .marketing-outcomes {
+    gap: 48px;
+    padding: 80px 0;
+  }
+
+  .marketing-outcome-list article {
+    grid-template-columns: 36px 1fr;
+    gap: 14px;
+    padding: 24px 0;
+  }
+
+  .marketing-outcome-icon {
+    width: 36px;
+    height: 36px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .marketing-final-cta {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 32px 26px;
+  }
+
+  .marketing-final-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+  }
+}
+
+@include bp.reduced-motion {
+  .marketing-brand-stage::after {
+    animation: none;
+  }
+
+  .marketing-cta,
+  .marketing-pipeline-track > li,
+  .marketing-outcome-list article {
+    transition: none;
+  }
+
+  .marketing-pipeline-track > li:hover {
+    transform: none;
+  }
+}

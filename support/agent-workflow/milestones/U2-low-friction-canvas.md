@@ -107,3 +107,9 @@ npm run workflow:verify -- --milestone U2
 ```
 
 Implement via `/zero-web`. North star: `prompts/ui-ux.md`.
+
+## Follow-ons after close (not a new milestone)
+
+- Run Detail `FlowDiagram` (`web/src/components/FlowDiagram.jsx`) for discovered journeys
+- Keep New Run as a single canvas; do not add a wizard to “explain” the diagram
+

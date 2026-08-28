@@ -1,4 +1,11 @@
-const { createLlm, parseJsonContent, redact, ownerEmailForRun, PROMPT_VERSIONS } = require("@zero/orchestrator/llm");
+const {
+  createLlm,
+  parseJsonContent,
+  redact,
+  ownerEmailForRun,
+  DEFAULT_MODELS,
+  PROMPT_VERSIONS
+} = require("@zero/orchestrator/llm");
 
 function mockHttp(handler) {
   return {
@@ -171,6 +178,142 @@ describe("M6 LLM wiring", () => {
     });
     expect(limited.metadata.llm.fallbackReason).toBe("rate_limit");
     expect(hits).toBe(1);
+  });
+
+  it("records a safe provider error instead of the generic axios code", async () => {
+    const llm = createLlm({
+      http: mockHttp(() => {
+        const error = new Error("Request failed with status code 401");
+        error.code = "ERR_BAD_REQUEST";
+        error.response = {
+          status: 401,
+          data: {
+            error: {
+              code: "invalid_api_key",
+              message: "Incorrect API key provided: sk-secret-value"
+            }
+          }
+        };
+        throw error;
+      })
+    });
+
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { metadata: {} },
+      store: {
+        getKey: async (provider) => (provider === "openai" ? "sk-secret-value" : null),
+        getSettings: async () => ({ provider: "openai", model: "gpt-4o-mini" })
+      },
+      runId: "provider-error"
+    });
+
+    expect(out.metadata.llm).toMatchObject({
+      used: false,
+      fallbackReason: "invalid_api_key",
+      fallbackStatus: 401
+    });
+    expect(out.metadata.llm.fallbackDetail).toContain("sk-••••");
+    expect(out.metadata.llm.fallbackDetail).not.toContain("sk-secret-value");
+  });
+
+  it("does not carry a configured model onto a fallback provider", async () => {
+    const urls = [];
+    const llm = createLlm({
+      http: mockHttp(({ url }) => {
+        urls.push(url);
+        return {
+          data: {
+            candidates: [{ content: { parts: [{ text: "{\"hints\":[\"use roles\"]}" }] } }],
+            usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
+          }
+        };
+      })
+    });
+
+    const out = await llm.enrichAgent({
+      agent: "automationQa",
+      template: { metadata: {} },
+      store: {
+        getKey: async (provider) => (provider === "gemini" ? "AIza-test" : null),
+        getSettings: async () => ({ provider: "openai", model: "gpt-4o-mini" })
+      },
+      runId: "fallback-model"
+    });
+
+    expect(out.metadata.llm.provider).toBe("gemini");
+    expect(urls[0]).toContain(`/models/${DEFAULT_MODELS.gemini}:generateContent`);
+    expect(urls[0]).not.toContain("gpt-4o-mini");
+    expect(out.metadata.llm.model).toBe(DEFAULT_MODELS.gemini);
+    expect(out.llmHints).toContain("use roles");
+  });
+
+  it("ignores blank numeric env vars instead of capping spend to zero", async () => {
+    const llm = createLlm({
+      env: { ZERO_LLM_MAX_USD_PER_RUN: "", ZERO_LLM_RPM: "", ZERO_LLM_TIMEOUT_MS: "oops" },
+      http: mockHttp(() => ({
+        data: {
+          choices: [{ message: { content: "{\"extraRequirements\":[\"x\"]}" } }],
+          usage: { prompt_tokens: 1, completion_tokens: 1 }
+        }
+      }))
+    });
+
+    expect(llm.limits).toEqual({ rpm: 20, maxUsdPerRun: 0.5, timeoutMs: 8000 });
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { requirementStatements: [], metadata: {} },
+      store: { getKey: async () => "sk-test", getSettings: async () => ({ provider: "openai" }) },
+      runId: "blank-env"
+    });
+    expect(out.metadata.llm.used).toBe(true);
+  });
+
+  it("falls back to the template when the key store throws", async () => {
+    const llm = createLlm({
+      http: mockHttp(() => {
+        throw new Error("should not call provider");
+      })
+    });
+
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { requirementStatements: ["Shell must render"], metadata: {} },
+      store: {
+        getKey: async () => {
+          throw new Error("connection terminated unexpectedly");
+        },
+        getSettings: async () => null
+      },
+      runId: "store-error"
+    });
+
+    expect(out.requirementStatements).toEqual(["Shell must render"]);
+    expect(out.metadata.llm.used).toBe(false);
+    expect(out.metadata.llm.fallbackReason).toBe("store_error");
+  });
+
+  it("reports used=false when the response carries no usable enrichment", async () => {
+    const llm = createLlm({
+      http: mockHttp(() => ({
+        data: {
+          choices: [{ message: { content: "I cannot help with that." } }],
+          usage: { prompt_tokens: 5, completion_tokens: 5 }
+        }
+      }))
+    });
+
+    const out = await llm.enrichAgent({
+      agent: "ba",
+      template: { requirementStatements: ["Shell must render"], metadata: { source: "BA Agent" } },
+      store: { getKey: async () => "sk-test", getSettings: async () => ({ provider: "openai" }) },
+      runId: "unparsable"
+    });
+
+    expect(out.metadata.llm.used).toBe(false);
+    expect(out.metadata.llm.fallbackReason).toBe("unparsable_response");
+    expect(out.metadata.llm.costUsd).toBeGreaterThan(0);
+    expect(out.metadata.source).toBe("BA Agent");
   });
 
   it("redacts keys and parses fenced JSON", () => {

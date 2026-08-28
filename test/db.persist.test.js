@@ -99,4 +99,28 @@ describe("M1 durable store", () => {
 
     await pool.query("DELETE FROM qa_runs WHERE id = $1", [id]);
   });
+
+  it("upserts host-scoped agent memory and reads it back", async () => {
+    if (!pool) {
+      console.warn("Skipping agent memory persist test — no reachable DATABASE_URL / PGHOST");
+      return;
+    }
+
+    const host = `memory.example-${Date.now()}.com`;
+    await db.upsertAgentMemory(pool, {
+      tenantId: "local",
+      host,
+      agent: "ba",
+      memoryJson: { summary: "Guest checkout only", notes: ["Cart persists locally"] },
+      sourceRunId: "mem-1"
+    });
+
+    const rows = await db.getAgentMemoryByHost(pool, { tenantId: "local", host });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agent).toBe("ba");
+    expect(rows[0].memory.summary).toMatch(/Guest checkout/);
+    expect(JSON.stringify(rows[0].memory)).not.toMatch(/must-not-land/);
+
+    await pool.query("DELETE FROM agent_memory WHERE host = $1", [host]);
+  });
 });

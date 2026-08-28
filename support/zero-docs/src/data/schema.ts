@@ -3,7 +3,7 @@
  * Ground truth: packages/db/lib/schema/. Keep in lockstep with docs/v1/DATABASE.md.
  */
 
-export type SchemaGroup = 'runs' | 'projects' | 'locators' | 'providers';
+export type SchemaGroup = 'runs' | 'projects' | 'locators' | 'providers' | 'memory';
 
 export type FkKind = 'enforced' | 'logical';
 
@@ -53,7 +53,12 @@ export const SCHEMA_ASCII = `┌──────────────┐
                           │ qa_assets  │ ┌───────────┐ ┌───────────┐
                           │ (only FK)  │ │ element_  │ │ element_  │
                           └────────────┘ │ locators  │ │ logs      │
-                                         └───────────┘ └───────────┘
+                                         └───────────┘ └─────┬─────┘
+                                                             │
+                                                      ┌──────┴────────┐
+                                                      │ agent_memory  │
+                                                      │ host + tenant │
+                                                      └───────────────┘
 
 ┌─────────────────┐  ┌─────────────────┐
 │  provider_keys  │  │ agent_settings  │   keyed by user_email string
@@ -109,6 +114,14 @@ export const SCHEMA_RELATIONS: readonly SchemaRelation[] = [
     toCol: 'id',
     kind: 'logical',
     note: 'nullable TEXT, no FK',
+  },
+  {
+    from: 'agent_memory',
+    fromCol: 'source_run_id',
+    to: 'qa_runs',
+    toCol: 'id',
+    kind: 'logical',
+    note: 'nullable TEXT, no FK — last writer run',
   },
 ];
 
@@ -265,6 +278,25 @@ export const SCHEMA_TABLES: readonly SchemaTable[] = [
       { name: 'updated_at', type: 'TIMESTAMPTZ', notNull: true, def: 'NOW()' },
     ],
   },
+  {
+    name: 'agent_memory',
+    group: 'memory',
+    init: 'initAgentMemoryTables',
+    purpose:
+      'Host-scoped agentic memory. One JSON blob per tenant+host+agent. Recalled on later runs; classification keys are not stored.',
+    unique: ['(tenant_id, host, agent)'],
+    indexes: ['idx_agent_memory_host(host)', 'idx_agent_memory_tenant_host(tenant_id, host)'],
+    columns: [
+      { name: 'id', type: 'BIGSERIAL', pk: true },
+      { name: 'tenant_id', type: 'TEXT', notNull: true, def: "'local'" },
+      { name: 'host', type: 'TEXT', notNull: true },
+      { name: 'agent', type: 'TEXT', notNull: true, note: 'ba | manualQa | automationQa | manager | execution' },
+      { name: 'memory_json', type: 'JSONB', notNull: true },
+      { name: 'source_run_id', type: 'TEXT', note: 'logical → qa_runs.id' },
+      { name: 'created_at', type: 'TIMESTAMPTZ', notNull: true, def: 'NOW()' },
+      { name: 'updated_at', type: 'TIMESTAMPTZ', notNull: true, def: 'NOW()' },
+    ],
+  },
 ];
 
 export const SCHEMA_GROUPS: ReadonlyArray<{ id: SchemaGroup; label: string }> = [
@@ -272,6 +304,7 @@ export const SCHEMA_GROUPS: ReadonlyArray<{ id: SchemaGroup; label: string }> = 
   { id: 'projects', label: 'Projects' },
   { id: 'locators', label: 'Locators' },
   { id: 'providers', label: 'LLM settings' },
+  { id: 'memory', label: 'Agent memory' },
 ];
 
 export const SCHEMA_ASSETS: ReadonlyArray<{ type: string; name: string; when: string }> = [

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AppShell from './layouts/AppShell';
 import DashboardView from './views/DashboardView';
 import RunsListView from './views/RunsListView';
@@ -8,17 +8,21 @@ import LocatorsView from './views/LocatorsView';
 import ApiKeysView from './views/ApiKeysView';
 import AgentsView from './views/AgentsView';
 import IntegrationsView from './views/IntegrationsView';
+import MarketingHomeView from './views/MarketingHomeView';
 import { apiUrl } from './apiBase';
 import { mergeRunStreamState } from './data/runStream';
 import { runElapsedMs, formatDuration } from './lib/runProgress';
 import { isLiveRunStatus, isTerminalRunStatus } from './lib/runControl';
 import { useRunStream } from './data/useRunStream';
+import { currentRoute, pathForRoute, routeForPath } from './lib/routes';
 import './App.scss';
 
 /* Topbar config per view */
 function getTopbarProps(view, run, streamTransport, clockTick = 0) {
   void clockTick;
   switch (view) {
+    case 'home':
+      return { title: 'Home' };
     case 'dashboard':
       return { title: 'Dashboard', statusBadge: 'System Live' };
     case 'runs':
@@ -62,12 +66,17 @@ function getTopbarProps(view, run, streamTransport, clockTick = 0) {
 }
 
 export default function App() {
-  const [view, setView] = useState('dashboard');
-  const [activeRunId, setActiveRunId] = useState(null);
+  const [route, setRoute] = useState(currentRoute);
   const [activeRun, setActiveRun] = useState(null);
   const [runs, setRuns] = useState([]);
   const [runsLoading, setRunsLoading] = useState(false);
   const [clock, setClock] = useState(0);
+
+  const { view, runId: activeRunId, tab: activeTab } = route;
+  const routeRef = useRef(route);
+  const urlSynced = useRef(false);
+  // Tab auto-selection replaces the entry so back/forward only walk operator clicks.
+  const historyMode = useRef('push');
 
   useEffect(() => {
     if (view !== 'run-detail' || !isLiveRunStatus(activeRun?.status)) return undefined;
@@ -75,9 +84,46 @@ export default function App() {
     return () => clearInterval(t);
   }, [view, activeRun?.status, activeRunId]);
 
-  const navigate = useCallback((to, runId = null) => {
-    setView(to);
-    if (runId !== null) { setActiveRunId(runId); setActiveRun(null); }
+  const navigate = useCallback((to, runId = null, tab = null) => {
+    setRoute((prev) => ({
+      view: to,
+      runId: runId !== null ? runId : prev.runId,
+      tab: to === 'run-detail' ? tab : null
+    }));
+    if (runId !== null) setActiveRun(null);
+  }, []);
+
+  const selectRunTab = useCallback((tab, { replace = false } = {}) => {
+    setRoute((prev) => {
+      if (prev.view !== 'run-detail' || prev.tab === tab) return prev;
+      if (replace) historyMode.current = 'replace';
+      return { ...prev, tab };
+    });
+  }, []);
+
+  // Mirror the active view in the address bar so runs are linkable and the
+  // browser's back/forward buttons walk the same path the operator clicked.
+  useEffect(() => {
+    routeRef.current = route;
+    const target = pathForRoute(route.view, route.runId, route.tab);
+    // The first sync only canonicalises an unknown entry path — no new entry.
+    const mode = urlSynced.current ? historyMode.current : 'replace';
+    historyMode.current = 'push';
+    urlSynced.current = true;
+    if (window.location.pathname === target) return;
+    window.history[mode === 'replace' ? 'replaceState' : 'pushState'](route, '', target);
+  }, [route]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const next = routeForPath(window.location.pathname);
+      const prev = routeRef.current;
+      if (prev.view === next.view && prev.runId === next.runId && prev.tab === next.tab) return;
+      if (prev.runId !== next.runId) setActiveRun(null);
+      setRoute(next);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   const fetchRun = useCallback(async () => {
@@ -143,8 +189,6 @@ export default function App() {
       throw new Error(e.error || 'Failed to start pipeline');
     }
     const { runId: id } = await res.json();
-    setActiveRunId(id);
-    setActiveRun(null);
     navigate('run-detail', id);
     fetchRuns();
   };
@@ -181,13 +225,19 @@ export default function App() {
   };
 
   const openRun = useCallback((runId) => {
-    setActiveRunId(runId);
-    setActiveRun(null);
-    setView('run-detail');
-  }, []);
+    navigate('run-detail', runId);
+  }, [navigate]);
 
   const renderView = () => {
     switch (view) {
+      case 'home':
+        return (
+          <MarketingHomeView
+            onNewRun={() => navigate('new-run')}
+            onDashboard={() => navigate('dashboard')}
+            onNavigate={navigate}
+          />
+        );
       case 'dashboard':
         return (
           <DashboardView
@@ -195,7 +245,6 @@ export default function App() {
             loading={runsLoading}
             onOpenRun={openRun}
             onNewRun={() => navigate('new-run')}
-            onNavigate={navigate}
             onStopRun={handleStopRun}
           />
         );
@@ -204,7 +253,18 @@ export default function App() {
       case 'new-run':
         return <NewRunView onSubmit={handleStartRun} />;
       case 'run-detail':
-        return <RunDetailView run={activeRun} runId={activeRunId} onRerunFailed={handleRerunFailed} onStopRun={handleStopRun} onBack={() => navigate('runs')} streamTransport={streamTransport} />;
+        return (
+          <RunDetailView
+            run={activeRun}
+            runId={activeRunId}
+            activeTab={activeTab}
+            onTabChange={selectRunTab}
+            onRerunFailed={handleRerunFailed}
+            onStopRun={handleStopRun}
+            onBack={() => navigate('runs')}
+            streamTransport={streamTransport}
+          />
+        );
       case 'locators':
         return <LocatorsView />;
       case 'apikeys':

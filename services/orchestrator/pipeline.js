@@ -158,6 +158,148 @@ function inferDomainFallbackProfile(ottUrl, requestedProfile) {
   return inferProfile(ottUrl, requestedProfile);
 }
 
+function evidenceText(value) {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object") return "";
+  const description =
+    value.description ||
+    value.message ||
+    value.name ||
+    value.title ||
+    value.scenario ||
+    value.area ||
+    value.feature ||
+    value.module ||
+    value.type ||
+    value.level;
+  if (!description) return "";
+  const id = value.id ? `${value.id}: ` : "";
+  return `${id}${description}`.trim();
+}
+
+function uniqueEvidence(values, limit = 25) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values.flat(Infinity)) {
+    const text = evidenceText(value);
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
+function labelToRequirement(label, subject) {
+  const text = String(label || "").trim().replace(/\.$/, "");
+  if (!text) return "";
+  if (/\bmust\b|\bshould\b/i.test(text)) return `${text}.`;
+  return `${text} must work correctly on ${subject}.`;
+}
+
+/**
+ * Second evidence tier: a thin crawl still exposes nav labels, test areas, and
+ * a BRD skeleton, which describe the target site far better than a channel
+ * template does.
+ */
+function analyzerStructureStatements({ insights, brdDocument, suggestedTestAreas, subject }) {
+  const testAreaLabels = (suggestedTestAreas || []).flatMap((entry) => {
+    if (typeof entry === "string") return [entry];
+    const area = entry?.area;
+    if (!area) return [];
+    const tests = Array.isArray(entry.tests) ? entry.tests : [];
+    return tests.length ? [`${area} must cover ${tests.join(", ")}`] : [area];
+  });
+
+  return uniqueEvidence([
+    (insights.keyFunctionalities || []).map((item) => labelToRequirement(evidenceText(item), subject)),
+    (insights.criticalPaths || []).map((path) => labelToRequirement(path, subject)),
+    testAreaLabels.map((label) => labelToRequirement(label, subject)),
+    (brdDocument?.testStrategy?.testTypes || []).map((entry) =>
+      labelToRequirement(`${evidenceText(entry)} testing`, subject)
+    ),
+    (brdDocument?.projectScope?.inScope || []).map((item) => labelToRequirement(item, subject)),
+    (insights.topNavLabels || []).map((label) =>
+      labelToRequirement(`The ${label} destination`, subject)
+    ),
+    brdDocument?.nonFunctionalRequirements || []
+  ]);
+}
+
+function buildRequirementEvidence({
+  profileKey,
+  insights,
+  suggestedRequirements,
+  suggestedTestAreas,
+  brdDocument,
+  domainClassification,
+  detectedSubDomain,
+  subject,
+  notes
+}) {
+  const subDomainAreas = domainClassification?.testPriorities || [];
+  const subDomainFlows = domainClassification?.criticalFlows || [];
+  const brdRequirements = (brdDocument?.functionalRequirements || []).filter((requirement) => requirement.testable);
+  const evidenceDriven = uniqueEvidence([
+    detectedSubDomain
+      ? subDomainAreas.map((area) => `${area} must work correctly for the ${detectedSubDomain} journey.`)
+      : [],
+    detectedSubDomain
+      ? subDomainFlows.map((flow) => `${flow} must complete end-to-end without blocking errors.`)
+      : [],
+    suggestedRequirements,
+    brdRequirements,
+    notes
+  ]);
+
+  if (evidenceDriven.length) {
+    return { statements: evidenceDriven, source: "analyzer-and-user-evidence" };
+  }
+
+  const structural = analyzerStructureStatements({ insights, brdDocument, suggestedTestAreas, subject });
+  if (structural.length) {
+    return { statements: structural, source: "analyzer-structure-evidence" };
+  }
+
+  const fallbackCatalog = profileScenarioCatalog[profileKey] || profileScenarioCatalog.default;
+  return {
+    statements: uniqueEvidence(
+      fallbackCatalog.map((item) => `${item.scenario}: ${item.expected}`)
+    ),
+    source: "profile-template-fallback"
+  };
+}
+
+function countCrawledElements(allElements) {
+  if (Array.isArray(allElements)) return allElements.length;
+  if (allElements && typeof allElements === "object") {
+    return Object.values(allElements).reduce(
+      (total, group) => total + (Array.isArray(group) ? group.length : 0),
+      0
+    );
+  }
+  return 0;
+}
+
+function summarizeEvidence({ hasUrlAnalysis, insights, allElements, userFlows, observations }) {
+  const stats = observations.find((observation) => observation.type === "summary")?.stats || {};
+  const elementCount = countCrawledElements(allElements) || Number(stats.elementsFound || 0);
+  const formCount = (insights.formAnalysis || []).length || Number(stats.formsFound || 0);
+  const flowCount = userFlows.length || Number(stats.userFlowsDetected || 0);
+  const pagesCrawled = Number(insights.pagesCrawled || stats.pagesCrawled || 0);
+  const navLabelCount = (insights.topNavLabels || []).length;
+
+  let level = "none";
+  if (hasUrlAnalysis) {
+    const rich = elementCount >= 10 || formCount > 0 || flowCount > 0 || navLabelCount > 0;
+    level = rich ? "analyzer-rich" : "analyzer-thin";
+  }
+
+  return { level, pagesCrawled, elementCount, formCount, flowCount, navLabelCount };
+}
+
 function parseTcFile(raw) {
   const lines = safeList(raw);
   const parsed = [];
@@ -303,7 +445,7 @@ function consolidateRequirements(input) {
   const testCaseRowsStructured = extraction.structured || [];
 
   // Check for URL Analysis insights
-  const hasUrlAnalysis = input._webAnalysisInsights || input._brdDocument;
+  const hasUrlAnalysis = Boolean(input._webAnalysisInsights || input._brdDocument);
   const brdDocument = input._brdDocument || null;
   const urlAnalysisInsights = input._webAnalysisInsights || {};
   const suggestedRequirements = input._suggestedRequirements || [];
@@ -355,105 +497,83 @@ function consolidateRequirements(input) {
         ? "url-analysis-auto-generated"
         : "user-input-only";
 
-  // Generate domain-appropriate requirement statements
-  let requirementStatements = [];
-  
-  if (profileKey === 'retail_store') {
-    requirementStatements = [
-      "All store branch locations must be displayed with complete address and contact information.",
-      "Store operating hours must be clearly visible for each branch.",
-      "Product categories must be navigable and display relevant items.",
-      "Contact information must be accessible from all pages.",
-      "Navigation menu must provide clear access to all main sections.",
-      "Images and media must load correctly across all pages."
-    ];
-  } else if (profileKey === 'ecommerce') {
-    requirementStatements = [
-      "Product search must return relevant results within 3 seconds.",
-      "Product listing pages must display price, image, and availability.",
-      "Add to Cart functionality must update cart count immediately.",
-      "Cart must persist items across page navigation.",
-      "Checkout flow must be completable without errors.",
-      "User authentication must work for login and registration."
-    ];
-  } else if (profileKey === 'healthcare') {
-    requirementStatements = [
-      "Product information must be accurate and accessible.",
-      "Contact forms must accept user input and confirm submission.",
-      "Adverse event reporting mechanism must be accessible.",
-      "Company information must be available and accurate.",
-      "Navigation must provide access to all product and corporate sections."
-    ];
-  } else if (profileKey === 'banking') {
-    requirementStatements = [
-      "Login must be secure with proper credential handling.",
-      "All pages must be served over HTTPS.",
-      "Session management must handle timeout appropriately.",
-      "Account information must display accurately.",
-      "Transaction forms must validate input properly."
-    ];
-  } else {
-    // Default/OTT requirements
-    requirementStatements = [
-      "Application shell must render with primary navigation and discoverable entry points.",
-      "Content must be accessible through navigation and search.",
-      "Forms must accept user input and provide feedback.",
-      "Images and media must load correctly.",
-      "All interactive elements must respond to user actions."
-    ];
-  }
-
-  // Sub-domain requirements (Banking → Insurance) are more specific than the
-  // broad domain templates above, so they lead.
-  const subDomainAreas = (domainClassification && domainClassification.testPriorities) || [];
-  const subDomainFlows = (domainClassification && domainClassification.criticalFlows) || [];
-  if (detectedSubDomain && (subDomainAreas.length || subDomainFlows.length)) {
-    requirementStatements = [
-      ...subDomainAreas.map((area) => `${area} must work correctly for a ${detectedSubDomain} journey.`),
-      ...subDomainFlows.map((flow) => `${flow} must complete end-to-end without blocking errors.`),
-      ...requirementStatements
-    ];
-  }
-
-  // Add suggested requirements from URL Analysis
-  if (suggestedRequirements.length > 0) {
-    requirementStatements = [
-      ...requirementStatements,
-      ...suggestedRequirements.slice(0, 10)
-    ];
-  }
-
-  // Add requirements from BRD document
-  if (brdDocument && brdDocument.functionalRequirements) {
-    const brdReqs = brdDocument.functionalRequirements
-      .filter(r => r.testable)
-      .slice(0, 10)
-      .map(r => `${r.id}: ${r.description}`);
-    requirementStatements = [...requirementStatements, ...brdReqs];
-  }
-
-  // Get user journeys from URL analysis or profile
-  let enhancedJourneys = [...(profile.journeys || [])];
-  if (urlAnalysisInsights.userJourneys && urlAnalysisInsights.userJourneys.length > 0) {
-    enhancedJourneys = urlAnalysisInsights.userJourneys; // Prefer URL analysis journeys
-  }
-  if (userFlows.length > 0) {
-    const flowNames = userFlows.map(f => f.name);
-    enhancedJourneys = [...new Set([...flowNames, ...enhancedJourneys])];
-  }
-
-  // Determine target domain and audience from URL analysis
+  // Runtime context comes from analyzer/BRD evidence. Profile data is fallback only.
+  const hostname = hostFromUrl(input.ottUrl);
   const targetDomain = detectedWebsiteType || profileKey.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-  let audience = "Website visitors";
-  if (profileKey === 'ecommerce') audience = "Online shoppers";
-  else if (profileKey === 'retail_store') audience = "Retail customers";
-  else if (profileKey === 'healthcare') audience = "Patients and healthcare professionals";
-  else if (profileKey === 'banking') audience = "Banking customers";
-  else if (profileKey === 'food_delivery') audience = "Food ordering customers";
-  else if (profileKey === 'travel') audience = "Travelers";
-  else if (profileKey === 'education') audience = "Students and learners";
-  else if (profileKey === 'news_media') audience = "Readers and viewers";
-  else if (profileKey.includes('ott') || profile.name.includes('OTT')) audience = "Streaming users";
+  const subject = hostname || targetDomain;
+  const evidence = summarizeEvidence({
+    hasUrlAnalysis,
+    insights: urlAnalysisInsights,
+    allElements: input._allElements,
+    userFlows,
+    observations
+  });
+
+  const requirementEvidence = buildRequirementEvidence({
+    profileKey,
+    insights: urlAnalysisInsights,
+    suggestedRequirements,
+    suggestedTestAreas,
+    brdDocument,
+    domainClassification,
+    detectedSubDomain,
+    subject,
+    notes
+  });
+  const requirementStatements = requirementEvidence.statements;
+
+  const discoveredModules = uniqueEvidence([
+    suggestedTestAreas,
+    autoGeneratedTestCases.map((testCase) => testCase.module),
+    userFlows.map((flow) => flow.name),
+    urlAnalysisInsights.topNavLabels
+  ]);
+  const modules = discoveredModules.length ? discoveredModules : profile.modules;
+
+  // A generic channel profile would otherwise describe an OTT playback journey
+  // for any site, so profile journeys are used only when the profile matched.
+  const discoveredJourneys = uniqueEvidence([
+    userFlows.map((flow) => flow.name),
+    urlAnalysisInsights.criticalPaths,
+    urlAnalysisInsights.userJourneys,
+    urlAnalysisInsights.topNavLabels
+  ]);
+  const profileJourneys = hasUrlAnalysis && profileKey === "default" ? [] : profile.journeys || [];
+  const enhancedJourneys = discoveredJourneys.length
+    ? discoveredJourneys
+    : (profileJourneys.length ? [...profileJourneys] : modules);
+
+  const audience =
+    urlAnalysisInsights.targetAudience ||
+    brdDocument?.executiveSummary?.targetAudience ||
+    `${detectedSubDomain || targetDomain} users`;
+  const assumptions = uniqueEvidence([
+    brdDocument?.projectScope?.assumptions || [],
+    `Target host ${hostname || "is unresolved"} is reachable when execution starts.`,
+    input.login?.enabled
+      ? "Runtime credentials are available for authenticated flows."
+      : "Authenticated flows may be limited because runtime credentials were not supplied.",
+    input.figmaUrl ? "The supplied Figma reference represents the intended experience." : null,
+    evidence.level === "analyzer-thin"
+      ? `The crawl of ${subject} returned ${evidence.elementCount} element(s) across ${evidence.pagesCrawled} page(s), so this plan describes intent rather than discovered behavior.`
+      : null
+  ]);
+  const risks = uniqueEvidence([
+    evidence.level === "analyzer-thin"
+      ? `Crawl evidence for ${subject} is thin (${evidence.elementCount} elements, ${evidence.formCount} forms, ${evidence.flowCount} flows). Client-rendered content or bot protection likely blocked discovery, so generated cases may not match the live UI.`
+      : null,
+    (brdDocument?.riskAssessment || []).map((risk) => {
+      const description = evidenceText(risk);
+      return risk.mitigation ? `${description} Mitigation: ${risk.mitigation}` : description;
+    }),
+    brdDocument?.projectScope?.constraints || [],
+    brdDocument?.warnings || [],
+    observations.filter((observation) => observation.type === "warning"),
+    extraction.warnings
+  ]);
+  const criticalFlowCount = userFlows.filter((flow) =>
+    ["critical", "high", "p0", "p1"].includes(String(flow.priority || "").toLowerCase())
+  ).length;
 
   return {
     metadata: {
@@ -470,20 +590,28 @@ function consolidateRequirements(input) {
       sourceMode,
       sourceCaseCount: uploadedCases.length,
       hasUrlAnalysis,
-      autoGeneratedTestCaseCount: autoGeneratedTestCases.length
+      autoGeneratedTestCaseCount: autoGeneratedTestCases.length,
+      valueMode: requirementEvidence.source,
+      classificationSource:
+        urlAnalysisInsights.subDomainSource ||
+        domainClassification?.source ||
+        (hasUrlAnalysis ? "analyzer" : "profile-fallback"),
+      evidence
     },
     testCaseRowsStructured,
     channelContext: {
-      hostname: hostFromUrl(input.ottUrl),
+      hostname,
       targetDomain,
       targetSubDomain: detectedSubDomain,
       audience,
-      releaseIntent: "Regression + user critical paths",
+      releaseIntent: criticalFlowCount
+        ? `Validate ${criticalFlowCount} discovered critical/high-priority flow(s)`
+        : `Validate ${enhancedJourneys.length} discovered or configured user journey(s)`,
       loginCredentialsProvided: Boolean(input.login && input.login.enabled)
     },
-    modules: profile.modules,
+    modules,
     userJourneys: enhancedJourneys,
-    requirementStatements: [...new Set(requirementStatements)],
+    requirementStatements,
     qualityStandard: {
       mode: "pro",
       manualCaseTemplate: ["id", "module", "scenario", "priority", "preconditions", "steps", "expectedResult", "type"]
@@ -492,18 +620,8 @@ function consolidateRequirements(input) {
     testCaseSeedFromUpload: uploadedCases,
     ingestionWarnings: extraction.warnings,
     userNotes: notes,
-    assumptions: [
-      "Given URL is a valid pre-prod or prod-like environment.",
-      "If figma is unavailable, uploaded test case file is accepted as baseline behavior reference.",
-      "No credential secrets are provided in this tool; login walls may remain partial in automation.",
-      ...(hasUrlAnalysis ? ["URL Analysis provides comprehensive element discovery for test coverage."] : [])
-    ],
-    risks: [
-      "Dynamic content rails can shift selectors between runs.",
-      "Regional variants may alter CTA labels.",
-      "Login gates may require OTP/captcha not automatable in generic flow.",
-      ...(observations.filter(o => o.type === 'warning').map(o => o.message) || [])
-    ],
+    assumptions,
+    risks,
     // URL Analysis enhanced data
     urlAnalysis: hasUrlAnalysis ? {
       insights: urlAnalysisInsights,
@@ -523,8 +641,28 @@ function generateManualCases(requirements) {
   const uploadedSeeds = requirements.testCaseSeedFromUpload || [];
   const assertions = requirements.assertionInputs || [];
   const journeys = requirements.userJourneys || [];
+  const modules = requirements.modules || [];
+  const useEvidenceCatalog =
+    Boolean(requirements.metadata.hasUrlAnalysis) &&
+    requirements.metadata.valueMode !== "profile-template-fallback";
 
-  const baseCatalog = profileScenarioCatalog[profileKey] || [];
+  const baseCatalog = useEvidenceCatalog
+    ? (requirements.requirementStatements || []).map((statement, index) => {
+      const module =
+        modules.find((candidate) =>
+          String(statement).toLowerCase().includes(String(candidate).toLowerCase())
+        ) ||
+        modules[index % Math.max(modules.length, 1)] ||
+        "Site Requirement";
+      return {
+        module,
+        scenario: String(statement).slice(0, 140),
+        expected: String(statement),
+        priority: "High",
+        type: "Evidence"
+      };
+    })
+    : (profileScenarioCatalog[profileKey] || []);
   const testCases = baseCatalog.map((item, index) => ({
     id: `TC-${String(profileKey).toUpperCase()}-${String(index + 1).padStart(3, "0")}`,
     module: item.module,
@@ -532,15 +670,21 @@ function generateManualCases(requirements) {
     title: `${profile}: ${item.module} - ${item.scenario}`,
     type: item.type,
     priority: item.priority,
-    preconditions: "Environment is stable, user/profile prerequisites are met, and content is available",
-    testData: "Use sanctioned QA account and deterministic content fixtures",
+    preconditions: useEvidenceCatalog
+      ? `The ${requirements.channelContext?.hostname || "target"} page is reachable`
+      : "Environment is stable, user/profile prerequisites are met, and content is available",
+    testData: useEvidenceCatalog
+      ? "Use only data and controls discovered during the run"
+      : "Use sanctioned QA account and deterministic content fixtures",
     steps: [
       `Navigate to ${item.module} workflow entry point`,
       `Execute scenario: ${item.scenario}`,
       "Capture evidence and compare with expected behavior"
     ],
     expectedResult: item.expected,
-    traceability: "Mapped from BA requirement + channel sanity catalog"
+    traceability: useEvidenceCatalog
+      ? `BA requirement (${requirements.metadata.valueMode})`
+      : "Mapped from BA requirement + channel sanity catalog"
   }));
 
   journeys.forEach((journey, i) => {
@@ -682,88 +826,80 @@ function generateCasesFromUploadedOnly(requirements) {
 }
 
 /**
+ * Analyzer cases arrive in two shapes: domain cases use plain-string steps,
+ * while the evidence-backed cases use `{ action, target, description }` step
+ * objects and an `expectedResults` array. Downstream reports, script builders
+ * and the UI all assume strings, so flatten to that here.
+ */
+function flattenStep(step) {
+  if (typeof step === "string") return step.trim();
+  if (!step || typeof step !== "object") return "";
+
+  const detail = step.description || step.target || step.action || "";
+  const action = step.action && step.description ? `${step.action}: ` : "";
+  const expected = step.expectedBehavior ? ` → ${step.expectedBehavior}` : "";
+  return `${action}${detail}${expected}`.trim();
+}
+
+function flattenText(value, fallback) {
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          // Form test data rows: { field, value, validation }
+          if (item.field) return `${item.field}=${item.value ?? ""}`.trim();
+          return item.description || item.name || "";
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join("; ") : fallback;
+  }
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return fallback;
+}
+
+function normalizeAnalyzerCase(tc, index, profile) {
+  const steps = (Array.isArray(tc.steps) ? tc.steps : [tc.steps])
+    .map(flattenStep)
+    .filter(Boolean);
+
+  return {
+    id: tc.id || `TC-AUTO-${String(index + 1).padStart(3, '0')}`,
+    module: tc.module || 'Auto-Discovered',
+    scenario: tc.scenario || tc.title,
+    title: tc.title || `${profile}: Auto-discovered test ${index + 1}`,
+    type: tc.type || 'Auto',
+    priority: tc.priority || 'High',
+    preconditions: flattenText(tc.preconditions, 'Website is accessible, browser is ready'),
+    testData: flattenText(tc.testData, 'Standard test data'),
+    steps: steps.length ? steps : ['Execute test scenario'],
+    expectedResult: flattenText(
+      tc.expectedResult || tc.expectedResults,
+      'Test passes without errors'
+    ),
+    traceability: tc.traceability || 'Generated by URL Analyzer Agent'
+  };
+}
+
+/**
  * Generate test cases from URL Analysis results
  * Uses the auto-generated test cases from the URL Analyzer agent
  */
 function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
   const profile = requirements.metadata?.profile || webAnalysis.siteOverview?.title || "Website";
   const majorFunctionalCases = webAnalysis.majorFunctionalCases || [];
-  const autoTestCases = majorFunctionalCases.length
-    ? majorFunctionalCases
-    : (webAnalysis.autoGeneratedTestCases || []);
+  const mergedCases = webAnalysis.autoGeneratedTestCases || [];
+  // The merged set already contains the domain cases and adds the ones backed
+  // by observed forms, fields and page structure, so it is the richer source.
+  const autoTestCases = mergedCases.length ? mergedCases : majorFunctionalCases;
   const userFlows = webAnalysis.userFlows || [];
   const brd = webAnalysis.brdDocument || {};
-  
-  // Combine auto-generated test cases with flow-based test cases
-  const testCases = [];
-  
-  // Add auto-generated test cases from URL Analyzer
-  autoTestCases.forEach((tc, i) => {
-    testCases.push({
-      id: tc.id || `TC-AUTO-${String(i + 1).padStart(3, '0')}`,
-      module: tc.module || 'Auto-Discovered',
-      scenario: tc.scenario || tc.title,
-      title: tc.title || `${profile}: Auto-discovered test ${i + 1}`,
-      type: tc.type || 'Auto',
-      priority: tc.priority || 'High',
-      preconditions: tc.preconditions || 'Website is accessible, browser is ready',
-      testData: tc.testData || 'Standard test data',
-      steps: Array.isArray(tc.steps) ? tc.steps : [tc.steps || 'Execute test scenario'],
-      expectedResult: tc.expectedResult || 'Test passes without errors',
-      traceability: tc.traceability || 'Generated by URL Analyzer Agent'
-    });
-  });
 
-  // Add test cases from BRD functional requirements if not already covered
-  if (brd.functionalRequirements) {
-    const existingScenarios = new Set(testCases.map(tc => tc.scenario?.toLowerCase()));
-    
-    brd.functionalRequirements.forEach((req, i) => {
-      if (req.testable && !existingScenarios.has(req.feature?.toLowerCase())) {
-        testCases.push({
-          id: `TC-BRD-${String(i + 1).padStart(3, '0')}`,
-          module: req.feature || 'BRD Requirement',
-          scenario: `Verify ${req.feature || 'Requirement'}`,
-          title: `${profile}: ${req.feature} - BRD Verification`,
-          type: 'BRD',
-          priority: req.priority || 'High',
-          preconditions: 'As specified in BRD document',
-          testData: 'As per requirement specification',
-          steps: req.acceptanceCriteria ? req.acceptanceCriteria.map((ac, j) => `Step ${j + 1}: Verify - ${ac}`) : [`Verify: ${req.description}`],
-          expectedResult: req.acceptanceCriteria ? req.acceptanceCriteria.join('; ') : req.description,
-          traceability: `BRD Requirement: ${req.id}`
-        });
-      }
-    });
-  }
-
-  // Add test cases for discovered features not yet covered
-  if (webAnalysis.features) {
-    const coveredFeatures = new Set(testCases.map(tc => tc.module?.toLowerCase()));
-    
-    webAnalysis.features.forEach((feature, i) => {
-      if (!coveredFeatures.has(feature.name?.toLowerCase())) {
-        testCases.push({
-          id: `TC-FEAT-${String(i + 1).padStart(3, '0')}`,
-          module: feature.name,
-          scenario: `Verify ${feature.name} functionality`,
-          title: `${profile}: ${feature.name} - Feature Verification`,
-          type: feature.type === 'core' ? 'Sanity' : 'Functional',
-          priority: feature.type === 'core' ? 'Critical' : feature.priority || 'High',
-          preconditions: 'Feature is accessible on the website',
-          testData: 'Standard test data',
-          steps: [
-            `Navigate to ${feature.name} area`,
-            `Verify ${feature.name} is visible`,
-            `Interact with ${feature.name}`,
-            `Verify expected behavior: ${feature.description || 'Feature works as expected'}`
-          ],
-          expectedResult: feature.description || `${feature.name} functions correctly`,
-          traceability: 'Generated from URL Analysis - Feature Discovery'
-        });
-      }
-    });
-  }
+  // Analyzer cases are the single source of truth for URL-only runs. Do not
+  // append generic BRD/feature cases here after classification has resolved.
+  const testCases = autoTestCases.map((tc, i) => normalizeAnalyzerCase(tc, i, profile));
 
   // Calculate quality metrics
   const structuredRate = testCases.length
@@ -779,6 +915,7 @@ function generateCasesFromUrlAnalysis(webAnalysis, requirements) {
       subDomain: webAnalysis.domainClassification?.subDomain || requirements.metadata?.subDomain || null,
       professionalMode: true,
       mode: "url_analysis",
+      caseSource: mergedCases.length ? "autoGeneratedTestCases" : "majorFunctionalCases",
       majorFunctionalCount: majorFunctionalCases.length,
       totalCases: testCases.length,
       qualityGate: {
@@ -858,8 +995,8 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
   const failures = tests.filter((t) => t.status === "failed");
   const skipped = tests.filter((t) => t.status === "skipped");
   const passed = tests.filter((t) => t.status === "passed");
-  const totalCases = (manualCases.testCases || []).length;
   const totalExecuted = tests.length;
+  const totalCases = totalExecuted || (manualCases.testCases || []).length;
   const passRate = executionReport.totals.passRate || "0%";
   const profileKey = String(requirements?.metadata?.profileKey || "default").toLowerCase();
   const ottProfileKeys = new Set(["gray", "tvnz", "aha", "hotstar", "primevideo", "default"]);
@@ -868,6 +1005,9 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
 
   const rootCauses = [];
   const errorMessages = new Set(failures.map((f) => String(f.error).slice(0, 80)));
+  if (failures.some((t) => /waitFor|Timeout \d+ms exceeded/i.test(String(t.error || "")))) {
+    rootCauses.push("Flow execution: locators timed out waiting for visible elements; crawl selectors may not match the live page");
+  }
   if (errorMessages.has("") || failures.some((t) => String(t.error).includes("not visible"))) {
     rootCauses.push("Elements not found: selectors may not match current app layout or content");
   }

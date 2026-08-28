@@ -13,7 +13,7 @@ Ground truth:
 
 | Source | Role |
 |--------|------|
-| `support/zero-docs` | Target, sequence, workspaces, M1–M7 / S0–S7 / Q1–Q4 done |
+| `support/zero-docs` | Target, sequence, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, U1–U2 done |
 | `AGENTS.md` | Layout, pipeline, conventions |
 | `support/agent-workflow/progress.json` | Live status (`current`, `track`) |
 | `prompts/packaging.md` | North-star for S3–S7 |
@@ -98,7 +98,7 @@ Prompt: `prompts/ui-ux.md` · Specs: `milestones/U1-professional-ui-ux.md`, `mil
 7. **S6** Azure / Vercel + GATE-9 — done · skill `/zero-cloud`
 8. **S7** Web image split + `/api` prefix drop — done · skill `/zero-web`
 
-Capability and packaging are complete. The product track is active at `Q5`. `U1`/`U2` UX probes are green. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
+Capability and packaging are complete. The product track is active at `Q5`. `U1`/`U2` UX probes are green. Runtime follow-ons (not new milestones): host-scoped `agent_memory`, split `llm/` modules, pathname SPA routes, Run Detail flow diagram. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
 
 Each workspace has three names: **Folder** · **npm package** · **Cursor skill**. See `prompts/repos/README.md`.
 

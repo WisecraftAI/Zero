@@ -18,7 +18,7 @@ function fail(area, test, detail = '') {
 }
 
 async function clickNav(page, label) {
-  const btn = page.locator('.sidebar-nav .nav-item, .sidebar-cta-wrap .nav-item, .sidebar-foot .nav-item')
+  const btn = page.locator('.sidebar-nav .nav-item, .sidebar-foot .nav-item')
     .filter({ hasText: label })
     .first();
   await btn.click({ timeout: 8000 });

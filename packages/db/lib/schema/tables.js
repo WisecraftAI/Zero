@@ -114,6 +114,20 @@ const TABLE_AGENT_SETTINGS = `
   );
 `;
 
+const TABLE_AGENT_MEMORY = `
+  CREATE TABLE IF NOT EXISTS agent_memory (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'local',
+    host TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    memory_json JSONB NOT NULL,
+    source_run_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, host, agent)
+  );
+`;
+
 module.exports = {
   TABLE_QA_RUNS,
   TABLE_QA_ASSETS,
@@ -123,5 +137,6 @@ module.exports = {
   TABLE_ELEMENT_LOCATORS,
   TABLE_ELEMENT_LOGS,
   TABLE_PROVIDER_KEYS,
-  TABLE_AGENT_SETTINGS
+  TABLE_AGENT_SETTINGS,
+  TABLE_AGENT_MEMORY
 };

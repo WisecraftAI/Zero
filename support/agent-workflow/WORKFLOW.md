@@ -26,7 +26,7 @@ Two tracks, in order:
 
 Read in order:
 
-1. `support/zero-docs` — Target architecture, workspaces, M1–M7 / S0–S7 / Q1–Q4
+1. `support/zero-docs` — Target architecture, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, U1–U2 done
 2. `AGENTS.md` — conventions
 3. `support/agent-workflow/progress.json`
 4. If the user named a workspace → `prompts/repos/<name>.md` + `agents/repo-coder.md`

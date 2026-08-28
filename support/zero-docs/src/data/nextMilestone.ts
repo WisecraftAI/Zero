@@ -168,7 +168,7 @@ export const RELEASE_STEPS: readonly string[] = [
 ];
 
 export const OUT_OF_SCOPE: readonly string[] = [
-  'Classification caching or a new database table',
+  'Classification caching or a new classification table (host-scoped agent_memory already exists and must not store taxonomy keys)',
   'A user override or pipeline pause/resume UI',
   'A user-editable taxonomy',
   'DNS subdomain routing or per-page classification',

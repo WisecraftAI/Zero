@@ -50,6 +50,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       'The browser UI. A React 18 + Vite single-page app that lets a QA lead start a run, watch it progress, and download reports. It is pure presentation: it validates forms, calls the HTTP API, and renders run state. It never holds business rules, never sees a provider secret, and never touches artifact bytes — large files are PUT straight to presigned object-store URLs.',
     design: [
       'Container / presentational split — route views in `src/views` own data-fetching; `src/components` stay stateless and reusable.',
+      'Pathname router — `web/src/lib/routes.js` maps `/`, `/runs`, `/runs/new`, `/runs/:id` (History API, not hash).',
       'One data hook per endpoint (target `src/data/`): `useRuns`, `useRun`, `useRunStream` (EventSource), `useUpload`. No `fetch()` buried inside presentational components.',
       'Colocated styles — each view ships its own CSS/SCSS module.',
       'Graceful degradation — SSE falls back to polling after two failed reconnects; uploads retry with backoff.',
@@ -84,8 +85,8 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     ],
     humanSteps: [
       'Run `npm run client` for the Vite dev server on :5173; fetches use `VITE_API_BASE_URL` (default `http://localhost:3001`) since S7.',
-      'Edit only `web/src/**`: add a route view under `src/views`, a data hook under `src/data/`.',
-      'Rebuild the served bundle with `npm run build` → `dist/web/` (the API image serves it).',
+      'Edit only `web/src/**` (and brand assets under `web/public/`): add a route view under `src/views`, keep paths in `src/lib/routes.js`.',
+      'Rebuild the served bundle with `npm run build` → `dist/web/` (nginx `zero-web` serves it; the API does not).',
       'Never import `playwright`, `pg`, cloud SDKs, or `@zero/cloud`; never store passwords in localStorage.',
     ],
     agentSteps: AGENT_TAIL('/zero-web', 'support/agent-workflow/prompts/repos/web.md'),
@@ -135,6 +136,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       { kind: 'http', label: 'POST /runs · POST /runs/:id/commit', detail: 'Multipart start, or JSON { uploads:[...] } → presigned PUTs; commit then starts the pipeline. (S7 dropped the /api prefix.)' },
       { kind: 'http', label: 'GET /runs · /:id · /:id/assets · /:id/download', detail: 'Read run state, assets, and downloads.' },
       { kind: 'sse', label: 'GET /runs/:id/stream', detail: 'Server-sent stage events relayed from cache / Redis.' },
+      { kind: 'http', label: 'POST /runs/:id/stop · POST /runs/:id/rerun-failed', detail: 'Cooperative stop flag; re-queue failed checks.' },
       { kind: 'http', label: '/provider-keys · /agent-settings · /locators · /element-log', detail: 'Settings and locator surface; recording endpoints under /recordings.' },
     ],
     outbound: [
@@ -155,9 +157,9 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     mission:
       'The brain. A long-lived worker that consumes `runs.requested` and walks the DAG in `stageKeys`: Web Analyzer → BA → Manual QA → Automation QA → Execution → optional a11y/perf/security → Manager → Delivery. Each agent stage calls an LLM through `@zero/orchestrator/llm` when a decrypted key exists, otherwise runs deterministic templates. It fans out `execution.requested` and waits for `execution.completed`.',
     design: [
-      'DAG walker — `processRun` walks `stageKeys` in order; each stage is one file.',
-      'Strategy per agent — BA / Manual / Automation / Manager are swappable strategy modules.',
-      'LLM facade + template fallback — a missing, capped, or failing key degrades to templates, never an error.',
+      'DAG walker — `processRun` walks `stageKeys` in order; agent templates still share `pipeline.js`.',
+      'Host-scoped agentic memory — `agentMemory.js` recalls BA/Manual/Automation/Manager/execution observations for the same host; classification keys are never stored (Q5).',
+      'LLM facade + template fallback — `llm/` is split (`index`, `providers`, `enrichment`, `prompts`, `utils`); a missing, capped, or failing key degrades to templates, never an error.',
       'Idempotent writes keyed by (runId, stage) so a retry re-runs cleanly.',
     ],
     diagram: {
@@ -187,6 +189,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
           nodes: [
             { label: 'Object store', sub: 'reports · screenshots', role: 'store' },
             { label: 'qa_runs', sub: '@zero/db', role: 'store' },
+            { label: 'agent_memory', sub: 'host-scoped recall', role: 'store' },
           ],
         },
       ],
@@ -199,11 +202,12 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       { kind: 'queue', label: 'publish execution.requested', detail: 'Fan out per test-case batch with retries and caps.' },
       { kind: 'call', label: '@zero/orchestrator/llm', detail: 'Enrich BA / Manual / Automation / Manager; template fallback on error, cap, or ZERO_LLM=off.' },
       { kind: 'blob', label: 'write artifacts', detail: 'Reports and screenshots to the object store.' },
+      { kind: 'db', label: 'recall + upsert agent_memory', detail: 'Per tenant+host+agent JSON; passwords and taxonomy keys stripped.' },
       { kind: 'event', label: 'publish state.<runId>', detail: 'Stage ticks relayed to the API’s SSE stream.' },
     ],
     humanSteps: [
       'Edit the DAG in `services/orchestrator/processRun.js`; add or change one stage/agent file.',
-      'Talk to models only through `@zero/orchestrator/llm`; always keep the template path working.',
+      'Talk to models only through `@zero/orchestrator/llm`; keep the template path working; persist observations via `agentMemory.js` without classification keys.',
       'Publish `execution.requested` for browser work — never `chromium.launch()` here.',
       'Standalone: `npm run orchestrator`; full local loop: `npm run start:all`.',
     ],
@@ -367,7 +371,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
 
   db: {
     mission:
-      'The record-keeper. The only workspace that knows DDL. A Postgres pool, table names, and the run store: `qa_runs`, `qa_assets`, `element_locators`, `projects`, `provider_keys`, `agent_settings`, and friends. When `DATABASE_URL` / `PGHOST` is set it upserts; otherwise callers fall back to an in-memory Map plus `dist/artifacts/<runId>/run.json`.',
+      'The record-keeper. The only workspace that knows DDL. A Postgres pool, table names, and the run store: `qa_runs`, `qa_assets`, `element_locators`, `projects`, `provider_keys`, `agent_settings`, `agent_memory`, and friends. When `DATABASE_URL` / `PGHOST` is set it upserts; otherwise callers fall back to an in-memory Map plus `dist/artifacts/<runId>/run.json`.',
     design: [
       'Repository — callers use a small run-store API, never raw SQL.',
       'Tables via `initAllTables` + `runPendingMigrations()` on boot (`packages/db/migrations/`); a standalone migrate CLI is still future work.',
@@ -396,7 +400,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
           id: 'pg',
           label: 'Postgres',
           into: { label: 'SQL', wire: 'db' },
-          nodes: [{ label: '9 tables · qa_runs hub', sub: 'only qa_assets has a real FK', role: 'store' }],
+          nodes: [{ label: '10 tables · qa_runs hub', sub: 'only qa_assets has a real FK', role: 'store' }],
         },
       ],
     },
@@ -404,7 +408,8 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       { kind: 'fn', label: 'upsertRun() · getRunById() · listRunRows()', detail: 'qa_runs. listRunRows is tenant-filtered when tenantId is passed.' },
       { kind: 'fn', label: 'replaceAssets() · listAssetsByRunId()', detail: 'qa_assets — delete + reinsert generated files for a run.' },
       { kind: 'fn', label: 'upsertLocator() · getLocatorsByHost() · insertElementLog()', detail: 'element_locators / element_logs.' },
-      { kind: 'fn', label: 'initAllTables()', detail: 'CREATE TABLE IF NOT EXISTS for all nine tables when Postgres is configured.' },
+      { kind: 'fn', label: 'upsertAgentMemory() · getAgentMemoryByHost()', detail: 'agent_memory — host-scoped blobs; classification keys must not be stored.' },
+      { kind: 'fn', label: 'initAllTables()', detail: 'CREATE TABLE IF NOT EXISTS for all ten tables when Postgres is configured.' },
     ],
     outbound: [
       { kind: 'db', label: 'SQL → Postgres', detail: 'Upsert / select; runStore still writes dist/artifacts/<id>/run.json when the pool is down.' },
@@ -513,6 +518,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     design: [
       'Strategy — a light crawl vs a pro crawl chosen from run inputs.',
       'Isolated Chromium — separate from the executor’s job runner.',
+      'Signals — anti-bot / WAF / SPA-root detection in `lib/crawl/signals.js` feed the pro strategy.',
       'Optional — skipped entirely when a TC file or long notes already exist.',
     ],
     diagram: {

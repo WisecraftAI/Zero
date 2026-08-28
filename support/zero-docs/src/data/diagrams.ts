@@ -7,6 +7,7 @@ export const SCHEMA_ER_MERMAID = `erDiagram
   qa_runs ||--|{ qa_assets : "run_id CASCADE"
   qa_runs ||--o{ element_locators : "run_id logical"
   qa_runs ||--o{ element_logs : "run_id logical"
+  qa_runs ||--o{ agent_memory : "source_run_id logical"
 
   projects {
     text id PK
@@ -101,6 +102,17 @@ export const SCHEMA_ER_MERMAID = `erDiagram
     text model
     text prompt
     timestamptz updated_at
+  }
+
+  agent_memory {
+    bigserial id PK
+    text tenant_id "default local"
+    text host
+    text agent
+    jsonb memory_json
+    text source_run_id "logical to qa_runs.id"
+    timestamptz created_at
+    timestamptz updated_at
   }`;
 
 export const RUN_SEQUENCE_MERMAID = `sequenceDiagram
@@ -176,6 +188,7 @@ export const ORCH_SEQUENCE_MERMAID = `sequenceDiagram
 
   Q->>O: consume runId
   O->>PG: load run
+  O->>PG: recall agent_memory for host
   opt no TC file and short notes
     O->>O: webAnalyzer crawl
   end
@@ -189,7 +202,8 @@ export const ORCH_SEQUENCE_MERMAID = `sequenceDiagram
   end
   O->>LLM: Manager
   O->>O: Delivery
-  O->>PG: upsert stages_json + reports`;
+  O->>PG: upsert stages_json + reports
+  O->>PG: upsert agent_memory (no classification keys)`;
 
 export const EXEC_BATCH_SEQUENCE_MERMAID = `sequenceDiagram
   autonumber

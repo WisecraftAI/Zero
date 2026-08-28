@@ -154,3 +154,12 @@ npm run workflow:verify -- --milestone U1
 ```
 
 Implement via `/zero-web`. North star: `prompts/ui-ux.md`.
+
+## Follow-ons after close (not a new milestone)
+
+These landed after U1 probes went green. Do not reopen U1 for them; keep them honest in zero-docs Web LLD.
+
+- Pathname router: `web/src/lib/routes.js` (`/`, `/runs`, `/runs/new`, `/runs/:id`)
+- PNG brand assets under `web/public/` (`zero-logo.png`, `zero-icon.png`, favicon)
+- Jest: `test/ui-ux-routes.test.js`
+

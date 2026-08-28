@@ -12,7 +12,7 @@ export const MILESTONES = [
     id: 'M1',
     name: 'Durable store',
     status: 'done' as const,
-    note: 'Postgres when DATABASE_URL / PGHOST is set (@zero/db). Maps still shadow some tables.',
+    note: 'Postgres when DATABASE_URL / PGHOST is set (@zero/db). Ten tables including agent_memory. Maps still shadow some tables.',
   },
   {
     id: 'M2',
@@ -42,7 +42,7 @@ export const MILESTONES = [
     id: 'M6',
     name: 'LLM wiring',
     status: 'done' as const,
-    note: '@zero/orchestrator/llm calls OpenAI / Claude / Gemini when a key exists; templates on miss.',
+    note: '@zero/orchestrator/llm (index + providers/enrichment/prompts/utils) calls OpenAI / Claude / Gemini when a key exists; templates on miss.',
   },
   {
     id: 'M7',
@@ -144,12 +144,12 @@ export const UX = [
     id: 'U1',
     name: 'Professional operator UI/UX',
     status: 'done' as const,
-    note: 'Token-driven accessible SPA shell and daily flows. Spec: milestones/U1-professional-ui-ux.md.',
+    note: 'Token-driven accessible SPA shell, pathname routes, brand assets. Spec: milestones/U1-professional-ui-ux.md.',
   },
   {
     id: 'U2',
     name: 'Ultra-low-friction canvas',
     status: 'done' as const,
-    note: 'Single-canvas New Run, hover rail, progressive disclosure. Spec: milestones/U2-low-friction-canvas.md.',
+    note: 'Single-canvas New Run, hover rail, Run Detail flow diagram. Spec: milestones/U2-low-friction-canvas.md.',
   },
 ] as const;

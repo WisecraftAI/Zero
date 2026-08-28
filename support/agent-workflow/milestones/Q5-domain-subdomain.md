@@ -185,7 +185,8 @@ the generated priorities. Keys and prompt payloads are never logged.
 
 ## Out of scope
 
-- Classification caching or a new database table
+- Classification caching or a new **classification** table
+- Host-scoped `agent_memory` already ships (BA summaries, extra cases, locator hints, execution failures). That is **not** classification caching — do not write taxonomy keys into it.
 - A user override or pipeline pause/resume UI
 - A user-editable taxonomy
 - DNS subdomain routing or per-page classification

@@ -17,6 +17,8 @@ const {
   buildDomainInferenceContext,
   applyClassificationToArtifact,
 } = require("./inferDomain");
+const { createAgentMemoryStore } = require("./agentMemory");
+const { buildSiteContext } = require("./siteContext");
 
 function createProcessRun(deps) {
   async function processRun(id, request = {}) {
@@ -39,6 +41,7 @@ function createProcessRun(deps) {
       javaSeleniumBuilder,
       dbHelpers
     } = deps;
+    const memoryStore = deps.memoryStore || createAgentMemoryStore(deps);
 
     const cache = deps.cache;
     const run = await getRun(id);
@@ -70,6 +73,36 @@ function createProcessRun(deps) {
       run.status = "running";
       await save();
 
+      const host = hostFromUrl(run.input && run.input.ottUrl);
+      const tenantId = run.tenantId || (run.input && run.input.tenantId) || "local";
+      let priorMemory = await memoryStore.load(tenantId, host);
+      if (!run.artifacts) run.artifacts = {};
+      run.artifacts.agentMemory = {
+        host: host || null,
+        recalled: Object.keys(priorMemory || {}),
+        wrote: []
+      };
+
+      function llmContext(extra) {
+        const ctx = { ...(extra || {}) };
+        if (priorMemory && Object.keys(priorMemory).length) ctx.priorMemory = priorMemory;
+        return ctx;
+      }
+
+      /** Crawl facts for the agents that author case and requirement text. */
+      function siteContext() {
+        return buildSiteContext(run.artifacts.webAnalysis);
+      }
+
+      async function remember(agent, artifact) {
+        const saved = await memoryStore.save({ tenantId, host, agent, artifact, run });
+        if (!saved) return;
+        const wrote = new Set(run.artifacts.agentMemory.wrote || []);
+        wrote.add(agent);
+        run.artifacts.agentMemory.wrote = [...wrote];
+        priorMemory = await memoryStore.load(tenantId, host);
+      }
+
       if (request.rerunFailedOnly) {
         await ensureNotStopped();
         setStage(run, "execution", "running");
@@ -93,12 +126,14 @@ function createProcessRun(deps) {
             run.artifacts.securityReport
           ),
           run,
-          {
+          llmContext({
             verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals,
             ottUrl: run.input.ottUrl
-          }
+          })
         );
         setStage(run, "manager", "done");
+        await remember("execution", run.artifacts.executionReport);
+        await remember("manager", run.artifacts.managerReport);
 
         run.artifacts.deliveryReport = generateDeliveryReport(
           run.artifacts.requirements,
@@ -162,14 +197,16 @@ function createProcessRun(deps) {
         "ba",
         consolidateRequirements(run.input),
         run,
-        {
+        llmContext({
           ottUrl: run.input.ottUrl,
           profile: run.input.channelProfile,
-          notes: (run.input.notes || "").slice(0, 800)
-        }
+          notes: (run.input.notes || "").slice(0, 800),
+          site: siteContext()
+        })
       );
       run.input.tcFileBuffer = null;
       setStage(run, "ba", "done");
+      await remember("ba", run.artifacts.requirements);
       await save();
 
       await ensureNotStopped();
@@ -196,12 +233,20 @@ function createProcessRun(deps) {
         "manualQa",
         run.artifacts.manualTestCases,
         run,
-        {
+        llmContext({
           ottUrl: run.input.ottUrl,
-          caseCount: (run.artifacts.manualTestCases.testCases || []).length
-        }
+          caseCount: (run.artifacts.manualTestCases.testCases || []).length,
+          site: siteContext(),
+          // Existing scenarios, so the model fills real gaps instead of
+          // rewording cases the templates already produced.
+          existingScenarios: (run.artifacts.manualTestCases.testCases || [])
+            .map((tc) => tc.scenario || tc.title)
+            .filter(Boolean)
+            .slice(0, 25)
+        })
       );
       setStage(run, "manualQa", "done");
+      await remember("manualQa", run.artifacts.manualTestCases);
       await save();
 
       await ensureNotStopped();
@@ -210,9 +255,10 @@ function createProcessRun(deps) {
         "automationQa",
         await generateAutomationBundle(run.input, run.artifacts.manualTestCases, run.artifacts.requirements),
         run,
-        { ottUrl: run.input.ottUrl, host: hostFromUrl(run.input.ottUrl) }
+        llmContext({ ottUrl: run.input.ottUrl, host, site: siteContext() })
       );
       setStage(run, "automationQa", "done");
+      await remember("automationQa", run.artifacts.automationBundle);
       await save();
 
       await ensureNotStopped();
@@ -220,6 +266,7 @@ function createProcessRun(deps) {
       await persistRun(run);
       run.artifacts.executionReport = await enqueueExecution(run.id, { kind: "execution" });
       setStage(run, "execution", "done");
+      await remember("execution", run.artifacts.executionReport);
       await save();
 
       // Optional: Accessibility Agent
@@ -263,12 +310,13 @@ function createProcessRun(deps) {
           run.artifacts.securityReport
         ),
         run,
-        {
+        llmContext({
           verdict: run.artifacts.executionReport && run.artifacts.executionReport.totals,
           ottUrl: run.input.ottUrl
-        }
+        })
       );
       setStage(run, "manager", "done");
+      await remember("manager", run.artifacts.managerReport);
       await save();
 
       setStage(run, "delivery", "running");

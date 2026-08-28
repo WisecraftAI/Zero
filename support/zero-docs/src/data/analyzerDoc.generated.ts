@@ -36,13 +36,13 @@ export interface AnalyzerDoc {
 }
 
 export const ANALYZER_DOC: AnalyzerDoc = {
-  "generatedAt": "2026-08-27T13:17:05.922Z",
+  "generatedAt": "2026-08-27T23:36:26.476Z",
   "pkg": "@zero/analyzer",
   "version": "0.0.0",
   "description": "Optional URL crawl that seeds BA when notes are short.",
   "main": "index.js",
   "fileCount": 31,
-  "loc": 5075,
+  "loc": 5123,
   "dependencies": [
     "@zero/locators"
   ],
@@ -98,7 +98,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
       "modules": [
         {
           "file": "lib/constants.js",
-          "loc": 257,
+          "loc": 260,
           "exports": [
             "WEBSITE_TYPES",
             "ELEMENT_CATEGORIES",
@@ -207,7 +207,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/crawl/signals.js",
-          "loc": 22,
+          "loc": 32,
           "exports": [
             "detectAntiBot",
             "detectDynamicContent"
@@ -382,9 +382,10 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/strategies/pro.js",
-          "loc": 263,
+          "loc": 298,
           "exports": [
-            "analyzeUrlPro"
+            "analyzeUrlPro",
+            "hasInsufficientEvidence"
           ]
         }
       ]

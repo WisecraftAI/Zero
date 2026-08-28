@@ -88,6 +88,7 @@ Stored entities (DDL in `@zero/db`; ER + column catalog in [`support/zero-docs/d
 - manual test cases + generated automation script + manager report (`qa_assets`)
 - **element_locators** – per-host reusable locators (from element logs + learned at runtime); used when generating Playwright scripts
 - **element_logs** – raw element log snapshots (URL + elements) for traceability
+- **agent_memory** – per-host observations from BA / Manual / Automation / Manager / execution, recalled on later runs
 - **projects** / **stored_scripts** / **recordings** – IDE-style helpers (no `/projects` routes yet)
 - **provider_keys** / **agent_settings** – encrypted LLM keys and per-agent model/prompt
 
@@ -127,7 +128,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 2. **Script generation** – When generating the automation bundle, the server merges (1) built-in profile selectors, (2) in-memory learned selectors from the current run, and (3) **Postgres-stored locators** for the run’s host. The generated Playwright script is built from this merged set so scripts reuse your stored locators.
 3. **Reuse** – After execution, selectors that worked are persisted to Postgres (when configured). You can also submit element logs from external tools (e.g. DOM analysis or AI) so the same framework builds scripts from them on the next run.
 
-PostgreSQL is required for element logging and for locator reuse across runs; without it, only in-memory selector memory is used.
+PostgreSQL is required for element logging, locator reuse, and agentic memory across restarts; without it, only in-memory selector and agent memory is used.
 
 ## Python ML Training for Agents
 

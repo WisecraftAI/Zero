@@ -1,7 +1,14 @@
-.zero-mark {
+/* Artwork is traced SVG filled from --logo-* tokens, so it takes its color
+   from the active palette. Nothing here needs a plate or a brightness filter,
+   both of which distorted the cyan eyes and the gradient O. */
+.zero-mark,
+.zero-wordmark,
+.zero-lockup-icon,
+.zero-lockup-wordmark {
   display: block;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
+  overflow: visible;
+  user-select: none;
 }
 
 .zero-logo {
@@ -14,21 +21,52 @@
 .zero-logo-text {
   display: flex;
   flex-direction: column;
+  gap: 3px;
   min-width: 0;
-  line-height: 1.15;
-}
-
-.zero-logo-word {
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  letter-spacing: -.02em;
-  color: var(--text);
 }
 
 .zero-logo-tagline {
   font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
   color: var(--text-3);
-  letter-spacing: .02em;
   white-space: nowrap;
+}
+
+/* The lockup scales as a unit. Measuring against its own rendered width
+   rather than a passed-in number means the copy stays in proportion when a
+   layout squeezes it, with no breakpoint to keep in sync. */
+.zero-lockup {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.zero-lockup-stack {
+  --lockup-step: 3.34cqw;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--lockup-step) * .62);
+  text-align: center;
+}
+
+.zero-lockup-icon {
+  width: 52%;
+  height: auto;
+}
+
+.zero-lockup-wordmark {
+  width: 94%;
+  height: auto;
+}
+
+.zero-lockup-tagline {
+  margin: calc(var(--lockup-step) * .12) 0 0;
+  font-size: var(--lockup-step);
+  font-weight: 700;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--logo-ink);
 }

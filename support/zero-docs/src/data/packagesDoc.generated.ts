@@ -42,7 +42,7 @@ export interface PackageDoc {
 export const PACKAGES_DOC: PackageDoc[] = [
   {
     "id": "domain",
-    "generatedAt": "2026-08-27T13:17:05.977Z",
+    "generatedAt": "2026-08-27T23:36:26.351Z",
     "pkg": "@zero/domain",
     "version": "0.0.0",
     "description": "Shared contracts: stageKeys, appProfiles. No I/O.",
@@ -53,8 +53,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./outputRoots": "./outputRoots.js",
       "./schemas": "./lib/schemas.js"
     },
-    "fileCount": 11,
-    "loc": 509,
+    "fileCount": 12,
+    "loc": 599,
     "dependencies": [],
     "workspaceDeps": [],
     "entries": [
@@ -87,7 +87,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
         "modules": [
           {
             "file": "lib/execution.js",
-            "loc": 51,
+            "loc": 54,
             "exports": []
           },
           {
@@ -100,18 +100,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/index.js",
-            "loc": 21,
-            "exports": [
-              "stageKeys",
-              "optionalStageKeys",
-              "appProfiles",
-              "RUNS_REQUESTED",
-              "outputRoots",
-              "validateRunInput",
-              "EXECUTION_MODES",
-              "resolveExecutionMode",
-              "normalizeTargetUrl"
-            ]
+            "loc": 23,
+            "exports": []
           },
           {
             "file": "lib/outputRoots.js",
@@ -130,6 +120,22 @@ export const PACKAGES_DOC: PackageDoc[] = [
             "loc": 218,
             "exports": [
               "appProfiles"
+            ]
+          },
+          {
+            "file": "lib/runCancel.js",
+            "loc": 85,
+            "exports": [
+              "CANCEL_TTL_SEC",
+              "cancelCacheKey",
+              "RunStoppedError",
+              "isRunStoppedError",
+              "isStoppableStatus",
+              "isTerminalStatus",
+              "requestRunCancel",
+              "isRunCancelRequested",
+              "applyCancelToRun",
+              "markRunStopped"
             ]
           },
           {
@@ -158,14 +164,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
         ]
       }
     ],
-    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ schemas.js\n│  ├─ stages.js\n│  ├─ targetUrl.js",
+    "tree": "packages/domain/\n├─ execution.js\n├─ index.js\n├─ outputRoots.js\n├─ lib/\n│  ├─ execution.js\n│  ├─ executionModes.js\n│  ├─ index.js\n│  ├─ outputRoots.js\n│  ├─ profiles.js\n│  ├─ runCancel.js\n│  ├─ schemas.js\n│  ├─ stages.js\n│  ├─ targetUrl.js",
     "tests": [
       "test/domain.test.js"
     ]
   },
   {
     "id": "db",
-    "generatedAt": "2026-08-27T13:17:05.987Z",
+    "generatedAt": "2026-08-27T23:36:26.358Z",
     "pkg": "@zero/db",
     "version": "0.0.0",
     "description": "Postgres helpers and DDL for qa_runs, qa_assets, locators.",
@@ -175,8 +181,8 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./runStore": "./runStore.js",
       "./schema": "./lib/schema/index.js"
     },
-    "fileCount": 15,
-    "loc": 849,
+    "fileCount": 16,
+    "loc": 923,
     "dependencies": [
       "@zero/domain"
     ],
@@ -231,7 +237,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/index.js",
-            "loc": 62,
+            "loc": 67,
             "exports": [
               "isDatabaseConfigured",
               "sanitizeRunInput",
@@ -240,6 +246,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
               "initElementTables",
               "initProjectsTables",
               "initProviderTables",
+              "initAgentMemoryTables",
               "runPendingMigrations",
               "upsertRun",
               "getRunById",
@@ -261,7 +268,17 @@ export const PACKAGES_DOC: PackageDoc[] = [
               "deleteProviderKey",
               "getEncryptedProviderKey",
               "listAgentSettings",
-              "upsertAgentSettings"
+              "upsertAgentSettings",
+              "upsertAgentMemory",
+              "getAgentMemoryByHost"
+            ]
+          },
+          {
+            "file": "lib/memory.js",
+            "loc": 43,
+            "exports": [
+              "upsertAgentMemory",
+              "getAgentMemoryByHost"
             ]
           },
           {
@@ -299,7 +316,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/runStore.js",
-            "loc": 186,
+            "loc": 188,
             "exports": [
               "createRunStore",
               "defaultArtifactsRoot",
@@ -328,13 +345,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/schema/init.js",
-            "loc": 61,
+            "loc": 70,
             "exports": [
               "initAllTables",
               "initRunsTables",
               "initElementTables",
               "initProjectsTables",
-              "initProviderTables"
+              "initProviderTables",
+              "initAgentMemoryTables"
             ]
           },
           {
@@ -347,7 +365,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/schema/tables.js",
-            "loc": 128,
+            "loc": 143,
             "exports": [
               "TABLE_QA_RUNS",
               "TABLE_QA_ASSETS",
@@ -357,13 +375,14 @@ export const PACKAGES_DOC: PackageDoc[] = [
               "TABLE_ELEMENT_LOCATORS",
               "TABLE_ELEMENT_LOGS",
               "TABLE_PROVIDER_KEYS",
-              "TABLE_AGENT_SETTINGS"
+              "TABLE_AGENT_SETTINGS",
+              "TABLE_AGENT_MEMORY"
             ]
           }
         ]
       }
     ],
-    "tree": "packages/db/\n├─ index.js\n├─ runStore.js\n├─ lib/\n│  ├─ assets.js\n│  ├─ config.js\n│  ├─ elements.js\n│  ├─ index.js\n│  ├─ projects.js\n│  ├─ providers.js\n│  ├─ runStore.js\n│  ├─ runs.js\n│  ├─ sanitize.js\n│  ├─ schema/index.js\n│  ├─ schema/init.js\n│  ├─ schema/migrate.js\n├─ migrations/",
+    "tree": "packages/db/\n├─ index.js\n├─ runStore.js\n├─ lib/\n│  ├─ assets.js\n│  ├─ config.js\n│  ├─ elements.js\n│  ├─ index.js\n│  ├─ memory.js\n│  ├─ projects.js\n│  ├─ providers.js\n│  ├─ runStore.js\n│  ├─ runs.js\n│  ├─ sanitize.js\n│  ├─ schema/index.js\n│  ├─ schema/init.js\n├─ migrations/",
     "tests": [
       "test/db.config.test.js",
       "test/db.persist.test.js"
@@ -371,7 +390,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "locators",
-    "generatedAt": "2026-08-27T13:17:05.989Z",
+    "generatedAt": "2026-08-27T23:36:26.360Z",
     "pkg": "@zero/locators",
     "version": "0.0.0",
     "description": "Locator merge (profile → memory → DB) and element-key normalizer.",
@@ -548,7 +567,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "builders",
-    "generatedAt": "2026-08-27T13:17:05.991Z",
+    "generatedAt": "2026-08-27T23:36:26.361Z",
     "pkg": "@zero/builders",
     "version": "0.0.0",
     "description": "Playwright spec and Java/Selenium emitters.",
@@ -564,7 +583,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
       "./shared/text": "./lib/shared/text.js"
     },
     "fileCount": 19,
-    "loc": 895,
+    "loc": 1140,
     "dependencies": [
       "@zero/locators"
     ],
@@ -609,7 +628,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
           },
           {
             "file": "lib/playwright/discoveredFlows.js",
-            "loc": 214,
+            "loc": 459,
             "exports": [
               "MAX_FLOWS",
               "pickCriticalFlows",
@@ -757,7 +776,7 @@ export const PACKAGES_DOC: PackageDoc[] = [
   },
   {
     "id": "cloud",
-    "generatedAt": "2026-08-27T13:17:05.993Z",
+    "generatedAt": "2026-08-27T23:36:26.363Z",
     "pkg": "@zero/cloud",
     "version": "0.0.0",
     "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
@@ -830,4 +849,4 @@ export const PACKAGES_DOC: PackageDoc[] = [
     ]
   }
 ];
-export const PACKAGES_DOC_GENERATED_AT = "2026-08-27T13:17:05.994Z";
+export const PACKAGES_DOC_GENERATED_AT = "2026-08-27T23:36:26.363Z";

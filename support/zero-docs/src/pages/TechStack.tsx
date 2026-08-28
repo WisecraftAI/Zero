@@ -36,7 +36,7 @@ export function TechStackPage() {
     <section className="section" id="tech-intro">
       <h2>Tech · every workspace, end to end</h2>
       <p className="sub">
-        <strong>Schema · ER</strong> is the Postgres catalog (nine tables, one enforced FK) plus a
+        <strong>Schema · ER</strong> is the Postgres catalog (ten tables, one enforced FK) plus a
         start-run sequence. The other tabs cover the four deployables — Web UI, HTTP API,
         orchestrator, and executor. Each includes low-level design (module maps, sequences,
         works/stub honesty). Shared <code>@zero/*</code> libraries are on{' '}

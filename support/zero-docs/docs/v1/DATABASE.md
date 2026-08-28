@@ -1,6 +1,6 @@
 # ZER0 Postgres schema — V1 (current runtime)
 
-Ground truth: `packages/db/lib/schema/` + `packages/db/lib/index.js` (`@zero/db`). This is **what `initAllTables` creates today**. A `packages/db/migrations/` folder ships (`001_initial.sql`); boot calls `runPendingMigrations()` and records versions in `schema_migrations`. There is still **no standalone migrate CLI** — DDL also uses `CREATE TABLE IF NOT EXISTS` plus a few `ADD COLUMN IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` statements.
+Ground truth: `packages/db/lib/schema/` + `packages/db/lib/index.js` (`@zero/db`). This is **what `initAllTables` creates today**. A `packages/db/migrations/` folder ships (`001_initial.sql`, `002_agent_memory.sql`); boot calls `runPendingMigrations()` and records versions in `schema_migrations`. There is still **no standalone migrate CLI** — DDL also uses `CREATE TABLE IF NOT EXISTS` plus a few `ADD COLUMN IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` statements.
 
 Postgres is **optional**. It activates when `DATABASE_URL` or `PGHOST` is set and reachable. Otherwise callers use an in-memory `Map` plus `dist/artifacts/<runId>/run.json`. Login passwords are never stored here (`sanitizeRunInput` strips them; they stay in the process-local `runSecrets` map).
 
@@ -20,6 +20,7 @@ erDiagram
   qa_runs ||--|{ qa_assets : "run_id CASCADE"
   qa_runs ||--o{ element_locators : "run_id logical"
   qa_runs ||--o{ element_logs : "run_id logical"
+  qa_runs ||--o{ agent_memory : "source_run_id logical"
 
   projects {
     text id PK
@@ -115,6 +116,17 @@ erDiagram
     text prompt
     timestamptz updated_at
   }
+
+  agent_memory {
+    bigserial id PK
+    text tenant_id "default local"
+    text host
+    text agent "ba | manualQa | automationQa | manager | execution"
+    jsonb memory_json
+    text source_run_id "logical to qa_runs.id"
+    timestamptz created_at
+    timestamptz updated_at
+  }
 ```
 
 ASCII (same story, for terminals). The docs site at `:5174` renders the Mermaid ER and a start-run sequence with `mermaid.render()`:
@@ -138,7 +150,12 @@ ASCII (same story, for terminals). The docs site at `:5174` renders the Mermaid 
                           │ qa_assets  │ ┌───────────┐ ┌───────────┐
                           │ (only FK)  │ │ element_  │ │ element_  │
                           └────────────┘ │ locators  │ │ logs      │
-                                         └───────────┘ └───────────┘
+                                         └───────────┘ └─────┬─────┘
+                                                             │
+                                                      ┌──────┴────────┐
+                                                      │ agent_memory  │
+                                                      │ host + tenant │
+                                                      └───────────────┘
 
 ┌─────────────────┐  ┌─────────────────┐
 │  provider_keys  │  │ agent_settings  │   keyed by user_email string
@@ -151,7 +168,7 @@ ASCII (same story, for terminals). The docs site at `:5174` renders the Mermaid 
 
 ## Table catalog
 
-Init is four helpers, called in this order from `initAllTables(pool)`:
+Init is five helpers, called in this order from `initAllTables(pool)`:
 
 | Helper | Tables |
 |--------|--------|
@@ -159,6 +176,7 @@ Init is four helpers, called in this order from `initAllTables(pool)`:
 | `initElementTables` | `element_locators`, `element_logs` |
 | `initProjectsTables` | `projects`, `stored_scripts`, `recordings` |
 | `initProviderTables` | `provider_keys`, `agent_settings` |
+| `initAgentMemoryTables` | `agent_memory` |
 
 ### Relationships
 
@@ -170,6 +188,7 @@ Init is four helpers, called in this order from `initAllTables(pool)`:
 | `recordings` | `project_id` | `projects.id` | logical (NOT NULL TEXT) | — |
 | `element_locators` | `run_id` | `qa_runs.id` | logical (nullable TEXT) | — |
 | `element_logs` | `run_id` | `qa_runs.id` | logical (nullable TEXT) | — |
+| `agent_memory` | `source_run_id` | `qa_runs.id` | logical (nullable TEXT) | — |
 
 ### `qa_runs` — run row (source of truth when Postgres is on)
 
@@ -243,6 +262,12 @@ Index: `idx_qa_assets_run(run_id)`.
 | `element_locators` | UNIQUE(`host`, `element_key`, `selector_value`); `idx_element_locators_host`; `idx_element_locators_host_key` | Upserted by host. Merge order is profile → in-memory learned → this table (`@zero/locators`) |
 | `element_logs` | `idx_element_logs_host`; `idx_element_logs_run` | Raw snapshot from `POST /element-log` (`url` + `snapshot_json`) |
 
+### `agent_memory` — host-scoped agentic memory
+
+| Table | Unique / indexes | Notes |
+|-------|------------------|-------|
+| `agent_memory` | UNIQUE(`tenant_id`, `host`, `agent`); `idx_agent_memory_host`; `idx_agent_memory_tenant_host` | One JSON blob per tenant+host+agent (`ba`, `manualQa`, `automationQa`, `manager`, `execution`). Recalled into later LLM contexts. Classification keys are **not** stored here. Passwords and key-like values are stripped before upsert. |
+
 ### `provider_keys` / `agent_settings` — LLM config (per email string)
 
 | Table | Unique | Notes |
@@ -260,6 +285,7 @@ Index: `idx_qa_assets_run(run_id)`.
 | TC / recording bytes | Object store (`@zero/cloud`), not a bytea column |
 | Screenshots | Object store + local cache under `dist/artifacts/` |
 | In-memory learned selectors | `selectorMemory` (process) until upserted to `element_locators` |
+| In-memory agentic memory | `agentMemory` (process) until upserted to `agent_memory` |
 | Recording sessions | In-memory Maps unless a row is written to `recordings` |
 | Outbox (`outbox_events`) | Not created yet — publish happens after persist, not in the same transaction |
 | Migrate version | `schema_migrations` via `runPendingMigrations()` on boot; no standalone migrate CLI |
@@ -268,7 +294,7 @@ Index: `idx_qa_assets_run(run_id)`.
 
 ## Run-store API (`packages/db`)
 
-Implementation: `packages/db/lib/runStore.js` (re-exported from `packages/db/runStore.js`).
+Implementation: `packages/db/lib/runStore.js` (re-exported from `packages/db/runStore.js`). Agentic memory helpers live in `packages/db/lib/memory.js`.
 
 Callers should use these helpers, not ad-hoc SQL:
 
@@ -283,5 +309,6 @@ Callers should use these helpers, not ad-hoc SQL:
 | `insertRecording` | `recordings` |
 | `listProviderKeys` / `upsertProviderKey` / `deleteProviderKey` / `getEncryptedProviderKey` | `provider_keys` |
 | `listAgentSettings` / `upsertAgentSettings` | `agent_settings` |
+| `upsertAgentMemory` / `getAgentMemoryByHost` | `agent_memory` |
 
 `packages/db/runStore.js` wraps `upsertRun` with file + object-store writes so a missing or down Postgres still leaves `dist/artifacts/<id>/run.json`.

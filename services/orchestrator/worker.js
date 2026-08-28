@@ -22,6 +22,7 @@ const { createPipeline, setStage, hostFromUrl } = require("./pipeline");
 const { createApplyLlm } = require("./applyLlm");
 
 const selectorMemory = new Map();
+const agentMemory = new Map();
 const store = createRunStore({ cloud });
 
 const pipeline = createPipeline({
@@ -66,6 +67,7 @@ const processRun = createProcessRun({
   javaSeleniumBuilder,
   dbHelpers,
   cache: cloud.cache,
+  agentMemory,
   get dbEnabled() {
     return store.dbEnabled;
   },

@@ -82,7 +82,7 @@ export const REPOS: readonly RepoDef[] = [
     skill: '/zero-orchestrator',
     prompt: 'support/agent-workflow/prompts/repos/orchestrator.md',
     status: 'done',
-    statusNote: 'Standalone workspace-scoped image (S5). Redis list queue is shared across containers. Resume-from-crash remains future work.',
+    statusNote: 'Standalone workspace-scoped image (S5). Redis list queue is shared across containers. Host-scoped agentMemory + split llm/ modules. Resume-from-crash remains future work.',
   },
   {
     id: 'executor',
@@ -110,7 +110,7 @@ export const REPOS: readonly RepoDef[] = [
     skill: '/zero-web',
     prompt: 'support/agent-workflow/prompts/repos/web.md',
     status: 'done',
-    statusNote: 'Own workspace-scoped nginx image on :3000 (S7). Cross-origin API via VITE_API_BASE_URL (default http://localhost:3001). Run detail uses EventSource on /runs/:id/stream with 3s poll fallback after two SSE failures. OIDC login screen remains M5 follow-up.',
+    statusNote: 'Own workspace-scoped nginx image on :3000 (S7). Pathname routes via lib/routes.js. Run Detail FlowDiagram. Cross-origin API via VITE_API_BASE_URL (default http://localhost:3001). EventSource on /runs/:id/stream with 3s poll fallback. OIDC login screen remains M5 follow-up.',
   },
   {
     id: 'cloud',
@@ -152,7 +152,7 @@ export const REPOS: readonly RepoDef[] = [
     skill: '/zero-db',
     prompt: 'support/agent-workflow/prompts/repos/db.md',
     status: 'done',
-    statusNote: 'lib/{schema,runs,assets,elements,projects,providers,runStore} with thin index re-export. migrations/001_initial.sql + runPendingMigrations. Jest: test/db.config.test.js, test/db.persist.test.js.',
+    statusNote: 'lib/{schema,runs,assets,elements,projects,providers,memory,runStore} with thin index re-export. migrations/001_initial.sql + 002_agent_memory.sql + runPendingMigrations. Jest: test/db.config.test.js, test/db.persist.test.js, test/agent-memory.test.js.',
   },
   {
     id: 'locators',

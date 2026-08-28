@@ -54,7 +54,7 @@ export function LldApi() {
 ├─ swagger.js                    /api-docs
 ├─ logger.js · encryption.js · apiKeyManager.js
 └─ src/routes/
-   ├─ runs.js                    POST · GET · GET /:id · stream · download · commit · rerun-failed
+   ├─ runs.js                    POST · GET · GET /:id · stream · download · commit · stop · rerun-failed
    ├─ locators.js                GET · POST /element-log
    ├─ recordings.js              create · put · list · delete
    ├─ cms.js                     capture-cms-screenshot(-bulk)
@@ -74,6 +74,7 @@ export function LldApi() {
           ['Postgres',     <><code>qa_assets</code></>,          'INSERT (metadata + object key)'],
           ['Postgres',     <><code>element_locators</code></>,   'SELECT by host (locator lookup)'],
           ['Postgres',     <><code>provider_keys</code></>,      'SELECT / INSERT (encrypted at rest)'],
+          ['Postgres',     <><code>agent_memory</code></>,       'read/write is orchestrator; API does not mutate'],
           ['Object store', <><code>runs/&lt;id&gt;/inputs/*</code></>, 'presignPut'],
           ['Object store', <><code>runs/&lt;id&gt;/reports/*</code></>,'presignGet (signed url on download)'],
           ['Queue',        <><code>runs.requested</code></>,     'publish { runId, tenantId, traceparent }'],
