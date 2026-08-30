@@ -56,9 +56,21 @@ function wrapRedis(redis) {
         Promise.resolve(sub.subscribe(channel)).catch(() => {});
       }
       if (typeof sub.on === "function") sub.on("message", onMessage);
-      return () => {
-        if (typeof sub.unsubscribe === "function") sub.unsubscribe(channel);
-        if (typeof sub.disconnect === "function" && sub !== redis) sub.disconnect();
+      return async () => {
+        if (typeof sub.off === "function") sub.off("message", onMessage);
+        try {
+          if (typeof sub.unsubscribe === "function") {
+            await sub.unsubscribe(channel);
+          }
+        } catch {
+          // The connection may already be closing after an SSE client leaves.
+        } finally {
+          try {
+            if (typeof sub.disconnect === "function" && sub !== redis) sub.disconnect();
+          } catch {
+            // Cleanup must never surface as an unhandled request-level error.
+          }
+        }
       };
     }
   };

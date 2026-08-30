@@ -6,7 +6,18 @@
   "description": "Provider-agnostic queue, object store, secrets, and cache adapters.",
   "exports": {
     ".": "./index.js",
-    "./http": "./http.js"
+    "./http": "./http.js",
+    "./aws": "./aws/index.js",
+    "./azure": "./azure/index.js",
+    "./gcp": "./gcp/index.js",
+    "./vercel": "./vercel/index.js",
+    "./redisCache": "./redisCache.js",
+    "./redisQueue": "./redisQueue.js",
+    "./conformance/gate9": "./conformance/gate9.js",
+    "./local/queue": "./local/queue.js",
+    "./local/storage": "./local/storage.js",
+    "./local/cache": "./local/cache.js",
+    "./local/secrets": "./local/secrets.js"
   },
   "dependencies": {
     "@zero/domain": "*",

@@ -9,6 +9,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@zero/brand": "*",
     "@zero/cloud": "*",
     "@zero/db": "*",
     "@zero/domain": "*",

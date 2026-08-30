@@ -5,6 +5,7 @@ import RunProgressPanel from '../components/RunProgressPanel';
 import AgentRunLine from '../components/AgentRunLine';
 import { apiUrl, artifactUrl } from '../apiBase';
 import { isTerminalRunStatus } from '../lib/runControl';
+import { currentThemeId } from '../lib/themes';
 import './RunDetailView.scss';
 import StopRunButton from '../components/StopRunButton';
 
@@ -63,7 +64,18 @@ function fmtConfidence(value) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
-export default function RunDetailView({ run, runId, activeTab, onTabChange, onRerunFailed, onStopRun, onBack, streamTransport }) {
+export default function RunDetailView({
+  run,
+  runId,
+  activeTab,
+  onTabChange,
+  onRerunFailed,
+  onStopRun,
+  onBack,
+  streamTransport,
+  loadError,
+  actionError
+}) {
   const [tick, setTick] = useState(() => Date.now());
 
   const visibleTabs = getVisibleTabs(run);
@@ -120,13 +132,23 @@ export default function RunDetailView({ run, runId, activeTab, onTabChange, onRe
   return (
     <div className="run-detail-view">
 
+      {actionError && (
+        <div className="rdt-error-banner" role="alert">{actionError}</div>
+      )}
       {!run && (
-        <div className={runId ? 'empty-state' : 'empty-state empty-state--error'}>
+        <div
+          className={loadError || !runId ? 'empty-state empty-state--error' : 'empty-state'}
+          role={loadError ? 'alert' : undefined}
+        >
           <p>
-            {runId
+            {loadError
+              || (runId
               ? <span className="rdt-loading-inline"><Spinner /> Loading run…</span>
-              : 'No run selected. Open a run from the list.'}
+              : 'No run selected. Open a run from the list.')}
           </p>
+          {loadError && (
+            <button className="btn btn-secondary btn-sm" onClick={onBack}>Back to runs</button>
+          )}
         </div>
       )}
       <div className={`rdt-header rdt-header--${headerState}`}>
@@ -151,7 +173,11 @@ export default function RunDetailView({ run, runId, activeTab, onTabChange, onRe
             Re-run Failed
           </button>
           <button className="btn btn-secondary btn-sm" disabled={!canDownload}
-            onClick={() => window.open(apiUrl(`/runs/${runId}/download`), '_blank')}>
+            title="Download the report in the current theme"
+            onClick={() => window.open(
+              apiUrl(`/runs/${runId}/download?theme=${encodeURIComponent(currentThemeId())}`),
+              '_blank',
+            )}>
             <DownloadIcon /> PDF
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onBack}>

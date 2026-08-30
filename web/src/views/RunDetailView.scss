@@ -8,6 +8,16 @@
   max-width: 100%;
 }
 
+.rdt-error-banner {
+  padding: 10px 14px;
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: .82rem;
+  font-weight: 600;
+}
+
 /* Header — a status-tinted card. `--rdt-status` is the one hook the state
    modifiers set; the rail, wash, and run id all read from it, so the header
    follows both the palette and the run outcome. */

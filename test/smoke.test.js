@@ -37,6 +37,26 @@ function getJson(urlPath) {
   });
 }
 
+function getBuffer(urlPath) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(`${BASE}${urlPath}`, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        resolve({
+          status: res.statusCode,
+          headers: res.headers,
+          body: Buffer.concat(chunks)
+        });
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(30000, () => {
+      req.destroy(new Error(`timeout ${urlPath}`));
+    });
+  });
+}
+
 function postRun() {
   const boundary = `----ZeroSmoke${Date.now()}`;
   const fields = {
@@ -121,6 +141,7 @@ async function resolveDatabaseUrl() {
 
 describe("S1 HTTP smoke", () => {
   let child;
+  let childStderr = "";
   let databaseUrl = "";
 
   beforeAll(async () => {
@@ -142,7 +163,9 @@ describe("S1 HTTP smoke", () => {
       stdio: ["ignore", "pipe", "pipe"]
     });
 
-    child.stderr.on("data", () => {});
+    child.stderr.on("data", (chunk) => {
+      childStderr = `${childStderr}${chunk}`.slice(-12000);
+    });
     child.on("exit", (code, signal) => {
       if (code && code !== 0 && child._keepAlive) {
         console.warn(`server exited early (${code}/${signal})`);
@@ -194,6 +217,20 @@ describe("S1 HTTP smoke", () => {
 
     if (last.status === "failed") {
       console.warn("Pipeline finished failed (still a valid smoke of intake + persist):", last.error);
+    } else {
+      const pdf = await getBuffer(`/runs/${runId}/download`);
+      if (pdf.status !== 200) {
+        throw new Error(
+          `PDF download returned ${pdf.status}: ${pdf.body.toString().slice(0, 300)}\n${childStderr}`
+        );
+      }
+      expect(pdf.headers["content-type"]).toContain("application/pdf");
+      expect(pdf.body.subarray(0, 4).toString()).toBe("%PDF");
+
+      const json = await getBuffer(`/runs/${runId}/download?format=json`);
+      expect(json.status).toBe(200);
+      expect(json.headers["content-type"]).toContain("application/json");
+      expect(JSON.parse(json.body.toString()).id).toBe(runId);
     }
 
     if (databaseUrl) {

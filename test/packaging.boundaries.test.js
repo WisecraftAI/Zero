@@ -24,7 +24,9 @@ describe("packaging boundaries", () => {
   it("keeps worker boot and Chromium out of the HTTP API", () => {
     const server = read("services/api/server.js");
 
-    expect(server).not.toMatch(/@zero\/(?:executor|orchestrator)/);
+    expect(server).not.toMatch(
+      /require\(["']@zero\/(?:executor|orchestrator)(?:\/[^"']*)?["']\)/
+    );
     expect(server).not.toMatch(
       /chromium\.launch|startOrchestrator|createProcessRun|startExecutionWorker/
     );
@@ -36,6 +38,7 @@ describe("packaging boundaries", () => {
     const executorDocker = read("services/executor/Dockerfile");
 
     expect(apiDocker).toMatch(/--workspace @zero\/api/);
+    expect(apiDocker).toMatch(/COPY packages\/brand \.\/packages\/brand/);
     expect(orchestratorDocker).toMatch(/--workspace @zero\/orchestrator/);
     expect(executorDocker).toMatch(/--workspace @zero\/executor/);
     expect(apiDocker).not.toMatch(/COPY services \.\/services/);

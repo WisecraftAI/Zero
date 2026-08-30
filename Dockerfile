@@ -13,6 +13,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY services/api ./services/api
+COPY packages/brand ./packages/brand
 COPY packages/cloud ./packages/cloud
 COPY packages/db ./packages/db
 COPY packages/domain ./packages/domain

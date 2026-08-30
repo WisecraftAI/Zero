@@ -2,8 +2,20 @@
 
 const fs = require("fs/promises");
 const path = require("path");
-const PDFDocument = require("pdfkit");
 const { normalizeTargetUrl, isStoppableStatus, isTerminalStatus, requestRunCancel } = require("@zero/domain");
+const { sendRunPdfReport } = require("../reports/runPdfReport");
+
+async function streamToBuffer(stream, maxBytes = 20 * 1024 * 1024) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of stream) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new Error("Screenshot exceeds the PDF evidence size limit");
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
+}
 
 module.exports = function registerRunsRoutes(app, ctx) {
   app.post("/runs", ctx.upload.fields([{ name: "tcFile", maxCount: 1 }, { name: "recordingFile", maxCount: 1 }]), async (req, res) => {
@@ -331,7 +343,13 @@ module.exports = function registerRunsRoutes(app, ctx) {
   app.post("/runs/:id/rerun-failed", async (req, res) => {
     const run = await ctx.loadRunForRequest(req, res);
     if (!run) return;
-    if (run.status === "running") return res.status(409).json({ error: "Run is already in progress" });
+    if (!isTerminalStatus(run.status)) {
+      return res.status(409).json({ error: "Run is still in progress" });
+    }
+    const tests = run.artifacts?.executionReport?.tests || [];
+    if (!tests.some((test) => test.status === "failed")) {
+      return res.status(409).json({ error: "Run has no failed checks to re-run" });
+    }
 
     try {
       run.status = "queued";
@@ -392,199 +410,6 @@ module.exports = function registerRunsRoutes(app, ctx) {
     }
   });
 
-  function ensurePdfSpace(doc, minHeight = 80) {
-    if (doc.y > doc.page.height - doc.page.margins.bottom - minHeight) {
-      doc.addPage();
-    }
-  }
-
-  function statusColor(status) {
-    if (status === "passed") return "#118d57";
-    if (status === "failed") return "#d7263d";
-    return "#4d5d78";
-  }
-
-  async function screenshotPathFromRef(run, ref) {
-    if (!ref || typeof ref !== "string") return null;
-    const fileName = path.basename(ref);
-    const abs = path.join(run.runDir, fileName);
-    try {
-      await fs.access(abs);
-      return abs;
-    } catch {
-      return null;
-    }
-  }
-
-  async function sendPdfReport(run, res) {
-    const doc = new PDFDocument({ margin: 36, size: "A4", layout: "landscape" });
-    const fileName = `run-${run.id}.pdf`;
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
-    doc.pipe(res);
-
-    const exec = run.artifacts.executionReport || { totals: {}, tests: [] };
-    const manager = run.artifacts.managerReport || {};
-    const manualCases = (run.artifacts.manualTestCases && run.artifacts.manualTestCases.testCases) || [];
-    const tests = exec.tests || [];
-
-    const orderedTests = [...tests].sort((a, b) => {
-      if (a.status === b.status) return 0;
-      if (a.status === "failed") return -1;
-      if (b.status === "failed") return 1;
-      return 0;
-    });
-
-    doc.fillColor("#0f172a").fontSize(24).text("ZER0 QA Report", { align: "left" });
-    doc.moveDown(0.3);
-    doc.fillColor("#334155").fontSize(10)
-      .text(`Run ID: ${run.id}`)
-      .text(`Generated: ${new Date().toISOString()}`)
-      .text(`OTT URL: ${run.input.ottUrl || "N/A"}`)
-      .text(`Profile: ${(run.artifacts.requirements && run.artifacts.requirements.metadata && run.artifacts.requirements.metadata.profile) || "N/A"}`);
-
-    doc.moveDown(0.8);
-    doc.fillColor("#0f172a").fontSize(14).text("Execution Summary");
-    doc.moveDown(0.2);
-    doc.fontSize(11).fillColor("#1e293b")
-      .text(`Total Checks: ${exec.totals.total || 0}`)
-      .text(`Passed: ${exec.totals.passed || 0}`)
-      .text(`Failed: ${exec.totals.failed || 0}`)
-      .text(`Pass Rate: ${exec.totals.passRate || "0%"}`);
-
-    doc.moveDown(0.8);
-    doc.fillColor("#0f172a").fontSize(14).text("Test Case Coverage");
-    doc.moveDown(0.2);
-    doc.fontSize(10).fillColor("#1e293b")
-      .text(`Manual Test Cases Planned: ${manualCases.length}`)
-      .text(`Automation Checks Executed: ${tests.length}`)
-      .text("Execution table below contains definitive pass/fail outcomes for all executed checks.");
-
-    doc.moveDown(0.8);
-    doc.fillColor("#0f172a").fontSize(14).text("Execution Result Table");
-    doc.moveDown(0.3);
-
-    const left = doc.page.margins.left;
-    const top = doc.y;
-    const widths = { id: 120, title: 330, status: 90, duration: 90, retries: 70 };
-
-    function drawRow(y, cells, header = false) {
-      const bg = header ? "#e2e8f0" : "#f8fafc";
-      doc.save();
-      doc.rect(left, y - 2, widths.id + widths.title + widths.status + widths.duration + widths.retries, 22).fill(bg);
-      doc.restore();
-      doc.fillColor("#0f172a").fontSize(9);
-      doc.text(cells.id, left + 6, y + 4, { width: widths.id - 10, ellipsis: true });
-      doc.text(cells.title, left + widths.id + 6, y + 4, { width: widths.title - 10, ellipsis: true });
-      doc.fillColor(header ? "#0f172a" : statusColor(cells.statusRaw));
-      doc.text(cells.status, left + widths.id + widths.title + 6, y + 4, { width: widths.status - 10 });
-      doc.fillColor("#0f172a");
-      doc.text(cells.duration, left + widths.id + widths.title + widths.status + 6, y + 4, { width: widths.duration - 10 });
-      doc.text(cells.retries, left + widths.id + widths.title + widths.status + widths.duration + 6, y + 4, { width: widths.retries - 10 });
-    }
-
-    drawRow(top, {
-      id: "Test ID",
-      title: "Title",
-      status: "Status",
-      statusRaw: "header",
-      duration: "Duration",
-      retries: "Retries"
-    }, true);
-
-    let rowY = top + 24;
-    orderedTests.forEach((t) => {
-      ensurePdfSpace(doc, 80);
-      if (rowY > doc.page.height - doc.page.margins.bottom - 30) {
-        doc.addPage();
-        rowY = doc.page.margins.top;
-        drawRow(rowY, {
-          id: "Test ID",
-          title: "Title",
-          status: "Status",
-          statusRaw: "header",
-          duration: "Duration",
-          retries: "Retries"
-        }, true);
-        rowY += 24;
-      }
-      drawRow(rowY, {
-        id: t.id || "N/A",
-        title: t.title || "Untitled",
-        status: String(t.status || "unknown").toUpperCase(),
-        statusRaw: t.status || "unknown",
-        duration: `${t.durationMs || 0} ms`,
-        retries: String(t.retries || 0)
-      }, false);
-      rowY += 24;
-    });
-
-    const failed = orderedTests.filter((t) => t.status === "failed");
-    if (failed.length) {
-      doc.moveDown(1);
-      doc.fillColor("#991b1b").fontSize(11).text("Failure Details:");
-      failed.slice(0, 12).forEach((t) => {
-        ensurePdfSpace(doc, 50);
-        doc.fillColor("#0f172a").fontSize(10).text(`${t.id}: ${t.title}`);
-        doc.fillColor("#991b1b").fontSize(9).text(String(t.error || "No error captured").slice(0, 350));
-      });
-    }
-
-    doc.addPage();
-    doc.fillColor("#0f172a").fontSize(14).text("Screenshot Evidence");
-    doc.moveDown(0.2);
-    doc.fillColor("#334155").fontSize(9).text("Failed screenshots are shown first for easier triage.");
-    doc.moveDown(0.3);
-    let attached = 0;
-    for (let i = 0; i < orderedTests.length; i += 1) {
-      const t = orderedTests[i];
-      const imgPath = await screenshotPathFromRef(run, t.screenshot);
-      if (!imgPath) continue;
-      doc.addPage();
-      doc.fontSize(12).fillColor("#0f172a").text(`${t.id} - ${(t.status || "unknown").toUpperCase()} - ${t.title || ""}`);
-      doc.moveDown(0.3);
-      try {
-        doc.image(imgPath, {
-          fit: [760, 470],
-          align: "center"
-        });
-        doc.moveDown(0.3);
-        doc.fillColor("#334155").fontSize(9).text(`Image: ${path.basename(imgPath)}`);
-        attached += 1;
-      } catch {
-        doc.fillColor("#b91c1c").fontSize(9).text("Failed to attach screenshot image.");
-      }
-    }
-    if (!attached) {
-      doc.fillColor("#475569").fontSize(10).text("No screenshots available for this run.");
-    }
-
-    doc.addPage();
-    doc.fillColor("#0f172a").fontSize(14).text("Manager Review");
-    doc.moveDown(0.3);
-    const decision = manager.executiveSummary ? manager.executiveSummary.qualityDecision : "N/A";
-    doc.fillColor("#1e293b").fontSize(11).text(`Release Decision: ${decision}`);
-    const rootCauses = (manager.analysis && manager.analysis.majorRootCauses) || [];
-    if (rootCauses.length) {
-      doc.moveDown(0.3);
-      doc.fillColor("#0f172a").fontSize(11).text("Top Root Causes:");
-      rootCauses.slice(0, 8).forEach((cause) => {
-        doc.fillColor("#334155").fontSize(10).text(`- ${cause}`);
-      });
-    }
-
-    const actions = manager.actionPlan || [];
-    if (actions.length) {
-      doc.moveDown(0.4);
-      doc.fillColor("#0f172a").fontSize(11).text("Action Plan:");
-      actions.slice(0, 8).forEach((action) => {
-        doc.fillColor("#334155").fontSize(10).text(`- ${action}`);
-      });
-    }
-
-    doc.end();
-  }
-
   app.get("/runs/:id/download", async (req, res) => {
     const run = await ctx.loadRunForRequest(req, res);
     if (!run) return;
@@ -614,7 +439,32 @@ module.exports = function registerRunsRoutes(app, ctx) {
       return res.send(body);
     }
 
-    await sendPdfReport(run, res);
+    try {
+      await sendRunPdfReport(run, res, {
+        // The palette lives in the browser, so the client tells us which one it
+        // is on. Unknown ids fall back to the default inside the generator.
+        theme: req.query.theme,
+        paper: String(req.query.paper || "").toLowerCase() === "light" ? "light" : "theme",
+        resolveScreenshot: async (name) => {
+          try {
+            const key = `runs/${run.id}/files/${path.basename(name)}`;
+            return await streamToBuffer(await ctx.cloud.objectStore.get(key));
+          } catch {
+            return null;
+          }
+        }
+      });
+    } catch (error) {
+      ctx.logger.error("Failed to generate run PDF", {
+        runId: run.id,
+        error: error.message,
+        requestId: req.requestId
+      });
+      if (res.headersSent) {
+        return res.destroy(error);
+      }
+      return res.status(500).json({ error: "Could not generate PDF report" });
+    }
   });
 
   app.get("/runs/:id/assets", async (req, res) => {

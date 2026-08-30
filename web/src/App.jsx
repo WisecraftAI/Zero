@@ -70,6 +70,8 @@ export default function App() {
   const [activeRun, setActiveRun] = useState(null);
   const [runs, setRuns] = useState([]);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [runLoadError, setRunLoadError] = useState('');
+  const [runActionError, setRunActionError] = useState('');
   const [clock, setClock] = useState(0);
 
   const { view, runId: activeRunId, tab: activeTab } = route;
@@ -85,6 +87,8 @@ export default function App() {
   }, [view, activeRun?.status, activeRunId]);
 
   const navigate = useCallback((to, runId = null, tab = null) => {
+    setRunLoadError('');
+    setRunActionError('');
     setRoute((prev) => ({
       view: to,
       runId: runId !== null ? runId : prev.runId,
@@ -130,11 +134,18 @@ export default function App() {
     if (!activeRunId) return null;
     try {
       const res = await fetch(apiUrl(`/runs/${activeRunId}`));
-      if (!res.ok) return null;
+      if (!res.ok) {
+        setRunLoadError(res.status === 404
+          ? 'Run not found. It may have been removed or belongs to another workspace.'
+          : 'Unable to load this run. Please try again.');
+        return null;
+      }
       const data = await res.json();
+      setRunLoadError('');
       setActiveRun(data);
       return data;
     } catch {
+      setRunLoadError('Unable to reach the API. Check the service health and try again.');
       return null;
     }
   }, [activeRunId]);
@@ -195,6 +206,7 @@ export default function App() {
 
   const handleStopRun = async (runId) => {
     if (!runId) return;
+    setRunActionError('');
     setRuns((prev) => prev.map((r) => (
       (r.id === runId || r.runId === runId) ? { ...r, status: 'stopping' } : r
     )));
@@ -204,11 +216,14 @@ export default function App() {
     try {
       const res = await fetch(apiUrl(`/runs/${runId}/stop`), { method: 'POST' });
       if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setRunActionError(body.error || 'Unable to stop this run.');
         fetchRuns();
         if (activeRunId === runId) fetchRun();
         return;
       }
     } catch {
+      setRunActionError('Unable to reach the API while stopping this run.');
       fetchRuns();
       if (activeRunId === runId) fetchRun();
       return;
@@ -219,9 +234,20 @@ export default function App() {
 
   const handleRerunFailed = async () => {
     if (!activeRunId) return;
-    await fetch(apiUrl(`/runs/${activeRunId}/rerun-failed`), { method: 'POST' });
-    setActiveRun(null);
-    fetchRun();
+    setRunActionError('');
+    try {
+      const res = await fetch(apiUrl(`/runs/${activeRunId}/rerun-failed`), { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setRunActionError(body.error || 'Unable to re-run failed checks.');
+        return;
+      }
+      setActiveRun(null);
+      await fetchRun();
+      fetchRuns();
+    } catch {
+      setRunActionError('Unable to reach the API while re-running failed checks.');
+    }
   };
 
   const openRun = useCallback((runId) => {
@@ -263,6 +289,8 @@ export default function App() {
             onStopRun={handleStopRun}
             onBack={() => navigate('runs')}
             streamTransport={streamTransport}
+            loadError={runLoadError}
+            actionError={runActionError}
           />
         );
       case 'locators':
