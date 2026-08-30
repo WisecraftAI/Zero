@@ -63,9 +63,8 @@ async function main() {
   page.on('pageerror', err => consoleErrors.push(err.message));
   page.on('requestfailed', req => {
     const url = req.url();
-    const expectedStreamClose =
-      req.resourceType() === 'eventsource' && req.failure()?.errorText === 'net::ERR_ABORTED';
-    if (!url.includes('favicon') && !expectedStreamClose) {
+    const expectedNavigationAbort = req.failure()?.errorText === 'net::ERR_ABORTED';
+    if (!url.includes('favicon') && !expectedNavigationAbort) {
       failedRequests.push(`${req.failure()?.errorText || 'failed'}: ${url}`);
     }
   });
