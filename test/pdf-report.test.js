@@ -1,7 +1,7 @@
 "use strict";
 
 const { PassThrough } = require("stream");
-const { sendRunPdfReport } = require("../services/api/src/reports/runPdfReport");
+const { sendRunPdfReport, releaseGate } = require("../services/api/src/reports/runPdfReport");
 const { reportPalette, PALETTES } = require("@zero/brand");
 
 function completedRun(overrides = {}) {
@@ -44,6 +44,27 @@ function responseStream() {
   };
   return stream;
 }
+
+describe("release gate", () => {
+  it("bands the pass rate at 95 and 85", () => {
+    expect(releaseGate(100).verdict).toBe("Full pass");
+    expect(releaseGate(95).verdict).toBe("Full pass");
+    expect(releaseGate(94).verdict).toBe("Conditional pass");
+    expect(releaseGate(85).verdict).toBe("Conditional pass");
+    expect(releaseGate(84).verdict).toBe("Manual check");
+    expect(releaseGate(0).verdict).toBe("Manual check");
+  });
+
+  it("asks for a manual spot check on a full pass", () => {
+    expect(releaseGate(96).directive).toMatch(/spot-check/i);
+  });
+
+  it("treats a run with nothing executed as unscored and manual", () => {
+    const gate = releaseGate(null);
+    expect(gate.verdict).toBe("Manual check");
+    expect(gate.scoreLabel).toBe("n/a");
+  });
+});
 
 describe("run PDF report", () => {
   it("generates a PDF and resolves evidence from object storage", async () => {

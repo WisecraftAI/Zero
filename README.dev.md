@@ -98,7 +98,7 @@ Cursor skills: `/zero-web`, `/zero-api`, `/zero-orchestrator`, `/zero-executor`,
 
 Order (`stageKeys`): optional `webAnalyzer` → `ba` → `manualQa` → `automationQa` → `execution` → optional a11y/perf/security → `manager` → `delivery`.
 
-- **Autonomous:** URL only, no TC file, short notes → crawl → optional domain LLM → cases → `discovered_flows`.
+- **Autonomous:** URL only, no TC file (notes optional) → crawl → optional domain LLM → cases → `discovered_flows`.
 - **Guided:** URL + Figma / TC file / BA notes.
 - **CSV default execution is `minimal`** (load URL + wait for body). `EXECUTION_MODE=full` is brittle; use for selector tuning only.
 - BA / Manual / Automation / Manager use templates always; LLM enriches when a decrypted provider key exists (`ZERO_LLM=off` forces templates).

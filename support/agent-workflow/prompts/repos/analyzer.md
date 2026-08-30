@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Optional crawl that seeds BA when notes are short and no TC file is uploaded.
+Optional crawl that seeds BA whenever no TC file is uploaded. BA notes are a focus hint and never skip the crawl.
 
 ## Design patterns
 

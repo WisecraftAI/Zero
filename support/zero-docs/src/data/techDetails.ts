@@ -79,7 +79,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
       { kind: 'http', label: 'POST /runs', detail: 'Start a run; gets back { runId, uploads[] } then PUTs each file to its presigned URL. (S7 dropped the /api prefix.)' },
       { kind: 'http', label: 'GET /runs · GET /runs/:id', detail: 'List past runs and poll one run’s status and assets.' },
       { kind: 'sse', label: 'GET /runs/:id/stream', detail: 'Live stage ticks — state · artifact · done · error (EventSource primary; 3s poll fallback after SSE failures).' },
-      { kind: 'http', label: 'GET /runs/:id/download', detail: 'Fetch the generated report bundle or a signed download URL.' },
+      { kind: 'http', label: 'GET /runs/:id/download', detail: 'Themed PDF (`releaseGate` on pass rate; `?theme=` / `?paper=light`) or `?format=json&url=1` for a signed URL.' },
       { kind: 'http', label: '/provider-keys · /agent-settings', detail: 'Save encrypted provider keys and per-agent model choices.' },
       { kind: 'blob', label: 'PUT <presigned url>', detail: 'Upload tcFile / recordingFile directly to the object store — bytes never transit the API.' },
     ],
@@ -134,7 +134,7 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
     },
     inbound: [
       { kind: 'http', label: 'POST /runs · POST /runs/:id/commit', detail: 'Multipart start, or JSON { uploads:[...] } → presigned PUTs; commit then starts the pipeline. (S7 dropped the /api prefix.)' },
-      { kind: 'http', label: 'GET /runs · /:id · /:id/assets · /:id/download', detail: 'Read run state, assets, and downloads.' },
+      { kind: 'http', label: 'GET /runs · /:id · /:id/assets · /:id/download', detail: 'Read run state, assets, and the themed PDF / JSON download (`releaseGate` bands 95 / 85).' },
       { kind: 'sse', label: 'GET /runs/:id/stream', detail: 'Server-sent stage events relayed from cache / Redis.' },
       { kind: 'http', label: 'POST /runs/:id/stop · POST /runs/:id/rerun-failed', detail: 'Cooperative stop flag; re-queue failed checks.' },
       { kind: 'http', label: '/provider-keys · /agent-settings · /locators · /element-log', detail: 'Settings and locator surface; recording endpoints under /recordings.' },
@@ -514,16 +514,16 @@ export const TECH_DETAILS: Record<string, TechDetail> = {
 
   analyzer: {
     mission:
-      'The scout. An optional Playwright crawl that seeds the BA stage when notes are short and no test-case file was uploaded. Two facades — light (`urlAnalyzer.js`) and pro (`urlAnalyzerPro.js`, the package default) — sit on a shared `lib/` of strategies, crawl, flows, generate, and format. Its Chromium is resolved through the executor image, not the HTTP API.',
+      'The scout. An optional Playwright crawl that seeds the BA stage whenever no test-case file was uploaded (BA notes are a focus hint and never skip it). Two facades — light (`urlAnalyzer.js`) and pro (`urlAnalyzerPro.js`, the package default) — sit on a shared `lib/` of strategies, crawl, flows, generate, and format. Its Chromium is resolved through the executor image, not the HTTP API.',
     design: [
       'Strategy — a light crawl vs a pro crawl chosen from run inputs.',
       'Isolated Chromium — separate from the executor’s job runner.',
       'Signals — anti-bot / WAF / SPA-root detection in `lib/crawl/signals.js` feed the pro strategy.',
-      'Optional — skipped entirely when a TC file or long notes already exist.',
+      'Optional — skipped only when a TC file was uploaded; BA notes never suppress the crawl.',
     ],
     diagram: {
       title: '@zero/analyzer in context',
-      caption: 'Optional crawl that feeds BA when inputs are thin.',
+      caption: 'Optional crawl that feeds BA whenever no TC file was uploaded.',
       tiers: [
         { id: 'caller', label: 'Caller', nodes: [{ label: 'Orchestrator', sub: 'Web Analyzer stage', role: 'worker' }] },
         {

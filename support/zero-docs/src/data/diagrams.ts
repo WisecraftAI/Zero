@@ -189,7 +189,7 @@ export const ORCH_SEQUENCE_MERMAID = `sequenceDiagram
   Q->>O: consume runId
   O->>PG: load run
   O->>PG: recall agent_memory for host
-  opt no TC file and short notes
+  opt no TC file
     O->>O: webAnalyzer crawl
   end
   O->>LLM: BA

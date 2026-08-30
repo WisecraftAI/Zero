@@ -19,7 +19,7 @@ function resolveMaxPages(options) {
 }
 
 /**
- * Light URL Analyzer — heuristic crawl that seeds BA when notes are short.
+ * Light URL Analyzer — heuristic crawl that seeds BA when no TC file is uploaded.
  */
 async function analyzeUrl(page, url, options = {}) {
   const startTime = Date.now();

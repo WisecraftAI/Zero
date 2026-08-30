@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-27T23:36:26.222Z",
+  "generatedAt": "2026-08-30T16:27:34.636Z",
   "totals": {
     "modules": 10,
-    "fileCount": 223,
-    "loc": 34739
+    "fileCount": 236,
+    "loc": 39505
   },
   "modules": [
     {
@@ -70,20 +70,21 @@ export const GENERATED_LLD: GeneratedLld = {
         "xlsx"
       ],
       "workspaceDeps": [
+        "@zero/brand",
         "@zero/cloud",
         "@zero/db",
         "@zero/domain",
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 15,
-      "loc": 3072,
+      "fileCount": 19,
+      "loc": 4706,
       "filesByExt": {
-        ".js": 15
+        ".js": 19
       },
       "hasDockerfile": false,
       "hasTests": false,
-      "tree": "services/api/\n├─ apiKeyManager.js\n├─ auth.js\n├─ encryption.js\n├─ logger.js\n├─ middleware.js\n├─ server.js\n├─ swagger.js\n├─ middleware/\n│  ├─ auth.js\n├─ src/\n│  ├─ routes/"
+      "tree": "services/api/\n├─ apiKeyManager.js\n├─ auth.js\n├─ encryption.js\n├─ logger.js\n├─ middleware.js\n├─ server.js\n├─ swagger.js\n├─ middleware/\n│  ├─ auth.js\n├─ src/\n│  ├─ reports/\n│  ├─ routes/"
     },
     {
       "id": "orchestrator",
@@ -110,14 +111,14 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 13,
-      "loc": 3242,
+      "fileCount": 14,
+      "loc": 3423,
       "filesByExt": {
-        ".js": 13
+        ".js": 14
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "services/orchestrator/\n├─ agentMemory.js\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ inferDomain.js\n├─ pipeline.js\n├─ processRun.js\n├─ worker.js\n├─ llm/\n│  ├─ enrichment.js\n│  ├─ index.js\n│  ├─ prompts.js\n│  ├─ providers.js\n│  ├─ utils.js"
+      "tree": "services/orchestrator/\n├─ agentMemory.js\n├─ applyLlm.js\n├─ encryption.js\n├─ index.js\n├─ inferDomain.js\n├─ pipeline.js\n├─ processRun.js\n├─ siteContext.js\n├─ worker.js\n├─ llm/\n│  ├─ enrichment.js\n│  ├─ index.js\n│  ├─ prompts.js\n│  ├─ providers.js\n│  ├─ utils.js"
     },
     {
       "id": "executor",
@@ -145,7 +146,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 5,
-      "loc": 3015,
+      "loc": 3058,
       "filesByExt": {
         ".js": 5
       },
@@ -176,16 +177,16 @@ export const GENERATED_LLD: GeneratedLld = {
         "sass",
         "vite"
       ],
-      "fileCount": 64,
-      "loc": 14729,
+      "fileCount": 71,
+      "loc": 17027,
       "filesByExt": {
-        ".jsx": 25,
-        ".scss": 28,
-        ".js": 11
+        ".jsx": 27,
+        ".scss": 31,
+        ".js": 13
       },
       "hasDockerfile": true,
       "hasTests": false,
-      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.png\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n│  ├─ zero-icon-dark.png\n│  ├─ zero-icon.png\n│  ├─ zero-logo-dark.png\n├─ src/\n│  ├─ App.jsx\n│  ├─ App.scss\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.scss\n│  ├─ layouts/\n│  ├─ lib/"
+      "tree": "web/\n├─ vite.config.js\n├─ public/\n│  ├─ architecture.html\n│  ├─ architectureV2.html\n│  ├─ favicon.png\n│  ├─ favicon.svg\n│  ├─ lld-web.html\n│  ├─ zero-icon.png\n│  ├─ zero-mark.png\n│  ├─ zero-wordmark.png\n├─ src/\n│  ├─ App.jsx\n│  ├─ App.scss\n│  ├─ apiBase.js\n│  ├─ components/\n│  ├─ data/\n│  ├─ index.scss\n│  ├─ layouts/\n│  ├─ lib/"
     },
     {
       "id": "cloud",
@@ -205,7 +206,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 33,
-      "loc": 1954,
+      "loc": 1966,
       "filesByExt": {
         ".js": 32,
         ".ts": 1
@@ -295,10 +296,10 @@ export const GENERATED_LLD: GeneratedLld = {
         "@zero/locators"
       ],
       "devDeps": [],
-      "fileCount": 19,
-      "loc": 1140,
+      "fileCount": 20,
+      "loc": 1619,
       "filesByExt": {
-        ".js": 19
+        ".js": 20
       },
       "hasDockerfile": false,
       "hasTests": false,
@@ -310,7 +311,7 @@ export const GENERATED_LLD: GeneratedLld = {
       "path": "packages/analyzer",
       "pkg": "@zero/analyzer",
       "version": "0.0.0",
-      "description": "Optional URL crawl that seeds BA when notes are short.",
+      "description": "Optional URL crawl that seeds BA whenever no TC file is uploaded.",
       "entry": "index.js",
       "scripts": [],
       "runtimeDeps": [],
@@ -319,7 +320,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 31,
-      "loc": 5123,
+      "loc": 5242,
       "filesByExt": {
         ".js": 31
       },
@@ -358,7 +359,7 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-27T23:36:26.222Z",
+  "generatedAt": "2026-08-30T16:27:34.636Z",
   "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
   "current": "Q5",

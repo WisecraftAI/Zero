@@ -283,7 +283,7 @@ curl -s $API/runs/$RUN                 # poll: queued → running → completed
 curl -s $API/runs/$RUN/assets
 ```
 
-`ottUrl` is required. `"testCaseInputMode":"auto"` is what permits a URL-only autonomous run: with no TC file and short notes, the Web Analyzer crawls (capped to 3 pages by `ZERO_ANALYZER_MAX_PAGES` above), then BA → Manual QA → Automation QA → Playwright execution in `minimal` mode → Manager → Delivery. The response is **202** with a `runId`, not a finished run.
+`ottUrl` is required. `"testCaseInputMode":"auto"` is what permits a URL-only autonomous run: with no TC file, the Web Analyzer crawls (capped to 3 pages by `ZERO_ANALYZER_MAX_PAGES` above; BA notes do not skip it), then BA → Manual QA → Automation QA → Playwright execution in `minimal` mode → Manager → Delivery. The response is **202** with a `runId`, not a finished run.
 
 If you turned auth on, add `-H "x-api-key: <key>"` to every call — and remember the browser UI will 401.
 

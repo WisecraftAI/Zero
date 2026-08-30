@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "main": "index.js",
-  "description": "Optional URL crawl that seeds BA when notes are short.",
+  "description": "Optional URL crawl that seeds BA whenever no TC file is uploaded.",
   "exports": {
     ".": "./index.js",
     "./urlAnalyzer": "./urlAnalyzer.js",

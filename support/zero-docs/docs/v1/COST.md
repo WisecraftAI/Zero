@@ -71,7 +71,7 @@ The **Deployment → Cloud** tab includes a one-line `Cost floor / mo` row in th
 |-----------|---------------|-----------------|
 | **LLM** (BA / Manual / Automation / Manager) | $0–0.50 (capped) | `ZERO_LLM=off`; lower `ZERO_LLM_MAX_USD_PER_RUN` (default 0.50) |
 | **Playwright execution** (minimal mode) | $0 local · ~$0.02–0.08 cloud | `EXECUTION_MODE=minimal`; export Java scripts for external E2E |
-| **Web Analyzer crawl** | $0 local · ~$0.05–0.15 cloud | Upload TCs or longer BA notes to skip crawl |
+| **Web Analyzer crawl** | $0 local · ~$0.05–0.15 cloud | Upload a TC file to skip crawl; BA notes do not skip it |
 | **Object storage** | <$0.01 unless heavy screenshots | S3/GCS lifecycle rules (30–90 day expiry) |
 | **Queue + cache** | <$0.01 at low volume | `ZERO_CLOUD=local` for dev |
 

@@ -189,7 +189,7 @@ export const REPOS: readonly RepoDef[] = [
     pkg: '@zero/analyzer',
     path: 'packages/analyzer/',
     today: 'packages/analyzer/',
-    purpose: 'Optional Playwright crawl that seeds BA when notes are short and no TC file is uploaded.',
+    purpose: 'Optional Playwright crawl that seeds BA whenever no TC file is uploaded. BA notes do not skip it.',
     patterns: ['Strategy (light vs pro crawl)', 'Isolated Chromium from executor'],
     skill: '/zero-analyzer',
     prompt: 'support/agent-workflow/prompts/repos/analyzer.md',

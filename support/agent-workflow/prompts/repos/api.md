@@ -35,3 +35,5 @@ Stateless HTTP intake. Auth, validate, persist metadata, presign uploads, publis
 - `ZERO_AUTH=on` in production; verified API key or Bearer JWT
 - Tenant-scoped `qa_runs` reads/writes
 - Ask before breaking `POST /runs` or `POST /runs/:id/commit` (no `/api` prefix since S7)
+- `createRun` selects `webAnalyzer` whenever there is no TC file; BA notes never suppress it
+- PDF download is rendered in `src/reports/runPdfReport.js`. The headline verdict is `releaseGate` from the automated pass rate (`>= 95%` Full pass, `85–94%` Conditional pass, `< 85%` or unscored Manual check). The Manager agent's Go / Conditional Go / Hold label is a secondary signal only. Query: `?theme=<data-theme id>` and `?paper=light`

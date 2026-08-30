@@ -285,7 +285,7 @@ curl -Ns "http://$PUBLIC_IP:3001/runs/$RUN_ID/stream"   # SSE progress
 curl -s  "http://$PUBLIC_IP:3001/runs/$RUN_ID/assets"   # Playwright + Java scripts, reports
 ```
 
-`ottUrl` is required, and `"testCaseInputMode":"auto"` is what permits a URL-only run: with no TC file and short notes, Web Analyzer crawls, then BA → Manual QA → Automation QA → Execution → Manager → Delivery. `POST /runs` returns **202 immediately** and the pipeline continues in the background.
+`ottUrl` is required, and `"testCaseInputMode":"auto"` is what permits a URL-only run: with no TC file, Web Analyzer crawls (BA notes are optional and do not skip it), then BA → Manual QA → Automation QA → Execution → Manager → Delivery. `POST /runs` returns **202 immediately** and the pipeline continues in the background.
 
 Add `-H "x-api-key: <key>"` to every call except `/health` if you turned auth on. The browser UI cannot do this — the SPA never sends that header.
 

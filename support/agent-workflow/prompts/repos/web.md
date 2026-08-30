@@ -32,6 +32,7 @@ Presentation and form validation. Never holds business rules, never proxies arti
 
 - `POST /runs` JSON + `uploads[]` then browser `PUT` to presigned URLs (S7 dropped the `/api` prefix)
 - Wire `GET /runs/:id/stream` (EventSource) — UI uses `web/src/data/useRunStream.js` with poll fallback after two failed reconnects
+- PDF download should send `?theme=<data-theme id>` from the operator palette (`currentThemeId()`); optional `?paper=light` keeps dark-theme accents on white
 - Keep path helpers in `web/src/lib/routes.js` in lockstep with the shell nav
 - Run Detail may render `FlowDiagram` from crawl/flow artifacts; do not invent a second routing scheme
 - Rebuild: `npm run build` (workspace `@zero/web`)

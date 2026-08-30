@@ -36,13 +36,13 @@ export interface AnalyzerDoc {
 }
 
 export const ANALYZER_DOC: AnalyzerDoc = {
-  "generatedAt": "2026-08-27T23:36:26.476Z",
+  "generatedAt": "2026-08-30T16:27:34.814Z",
   "pkg": "@zero/analyzer",
   "version": "0.0.0",
-  "description": "Optional URL crawl that seeds BA when notes are short.",
+  "description": "Optional URL crawl that seeds BA whenever no TC file is uploaded.",
   "main": "index.js",
   "fileCount": 31,
-  "loc": 5123,
+  "loc": 5242,
   "dependencies": [
     "@zero/locators"
   ],
@@ -246,7 +246,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/flows/pro/formFlows.js",
-          "loc": 145,
+          "loc": 155,
           "exports": [
             "buildFormAndFallbackFlows",
             "buildContactFormFlow",
@@ -336,7 +336,7 @@ export const ANALYZER_DOC: AnalyzerDoc = {
         },
         {
           "file": "lib/generate/majorFunctionalCases.js",
-          "loc": 248,
+          "loc": 357,
           "exports": [
             "generateMajorFunctionalCases",
             "mergeMajorWithGenerated",
