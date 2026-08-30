@@ -15,12 +15,14 @@ async function main() {
   const note = (ok, area, detail) => (ok ? passes : issues).push({ area, detail });
 
   await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.locator('.sidebar-nav .nav-item').filter({ hasText: 'Dashboard' }).click();
+  await page.waitForTimeout(400);
 
   // Dashboard stats
-  const statCards = await page.locator('.dash-stat, .dash-kpi, [class*="stat"]').count();
+  const statCards = await page.locator('.stat-card').count();
   note(statCards >= 3, 'Dashboard', `${statCards} stat cards visible`);
 
-  const recentRuns = await page.locator('.dash-recent-row, .dash-run-row, .dash-table tr').count();
+  const recentRuns = await page.locator('.dash-view table tbody tr').count();
   note(recentRuns > 0, 'Dashboard', `${recentRuns} recent run rows`);
 
   // New Run wizard steps
@@ -78,8 +80,12 @@ async function main() {
   // Element Log tab
   await page.locator('.rdt-tab').filter({ hasText: 'Element Log' }).click();
   await page.waitForTimeout(400);
-  const elLogHost = page.locator('input[placeholder*="host"], input[placeholder*="example"]').first();
-  note(await elLogHost.isVisible().catch(() => false), 'Element Log', 'host query input visible');
+  const elementLogGuidance = await page.locator('.element-log-info').innerText().catch(() => '');
+  note(
+    elementLogGuidance.includes('Locators'),
+    'Element Log',
+    'locator workflow guidance visible'
+  );
 
   // Locators view interactive
   await page.locator('.sidebar-foot .nav-item').filter({ hasText: 'Locators' }).click();

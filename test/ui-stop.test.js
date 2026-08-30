@@ -19,5 +19,16 @@ describe('run stop UI', () => {
     expect(app).toMatch(/\/runs\/\$\{runId\}\/stop/);
     expect(app).toMatch(/handleStopRun/);
     expect(app).toMatch(/onStopRun=\{handleStopRun\}/);
+    expect(app).toMatch(/setRunActionError/);
+  });
+
+  it('surfaces run loading and action failures to operators', () => {
+    const app = read('web/src/App.jsx');
+    const detail = read('web/src/views/RunDetailView.jsx');
+
+    expect(app).toMatch(/Run not found/);
+    expect(app).toMatch(/res\.ok/);
+    expect(detail).toMatch(/role="alert"/);
+    expect(detail).toMatch(/Back to runs/);
   });
 });

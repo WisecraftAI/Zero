@@ -171,6 +171,16 @@ export function getTheme(id) {
   return THEMES.find((t) => t.id === id) || THEMES[0];
 }
 
+/**
+ * The palette currently painted on the page. Read from the DOM rather than
+ * storage so it matches what the operator can see, which is what server-side
+ * renderers (the PDF report) need in order to agree with the UI.
+ */
+export function currentThemeId() {
+  const applied = document.documentElement.getAttribute('data-theme');
+  return isThemeId(applied) ? applied : THEMES[0].id;
+}
+
 export function resolveStoredTheme(stored, prefersDark) {
   if (isThemeId(stored)) return stored;
   return prefersDark ? 'dark' : 'light';

@@ -111,6 +111,13 @@ describe("M3 queue-triggered HTTP", () => {
     const snap = await request({ method: "GET", urlPath: `/runs/${created.body.runId}` });
     expect(snap.status).toBe(200);
     expect(["queued", "running", "completed", "failed"]).toContain(snap.body.status);
+
+    const rerun = await request({
+      method: "POST",
+      urlPath: `/runs/${created.body.runId}/rerun-failed`
+    });
+    expect(rerun.status).toBe(409);
+    expect(rerun.body.error).toMatch(/still in progress/);
   });
 
   it("SSE stream sends a state event", async () => {

@@ -63,6 +63,7 @@ docker compose up --build workflow
 | `services/executor/` | Playwright job worker (`execution.requested`) |
 | `packages/cloud` | Queue · object store · secrets · cache (`ZERO_CLOUD`) |
 | `packages/{db,domain,locators,builders,analyzer}` | Shared libs imported as `@zero/*` |
+| `packages/brand` | Logo paths + theme palettes for server-side rendering (generated from `web/`; `npm run brand:generate`) |
 | `web/` | React 18 + Vite SPA (`src/views`, `src/components`, `src/layouts`, SCSS in `src/styles`) |
 | `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
 | `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
@@ -71,6 +72,7 @@ docker compose up --build workflow
 | `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
 | `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
+| `scripts/generate-brand-assets.js` | Mirrors `web/` logo art + theme palettes into `@zero/brand` (`npm run brand:generate`) |
 | `scripts/local-stack.js` | `npm run start:all` — co-locate API + orchestrator + executor |
 
 ## Pipeline stages
@@ -123,7 +125,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 - `POST /runs` — multipart start (`tcFile`, `recordingFile`) or JSON with `uploads: ["tcFile"]` → presigned PUTs
 - `POST /runs/:id/commit` — after presigned uploads, start the pipeline
 - `GET /runs`, `GET /runs/:id`, `GET /runs/:id/stream` (SSE), `POST /runs/:id/stop`, `POST /runs/:id/rerun-failed`
-- `GET /runs/:id/assets`, `GET /runs/:id/files/:name`, `GET /runs/:id/download` (`?format=json&url=1` for a signed URL)
+- `GET /runs/:id/assets`, `GET /runs/:id/files/:name`, `GET /runs/:id/download` (`?format=json&url=1` for a signed URL; PDF takes `?theme=<data-theme id>` — the UI sends the operator's palette — and `?paper=light` to keep a dark theme's accents on white)
 - `GET|PUT /cloud/local` — fulfill local signed URLs
 - `POST /element-log`, `GET /locators?host=...`
 - Provider / agent settings: `/provider-keys`, `/agent-settings` (drive BA/Manual/Automation/Manager via `@zero/orchestrator/llm`; template fallback if no key)
@@ -136,6 +138,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
 - **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
 - **Styles**: SCSS (dart-sass via Vite). Each component keeps a sibling `.scss`; shared partials live in `web/src/styles/` — `_tokens.scss` (radius/type/space), `_themes.scss` (the `$themes` map that emits every `[data-theme]` palette), `_base.scss`, `_breakpoints.scss` (`bp.below($width)`), `_glass.scss` (frosted chrome for any palette that declares a `glass-blur` token). Theming stays on CSS custom properties because `ThemePicker` swaps `data-theme` at runtime; Sass variables would compile away.
+- **Brand + themes**: `web/` is the source of truth (`src/components/zeroBrandArt.js` traced logo paths, `src/styles/_themes.scss` palettes, `src/lib/themes.js` theme list). After editing any of those run `npm run brand:generate` so `@zero/brand` — the CommonJS mirror the API uses to render the themed PDF report — stays in sync. Logo masters and the tracer live in `support/brand/`.
 - **Server changes**: HTTP routes live in `services/api/src/routes/`; DAG walk is `@zero/orchestrator` `processRun`. Chromium runs in `@zero/executor` (`services/executor/`). Compose splits that into its own image; locally use `npm run start:all` (or separate `npm run orchestrator` / `npm run execution`) when you need workers. Shared code is `@zero/*` packages.
 - **Output roots**: regenerable files under `dist/` via `@zero/domain` `outputRoots` (`web`, `artifacts`, `coverage`, `logs`). Override with `ZERO_DIST_ROOT`.
 - **Locators**: merge order is profile → memory → DB (`@zero/locators`). Normalize element keys via `packages/locators/elementLogger.js`.

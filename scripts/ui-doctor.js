@@ -63,7 +63,11 @@ async function main() {
   page.on('pageerror', err => consoleErrors.push(err.message));
   page.on('requestfailed', req => {
     const url = req.url();
-    if (!url.includes('favicon')) failedRequests.push(`${req.failure()?.errorText || 'failed'}: ${url}`);
+    const expectedStreamClose =
+      req.resourceType() === 'eventsource' && req.failure()?.errorText === 'net::ERR_ABORTED';
+    if (!url.includes('favicon') && !expectedStreamClose) {
+      failedRequests.push(`${req.failure()?.errorText || 'failed'}: ${url}`);
+    }
   });
 
   const sidebarResults = [];
@@ -95,7 +99,7 @@ async function main() {
     const before = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     await themeBtn.click();
     await page.waitForTimeout(150);
-    const next = page.getByRole('radio').filter({ hasNot: page.locator('[aria-checked="true"]') }).first();
+    const next = page.locator('[role="radio"][aria-checked="false"]').first();
     await next.click();
     await page.waitForTimeout(200);
     const after = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
@@ -118,15 +122,7 @@ async function main() {
     if (rowVisible) {
       await runRow.click();
     } else {
-      await page.evaluate((id) => {
-        window.dispatchEvent(new CustomEvent('zero-doctor-open-run', { detail: id }));
-      }, runId);
-      await page.goto(`${BASE}#run-${runId}`, { waitUntil: 'networkidle' }).catch(() => {});
-      await clickSidebar(page, 'Runs');
-      const anyRun = page.locator('.runs-view tr, .run-list-view tr, [class*="run"]').first();
-      if (await anyRun.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await anyRun.click();
-      }
+      await page.goto(`${BASE}/runs/${runId}`, { waitUntil: 'networkidle' });
     }
 
     await page.waitForTimeout(1500);
@@ -184,7 +180,7 @@ async function main() {
     '/runs',
     '/agent-settings',
     '/provider-keys',
-    '/locators',
+    '/locators?host=example.com',
   ];
   for (const ep of endpoints) {
     try {
@@ -208,7 +204,10 @@ async function main() {
     report('Failed network requests', [{ ok: true, name: 'none', detail: '' }]);
   }
 
-  const allOk = [...sidebarResults, ...tabResults, ...apiResults].every(r => r.ok);
+  const allOk =
+    [...sidebarResults, ...tabResults, ...apiResults].every(r => r.ok)
+    && consoleErrors.length === 0
+    && failedRequests.length === 0;
   await browser.close();
   process.exit(allOk ? 0 : 1);
 }

@@ -1,0 +1,13 @@
+{
+  "name": "@zero/brand",
+  "version": "0.0.0",
+  "private": true,
+  "main": "lib/index.js",
+  "description": "Shared brand artwork paths and operator theme palettes. Generated from web/ sources by scripts/generate-brand-assets.js. No I/O.",
+  "exports": {
+    ".": "./lib/index.js",
+    "./art": "./lib/brandArt.js",
+    "./palettes": "./lib/palettes.js",
+    "./color": "./lib/color.js"
+  }
+}
