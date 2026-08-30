@@ -30,6 +30,11 @@ function intentOf(step) {
   return `${step?.target || ""} ${step?.description || ""}`.toLowerCase();
 }
 
+function currentUrl(page) {
+  if (!page) return null;
+  return typeof page.url === "function" ? page.url() : page.url || null;
+}
+
 function looksLikeSelector(value) {
   const sel = String(value || "").trim();
   if (!sel || sel.length > 180 || /\s{2,}/.test(sel)) return false;
@@ -483,36 +488,47 @@ async function navigateToIntent(page, step, ctx, trace) {
     return { ok: true, evidence: false };
   }
 
+  // A navigate step claims the flow reached its own entry point. Clicking
+  // something that leaves the browser on the same URL has not done that, so the
+  // step still succeeds but stops counting as proof for the flow.
+  const before = currentUrl(page);
+  const moved = async () => {
+    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
+    const after = currentUrl(page);
+    if (before && after && before === after) {
+      trace.push("flow:navigate-no-move");
+      return false;
+    }
+    return true;
+  };
+
   const labelled = await firstVisible(page, navTargetSelectors(step), ELEMENT_WAIT_MS);
   if (labelled) {
     await labelled.locator.click({ timeout: 5000 });
-    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
     trace.push(`flow:navigate-click:${labelled.selector}`);
-    return { ok: true };
+    return { ok: true, evidence: await moved() };
   }
 
   const found = await firstVisible(page, semanticSelectors(step, "navigate"), ELEMENT_WAIT_MS, step, "click");
   if (found) {
     await found.locator.click({ timeout: 5000 });
-    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
     trace.push(`flow:navigate-click:${found.selector}`);
-    return { ok: true };
+    return { ok: true, evidence: await moved() };
   }
 
   const healed = await healedTarget(page, step, "navigate", trace);
   if (healed) {
     await healed.locator.click({ timeout: 5000 });
-    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
+    const evidence = await moved();
     await reportHealing(ctx, step, healed);
-    return { ok: true, healing: healed };
+    return { ok: true, healing: healed, evidence };
   }
 
   const byText = await firstVisibleText(page, terms, 1500);
   if (byText) {
     await byText.locator.click({ timeout: 5000 });
-    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
     trace.push(`flow:navigate-text:${byText.term}`);
-    return { ok: true };
+    return { ok: true, evidence: await moved() };
   }
 
   trace.push(`flow:navigate-stay:${target.slice(0, 40) || "current"}`);
