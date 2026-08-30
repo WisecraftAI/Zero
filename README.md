@@ -12,7 +12,7 @@ Architect-level QA orchestration workflow in one UI.
 
 Pipeline:
 
-1. **Web Analyzer** (optional) — multi-page Playwright crawl when no TC file and notes are short; emits `crawledPages`, domain type, and user flows.
+1. **Web Analyzer** (optional) — multi-page Playwright crawl whenever no TC file is uploaded; emits `crawledPages`, domain type, and user flows.
 2. **Domain inference** (automatic) — one LLM call when rule-based type confidence is low (`< 0.5`) or `GENERIC`; skipped when no key or `ZERO_LLM=off`.
 3. **BA Agent** builds requirements from URL + optional Figma / uploaded TCs / notes / analyzer insights.
 4. **Manual QA Agent** creates app-oriented test cases — from CSV, URL analysis (`majorFunctionalCases`), or channel templates.
@@ -100,7 +100,7 @@ Built-in channel profiles currently include `Gray OTT`, `TVNZ+`, `Aha OTT`, `Hot
 
 - **Target URL** is required (OTT, SaaS, marketplace, corporate site, etc.).
 - **Guided mode:** provide at least one of Figma link, uploaded test-case file (`.txt`, `.md`, `.csv`, `.json`, `.xlsx`, `.xls`), or BA notes.
-- **Autonomous mode (URL-only):** URL alone is enough — Web Analyzer runs when no TC file and notes are short/empty; major functional cases and `discovered_flows` execution follow automatically.
+- **Autonomous mode (URL-only):** URL alone is enough — Web Analyzer runs whenever no TC file is uploaded, so BA notes narrow the focus instead of skipping the crawl; major functional cases and `discovered_flows` execution follow automatically.
 - `.xlsx` and `.xls` upload parsing is supported for detailed manual test-case sheets.
 - Channel profile can be forced from UI (`Aha OTT`, `Hotstar-like`, `PrimeVideo-like`, `Generic`) to avoid wrong auto-detection.
 - Optional runtime login credentials can be passed from UI (`loginUsername`, `loginPassword`) for gated flows.
@@ -117,7 +117,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 - `POST /runs/:id/stop` stops a queued or running pipeline
 - `POST /runs/:id/rerun-failed` reruns only failed execution checks
 - `GET /runs/:id/assets` fetches persisted scripts/test cases for reuse
-- `GET /runs/:id/download` downloads final PDF report with screenshots
+- `GET /runs/:id/download` downloads final PDF report with screenshots. The report gates the release on the automated pass rate: **95% and above** is a full pass (with a manual spot check), **85–94%** a conditional pass, **below 85%** requires a manual check. A run where nothing executed is unscored and treated as a manual check.
 - `GET /runs/:id/download?format=json` downloads raw JSON payload
 - **`POST /element-log`** (JSON body) – submit element log; stores locators in Postgres by host so the framework can build scripts from them. Body: `{ "url": "https://...", "elements": [ { "key": "playCta", "selector": "button.play-btn" }, ... ] }`. Requires Postgres.
 - **`GET /locators?host=...`** – returns stored locators for a host (for reuse in script generation)

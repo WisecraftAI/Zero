@@ -61,8 +61,8 @@ Local run modes:
 
 | Mode | Input | What runs |
 |------|-------|-----------|
-| **Autonomous (URL-only)** | Public URL; no TC file; short/empty notes | Multi-page crawl → optional domain inference → major functional cases → `discovered_flows` execution → Manager |
-| **Guided** | URL + Figma / uploaded TCs / BA notes | Same agent chain; Web Analyzer optional; CSV defaults to `minimal` execution |
+| **Autonomous (URL-only)** | Public URL; no TC file (BA notes optional) | Multi-page crawl → optional domain inference → major functional cases → `discovered_flows` execution → Manager |
+| **Guided** | URL + Figma / uploaded TCs / BA notes | Same agent chain; Web Analyzer runs unless a TC file is uploaded; CSV defaults to `minimal` execution |
 
 Optional UI inputs: forced channel profile, runtime login credentials, headed browser (`RUN_HEADED` / “Show browser”).
 
@@ -76,7 +76,7 @@ Order: `webAnalyzer?` → *(domainInference gate)* → `ba` → `manualQa` → `
 
 | Stage | When | What it actually does |
 |-------|------|------------------------|
-| **webAnalyzer** | No TC file and short/empty notes | Multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES` default 8); `crawledPages`, domain type, user flows |
+| **webAnalyzer** | No TC file (notes do not skip it) | Multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES` default 8); `crawledPages`, domain type, user flows |
 | **domainInference** | After Web Analyzer, before BA | One LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC`; merges into `_webAnalysisInsights`; skipped without key or `ZERO_LLM=off` |
 | **ba** | Always | Template consolidation (`consolidateRequirements`), then optional LLM enrich via `@zero/orchestrator/llm` |
 | **manualQa** | Always | Cases from CSV / UI rows / `majorFunctionalCases` / profile templates; optional LLM extra cases |
@@ -98,7 +98,7 @@ Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like,
 | **`uploaded_tc_only`** | CSV upload | Checks derived from uploaded cases |
 | **`full`** (`EXECUTION_MODE=full`) | Selector tuning only | Keyword/selector navigation — brittle on real sites |
 
-In-app Manager Go/No-Go is **orchestration confidence**, not full product E2E proof. Export Java/Playwright for real CI.
+The downloadable PDF (`GET /runs/:id/download`) sets the **release gate** from automated pass rate in `releaseGate` (`services/api/src/reports/runPdfReport.js`): **≥ 95%** Full pass (manual spot check), **85–94%** Conditional pass, **< 85%** or unscored Manual check. The Manager agent's Go / Conditional Go / Hold label is printed alongside as a secondary signal. Neither is full product E2E proof — export Java/Playwright for real CI. Optional query params: `?theme=<data-theme id>` (operator palette) and `?paper=light` (dark-theme accents on white).
 
 ---
 
@@ -179,7 +179,7 @@ S7 dropped the `/api` prefix. The API service (`zero-api`, `:3001`) owns route p
 | Keys / agents | `/provider-keys`, `/agent-settings`, `/keys*` |
 | Ops | `/health`, `/health/detailed`, `/api-docs` (Swagger UI — name, not a prefix) |
 
-`/artifacts` returns 404. Download: `GET /runs/:id/download?format=json&url=1` returns `{ url, key }`.
+`/artifacts` returns 404. Download: `GET /runs/:id/download` streams the themed PDF; `?format=json&url=1` returns `{ url, key }`.
 
 ---
 

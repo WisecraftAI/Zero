@@ -25,7 +25,46 @@ const TAGLINE = "AI-first QA orchestration";
 const MAX_MANUAL_ROWS = 60;
 const MAX_EXECUTION_ROWS = 250;
 const MAX_FAILURE_CARDS = 15;
+const MAX_ACTION_ROWS = 14;
+const MAX_TRACE_ROWS = 60;
 const MAX_SCREENSHOTS = 40;
+
+// The release decision in this report is gated on the automated pass rate, so
+// identical evidence always yields the same verdict. The Manager agent's own
+// Go / Conditional Go / Hold label counts failures instead of scoring them, so
+// it is reported as a secondary signal rather than the headline verdict.
+const GATE_BANDS = [
+  {
+    min: 95,
+    verdict: "Full pass",
+    directive: "Automated coverage is accepted. Spot-check the highest-risk journey manually before sign-off."
+  },
+  {
+    min: 85,
+    verdict: "Conditional pass",
+    directive: "Conditional release only. Triage every failing check and manually verify the journeys they cover before sign-off."
+  },
+  {
+    min: 0,
+    verdict: "Manual check",
+    directive: "Automated coverage is not trustworthy at this score. Complete a full manual QA pass before release."
+  }
+];
+
+const GATE_SCALE = "Gate scale: 95% and above is a full pass with a manual spot check, 85% to 94% is a conditional pass, below 85% requires a manual check.";
+
+function releaseGate(score) {
+  if (score === null) {
+    return {
+      score: null,
+      scoreLabel: "n/a",
+      verdict: "Manual check",
+      directive: "No automated check produced a pass or fail result, so there is no evidence to score. Complete a full manual QA pass before release."
+    };
+  }
+  const band = GATE_BANDS.find((entry) => score >= entry.min) || GATE_BANDS[GATE_BANDS.length - 1];
+  return { score, scoreLabel: `${score}%`, verdict: band.verdict, directive: band.directive };
+}
 
 function formatDateTime(value) {
   if (!value) return "";
@@ -69,6 +108,51 @@ function collectRootCauses(manager) {
   return analysis.rootCauses || analysis.majorRootCauses || [];
 }
 
+function actionKey(text) {
+  return safe(text).toLowerCase();
+}
+
+// The Manager agent emits its action plan already ordered (security first, then
+// remediation, then hygiene) and repeats its top items as `signOff.nextSteps`.
+// That ordering is the only priority signal available, so it drives the labels.
+function actionPriority(action, topActions) {
+  if (/^security\b/i.test(action)) return "Critical";
+  return topActions.has(actionKey(action)) ? "High" : "Medium";
+}
+
+function gatePosture(manager) {
+  const gates = manager.optionalAgentSummaries || {};
+  const parts = [];
+
+  if (gates.accessibility) {
+    const gate = gates.accessibility;
+    parts.push({
+      label: "Accessibility",
+      value: [`Score ${gate.score ?? "-"}`, safe(gate.verdict, 24), `${gate.errors ?? 0} errors`]
+        .filter(Boolean).join("  \u00B7  ")
+    });
+  }
+  if (gates.performance) {
+    const gate = gates.performance;
+    parts.push({
+      label: "Performance",
+      value: [`Score ${gate.score ?? "-"}`, safe(gate.verdict, 24), safe(gate.loadTime, 16)]
+        .filter(Boolean).join("  \u00B7  ")
+    });
+  }
+  if (gates.security) {
+    const gate = gates.security;
+    parts.push({
+      label: "Security",
+      value: [`Score ${gate.score ?? "-"}`, safe(gate.verdict, 24), `${gate.vulnerabilities ?? 0} findings`,
+        gate.criticalIssues ? `${gate.criticalIssues} critical` : null]
+        .filter(Boolean).join("  \u00B7  ")
+    });
+  }
+
+  return parts;
+}
+
 // Cover art and page furniture are drawn at absolute coordinates outside the
 // text box; pdfkit would otherwise treat them as overflow and add blank pages.
 function withoutMargins(doc, draw) {
@@ -101,8 +185,12 @@ function buildModel(run) {
   const skipped = Number(totals.skipped || 0);
   const total = Number(totals.total || tests.length);
 
+  // Scored from the counts rather than the executor's own string, so the gate
+  // band can never disagree with the pass rate printed beside it.
   const executedTotal = passed + failed;
-  const passRate = totals.passRate || (executedTotal ? `${Math.round((passed / executedTotal) * 100)}%` : "0%");
+  const score = executedTotal ? Math.round((passed / executedTotal) * 100) : null;
+  const gate = releaseGate(score);
+  const passRate = gate.scoreLabel;
 
   const createdAt = new Date(run.createdAt).getTime();
   const updatedAt = new Date(run.updatedAt).getTime();
@@ -130,7 +218,9 @@ function buildModel(run) {
     security: artifacts.securityReport || null,
     totals: { total, passed, failed, skipped, passRate },
     wallClockMs,
-    verdict: summary.verdict || "Not available",
+    gate,
+    verdict: gate.verdict,
+    managerVerdict: safe(summary.verdict, 30) || "Not recorded",
     riskLevel: summary.riskLevel || "Unknown"
   };
 }
@@ -175,22 +265,22 @@ function createReporter(C, kit, logo, coverLogo) {
       .text(safe(input.ottUrl || "No target URL recorded", 90), 56, doc.y + 6, { width: WIDTH * 0.55 });
 
     const verdictY = doc.y + 22;
-    const width = pill(doc, 56, verdictY, `Release: ${model.verdict}`, C.verdictTone(model.verdict), {
+    let cursorX = 56;
+    cursorX += pill(doc, cursorX, verdictY, `Gate: ${model.verdict}`, C.verdictTone(model.verdict), {
       size: 9.5, height: 22
-    });
-    pill(doc, 56 + width + 10, verdictY, `Risk: ${model.riskLevel}`, C.toneFor(model.riskLevel), {
+    }) + 10;
+    cursorX += pill(doc, cursorX, verdictY, `Score: ${model.gate.scoreLabel}`, C.verdictTone(model.verdict), {
+      size: 9.5, height: 22
+    }) + 10;
+    pill(doc, cursorX, verdictY, `Risk: ${model.riskLevel}`, C.toneFor(model.riskLevel), {
       size: 9.5, height: 22
     });
 
-    const headline = (model.delivery && model.delivery.forStakeholder && model.delivery.forStakeholder.headline)
-      || (model.manager.signOff && model.manager.signOff.recommendation);
-    if (headline) {
-      doc.fillColor(cover.meta).font(FONT.regular).fontSize(10.5)
-        .text(safe(headline, 260), 56, verdictY + 44, { width: WIDTH * 0.45, lineGap: 2.5 });
-    }
+    doc.fillColor(cover.meta).font(FONT.regular).fontSize(10.5)
+      .text(safe(model.gate.directive, 260), 56, verdictY + 44, { width: WIDTH * 0.45, lineGap: 2.5 });
 
     const cards = [
-      { label: "Pass rate", value: totals.passRate },
+      { label: "Gate score", value: totals.passRate },
       { label: "Executed", value: String(totals.total) },
       { label: "Passed", value: String(totals.passed) },
       { label: "Failed", value: String(totals.failed) }
@@ -223,22 +313,36 @@ function createReporter(C, kit, logo, coverLogo) {
   /* ------------------------------------------------------------ sections */
 
   function renderExecutiveSummary(doc, model) {
-    const { totals, summary, manager, delivery } = model;
+    const { totals, summary, manager, delivery, gate } = model;
+    const gateTone = C.verdictTone(model.verdict);
 
     sectionTitle(doc, "Executive Summary", "Release readiness at a glance");
 
-    const headline = (delivery && delivery.forStakeholder && delivery.forStakeholder.headline)
-      || (manager.signOff && manager.signOff.recommendation)
-      || `Pipeline finished with ${totals.passed} of ${totals.total} checks passing.`;
+    // Attributed, because an agent headline can read as if it contradicts the
+    // gate: the Delivery agent calls a run with nothing executed "all passed".
+    const deliveryHeadline = delivery && delivery.forStakeholder && delivery.forStakeholder.headline;
+    const agentHeadline = deliveryHeadline
+      ? `Delivery agent: ${safe(deliveryHeadline, 200)}`
+      : (manager.signOff && manager.signOff.recommendation)
+        ? `Manager agent: ${safe(manager.signOff.recommendation, 200)}`
+        : `Pipeline finished with ${totals.passed} of ${totals.total} checks passing.`;
 
     calloutBox(doc, {
-      title: `Release decision: ${model.verdict}  \u00B7  Risk level: ${model.riskLevel}`,
-      body: headline,
-      tone: C.verdictTone(model.verdict)
+      title: `Release gate: ${model.verdict}  \u00B7  Score ${gate.scoreLabel}  \u00B7  Risk level: ${model.riskLevel}`,
+      body: gate.directive,
+      tone: gateTone,
+      lines: [
+        gate.score === null
+          ? "Scored on passed / executed checks: nothing was executed, so no score could be awarded."
+          : `Scored on passed / executed checks: ${totals.passed} of ${totals.passed + totals.failed} passed.`,
+        GATE_SCALE,
+        agentHeadline
+      ]
     });
 
     statCardRow(doc, [
-      { label: "Pass rate", value: totals.passRate, accent: C.brand, hint: "Passed / executed" },
+      { label: "Gate decision", value: safe(model.verdict, 20), accent: gateTone.fg, hint: `Score ${gate.scoreLabel}` },
+      { label: "Gate score", value: totals.passRate, accent: gateTone.fg, hint: "Passed / executed" },
       { label: "Total checks", value: String(totals.total), accent: C.neutral, hint: "Automation checks run" },
       { label: "Passed", value: String(totals.passed), accent: C.pass },
       { label: "Failed", value: String(totals.failed), accent: totals.failed ? C.fail : C.neutral },
@@ -253,7 +357,7 @@ function createReporter(C, kit, logo, coverLogo) {
       { value: totals.passed, color: C.pass },
       { value: totals.failed, color: C.fail },
       { value: totals.skipped, color: C.skip }
-    ], { value: totals.passRate, label: "pass rate" });
+    ], { value: gate.scoreLabel, label: "gate score" });
 
     legend(doc, CONTENT_LEFT + 150, chartTop + 34, [
       { label: `Passed - ${totals.passed}`, color: C.pass },
@@ -268,6 +372,7 @@ function createReporter(C, kit, logo, coverLogo) {
       ["Domain", safe(summary.domain || model.meta.websiteType || "Not classified", 50)],
       ["Sub-domain", safe(summary.subDomain || model.meta.subDomain || "Not classified", 50)],
       ["Execution mode", safe(model.exec.metadata && model.exec.metadata.mode, 40) || safe(model.input.executionMode, 40) || "-"],
+      ["Manager agent verdict", model.managerVerdict],
       ["Manual cases planned", String(model.manualCases.length)],
       ["Evidence captured", `${model.tests.filter((test) => test.screenshot).length} screenshots`]
     ];
@@ -548,7 +653,7 @@ function createReporter(C, kit, logo, coverLogo) {
 
     statCardRow(doc, [
       { label: "Checks executed", value: String(totals.total), accent: C.brand },
-      { label: "Pass rate", value: totals.passRate, accent: totals.failed ? C.skip : C.pass },
+      { label: "Gate score", value: totals.passRate, accent: C.verdictTone(model.verdict).fg, hint: safe(model.verdict, 20) },
       { label: "Total test time", value: formatDuration(totalDuration), accent: C.info },
       { label: "Retries used", value: String(orderedTests.reduce((sum, test) => sum + (Number(test.retries) || 0), 0)), accent: C.neutral },
       { label: "Slowest check", value: slowest ? formatDuration(slowest.durationMs) : "-", accent: C.neutral, hint: slowest ? safe(slowest.id, 20) : "" }
@@ -725,47 +830,124 @@ function createReporter(C, kit, logo, coverLogo) {
 
   function renderManagerReview(doc, model) {
     const { manager, delivery, summary } = model;
+    const signOff = manager.signOff || {};
+    const actions = (manager.actionPlan || []).map((action) => safe(action)).filter(Boolean);
+    const matrix = manager.traceabilityMatrix || [];
 
     doc.addPage();
-    sectionTitle(doc, "Manager Review & Action Plan", "Executive sign-off from the Manager and Delivery agents");
+    sectionTitle(doc, "Manager Review & Action Plan",
+      manager.metadata && manager.metadata.generatedAt
+        ? `${safe(manager.metadata.reviewLevel || "Executive", 30)} sign-off recorded ${formatDateTime(manager.metadata.generatedAt)}`
+        : "Executive sign-off from the Manager and Delivery agents");
+
+    if (!actions.length && !matrix.length && !signOff.recommendation && !manager.analysis) {
+      calloutBox(doc, {
+        title: "Manager review not available",
+        body: "The Manager agent did not record a review for this run, so there is no sign-off or action plan to report. Execution results above remain the authoritative outcome.",
+        tone: { fg: C.neutral, bg: C.neutralBg }
+      });
+      return;
+    }
+
+    const executed = Number(summary.executed ?? model.totals.total) || 0;
+    const passed = Number(summary.passed ?? model.totals.passed) || 0;
+    const failed = Number(summary.failed ?? model.totals.failed) || 0;
+    const skipped = Number(summary.skipped ?? model.totals.skipped) || 0;
 
     calloutBox(doc, {
-      title: `Verdict: ${model.verdict}`,
-      body: (manager.signOff && manager.signOff.recommendation) || "No recommendation recorded.",
+      title: `Release gate: ${model.verdict}  \u00B7  Score ${model.gate.scoreLabel}  \u00B7  Risk level: ${model.riskLevel}`,
+      body: model.gate.directive,
       tone: C.verdictTone(model.verdict),
       lines: [
-        `Risk level: ${safe(model.riskLevel)}`,
-        `Executed ${safe(summary.executed ?? model.totals.total)} checks - ${safe(summary.passed ?? model.totals.passed)} passed, ${safe(summary.failed ?? model.totals.failed)} failed, ${safe(summary.skipped ?? model.totals.skipped)} skipped`
+        `Basis: ${executed} checks executed - ${passed} passed, ${failed} failed, ${skipped} skipped (${model.totals.passRate} gate score).`,
+        failed
+          ? `${failed} failing check${failed === 1 ? "" : "s"} remain open and must be triaged before the gate score can improve.`
+          : "No failing checks were open at sign-off.",
+        `Manager agent recorded "${model.managerVerdict}": ${signOff.recommendation || "no recommendation recorded."}`
       ]
     });
+
+    statCardRow(doc, [
+      { label: "Release gate", value: safe(model.verdict, 20), accent: C.verdictTone(model.verdict).fg, hint: `Score ${model.gate.scoreLabel}` },
+      { label: "Risk level", value: safe(model.riskLevel, 20), accent: C.toneFor(model.riskLevel).fg },
+      { label: "Open failures", value: String(failed), accent: failed ? C.fail : C.pass, hint: "Awaiting triage" },
+      { label: "Unverified", value: String(skipped), accent: skipped ? C.skip : C.neutral, hint: "Skipped checks" },
+      { label: "Actions queued", value: String(actions.length), accent: C.brand, hint: "In the plan below" },
+      { label: "Checks traced", value: String(matrix.length), accent: C.info, hint: "Mapped to source cases" }
+    ], { height: 66 });
 
     if (manager.analysis && manager.analysis.llmNarrative) {
       subTitle(doc, "Analyst narrative");
       paragraph(doc, manager.analysis.llmNarrative);
     }
 
-    const actions = manager.actionPlan || [];
-    if (actions.length) {
-      subTitle(doc, "Action plan");
-      bulletList(doc, actions, { limit: 12, dotColor: C.brand });
+    const gates = gatePosture(manager);
+    if (gates.length) {
+      ensureSpace(doc, 72);
+      subTitle(doc, "Quality gate posture at sign-off");
+      keyValueGrid(doc, gates, { columns: 3 });
     }
 
-    const nextSteps = (manager.signOff && manager.signOff.nextSteps) || [];
-    if (nextSteps.length) {
-      subTitle(doc, "Next steps");
-      bulletList(doc, nextSteps, { limit: 8, dotColor: C.info });
+    // `signOff.nextSteps` is a slice of `actionPlan`, so the two are merged into
+    // one prioritised table instead of printing the same lines twice.
+    const plannedActions = new Set(actions.map(actionKey));
+    const topActions = new Set((signOff.nextSteps || []).map(actionKey).filter(Boolean));
+
+    if (actions.length) {
+      // Headings are placed with their table, otherwise drawTable's own page
+      // break can strand the heading at the foot of the previous page.
+      ensureSpace(doc, 110);
+      subTitle(doc, `Action plan (${actions.length}) - in the order prioritised by the Manager agent`);
+      drawTable(doc, {
+        columns: columns([
+          { key: "rank", label: "#", fraction: 0.05, bold: true, align: "center", color: () => C.faint },
+          { key: "priority", label: "Priority", fraction: 0.13, pill: true, pillKind: "priority", align: "center" },
+          { key: "action", label: "Recommended action", fraction: 0.82 }
+        ]),
+        rows: actions.slice(0, MAX_ACTION_ROWS).map((action, index) => ({
+          rank: String(index + 1),
+          priority: actionPriority(action, topActions),
+          action: safe(action, 300)
+        }))
+      });
+      if (actions.length > MAX_ACTION_ROWS) {
+        paragraph(doc, `${actions.length - MAX_ACTION_ROWS} further actions are available in the JSON export.`, {
+          color: C.faint, size: 8.5
+        });
+      }
+    }
+
+    const extraSteps = (signOff.nextSteps || [])
+      .map((step) => safe(step))
+      .filter((step) => step && !plannedActions.has(actionKey(step)));
+    if (extraSteps.length) {
+      ensureSpace(doc, 70);
+      subTitle(doc, "Additional next steps");
+      bulletList(doc, extraSteps, { limit: 8, dotColor: C.info });
     }
 
     if (delivery && delivery.forStakeholder) {
+      const stakeholder = delivery.forStakeholder;
+      ensureSpace(doc, 100);
       subTitle(doc, "Stakeholder delivery summary");
-      paragraph(doc, delivery.forStakeholder.headline, { bold: true, color: C.ink });
-      paragraph(doc, delivery.forStakeholder.recommendation);
-      bulletList(doc, delivery.forStakeholder.nextSteps || [], { limit: 5, dotColor: C.brand });
+      calloutBox(doc, {
+        title: safe(stakeholder.headline, 160) || "Delivery summary",
+        body: stakeholder.recommendation,
+        tone: { fg: C.info, bg: C.infoBg },
+        lines: (stakeholder.nextSteps || [])
+          .map((step) => safe(step))
+          .filter((step) => step && !plannedActions.has(actionKey(step)))
+          .slice(0, 4)
+      });
     }
 
-    const matrix = manager.traceabilityMatrix || [];
     if (matrix.length) {
-      subTitle(doc, "Traceability matrix");
+      // Failures first, then skipped: the rows a reviewer acts on lead the table.
+      const rank = (entry) => (entry.status === "failed" ? 0 : entry.status === "skipped" ? 1 : 2);
+      const traced = [...matrix].sort((a, b) => rank(a) - rank(b));
+
+      ensureSpace(doc, 110);
+      subTitle(doc, `Traceability matrix (${matrix.length} checks mapped to source cases)`);
       drawTable(doc, {
         columns: columns([
           { key: "id", label: "Requirement / case", fraction: 0.18, bold: true, color: () => C.ink },
@@ -773,13 +955,18 @@ function createReporter(C, kit, logo, coverLogo) {
           { key: "status", label: "Status", fraction: 0.12, pill: true, align: "center" },
           { key: "error", label: "Notes", fraction: 0.28 }
         ]),
-        rows: matrix.slice(0, 60).map((entry) => ({
+        rows: traced.slice(0, MAX_TRACE_ROWS).map((entry) => ({
           id: safe(entry.id, 30),
           title: safe(entry.title, 160),
           status: safe(entry.status || "unknown"),
           error: safe(entry.error, 150) || "-"
         }))
       });
+      if (matrix.length > MAX_TRACE_ROWS) {
+        paragraph(doc, `${matrix.length - MAX_TRACE_ROWS} further traced checks omitted. Use the JSON export for the full matrix.`, {
+          color: C.faint, size: 8.5
+        });
+      }
     }
   }
 
@@ -996,4 +1183,4 @@ async function sendRunPdfReport(run, res, options = {}) {
   await written;
 }
 
-module.exports = { sendRunPdfReport };
+module.exports = { sendRunPdfReport, releaseGate };

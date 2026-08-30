@@ -306,8 +306,9 @@ function createRun(input) {
   const id = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const now = new Date().toISOString();
 
-  // Check if we need Web Analyzer (no test document provided)
-  const needsWebAnalyzer = !input.tcFileBuffer && !input.tcFileContent && (!input.notes || input.notes.trim().length < 50);
+  // Web Analyzer supplies the site knowledge an uploaded test document would have
+  // provided. Notes are a focus hint, not a substitute, so they never suppress it.
+  const needsWebAnalyzer = !input.tcFileBuffer && !input.tcFileContent;
 
   // Base stages - conditionally include web analyzer
   const stages = {};

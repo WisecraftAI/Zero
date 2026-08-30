@@ -28,7 +28,7 @@ export function LldOrchestrator() {
           { label: 'Domain inference', detail: <><code>inferDomain.js</code> after Web Analyzer when confidence is low</> },
           { label: 'Script builders', detail: '@zero/builders emit Playwright spec + Java class text' },
           { label: 'URL analyzer', detail: <><code>@zero/analyzer</code> crawls and fills BRD gaps</> },
-          { label: 'PDF Manager report', detail: 'pdfkit renders a real document' },
+          { label: 'Manager + Delivery artifacts', detail: 'Structured review and stakeholder summary; the downloadable PDF is rendered by @zero/api on GET /runs/:id/download' },
         ]}
         stub={[
           { label: 'No resume-from-crash', detail: 'no stage_progress walker; restarts can lose in-flight runs' },

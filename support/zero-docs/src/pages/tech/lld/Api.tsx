@@ -30,6 +30,7 @@ export function LldApi() {
           { label: 'Winston', detail: <>structured logs → <code>dist/logs/</code></> },
           { label: 'Multer + JSON uploads[]', detail: 'legacy multipart still accepted; M2 presign path preferred' },
           { label: 'SSE', detail: <> <code>GET /runs/:id/stream</code> in <code>runs.js</code>; UI uses EventSource</> },
+          { label: 'Themed PDF report', detail: <>pdfkit in <code>src/reports/</code>; <code>releaseGate</code> bands pass rate at 95 / 85; <code>?theme=</code> and <code>?paper=light</code></> },
           { label: 'Postgres (M1)', detail: <>upserts <code>qa_runs</code> / <code>qa_assets</code> via <code>@zero/db</code></> },
         ]}
         stub={[
@@ -44,7 +45,7 @@ export function LldApi() {
       <h3>Module map</h3>
       <p className={styles.purpose}>
         On disk now: <code>services/api/server.js</code> composition root plus{' '}
-        <code>src/routes/</code>. Chromium is not launched here.
+        <code>src/routes/</code> and <code>src/reports/</code>. Chromium is not launched here.
       </p>
       <Diagram ariaLabel="api module map">
 {`services/api/
@@ -53,14 +54,16 @@ export function LldApi() {
 ├─ auth.js                       API key / JWT · attaches req.user
 ├─ swagger.js                    /api-docs
 ├─ logger.js · encryption.js · apiKeyManager.js
-└─ src/routes/
-   ├─ runs.js                    POST · GET · GET /:id · stream · download · commit · stop · rerun-failed
-   ├─ locators.js                GET · POST /element-log
-   ├─ recordings.js              create · put · list · delete
-   ├─ cms.js                     capture-cms-screenshot(-bulk)
-   ├─ keys.js                    provider-keys
-   ├─ settings.js                agent-settings
-   └─ health.js                  /health · /health/detailed
+└─ src/
+   ├─ reports/                   pdfTheme · runPdfReport (releaseGate) · pdfKit
+   └─ routes/
+      ├─ runs.js                 POST · GET · GET /:id · stream · download · commit · stop · rerun-failed
+      ├─ locators.js             GET · POST /element-log
+      ├─ recordings.js           create · put · list · delete
+      ├─ cms.js                  capture-cms-screenshot(-bulk)
+      ├─ keys.js                 provider-keys
+      ├─ settings.js             agent-settings
+      └─ health.js               /health · /health/detailed
 
 # cloud routes mount from @zero/cloud:
 # GET|PUT /cloud/local`}

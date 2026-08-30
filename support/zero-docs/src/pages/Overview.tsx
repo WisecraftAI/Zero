@@ -21,9 +21,10 @@ export function OverviewPage() {
         <p className="prose">
           Give ZER0 a <strong>target URL</strong> — OTT, SaaS, marketplace, corporate site, or any
           public page. Optionally add a <strong>test-case file</strong>, <strong>Figma link</strong>,
-          or <strong>plain notes</strong>. With <strong>URL only</strong> (no file, short notes),
+          or <strong>plain notes</strong>. With <strong>URL only</strong> (no test-case file),
           the Web Analyzer crawls multiple pages, infers domain type, generates major functional test
-          cases, and executes top critical flows in Playwright — no channel picker required.
+          cases, and executes top critical flows in Playwright — no channel picker required. BA notes
+          narrow the focus; they do not skip the crawl.
         </p>
         <p className="prose">
           The point is not another test recorder or a static template generator. ZER0 is an{' '}
@@ -42,9 +43,9 @@ export function OverviewPage() {
         </p>
         <Pipeline>
           <PipelineStage id="🕷" title="Web Analyzer agent (optional)">
-            Multi-page Playwright crawl when you have no test-case file and short notes. Surfaces{' '}
+            Multi-page Playwright crawl whenever you have no test-case file. Surfaces{' '}
             <code>crawledPages</code>, page structure, forms, domain type, and suggested flows for
-            downstream agents. Rules only — no LLM.
+            downstream agents. Rules only — no LLM. Notes are a focus hint, not a skip switch.
           </PipelineStage>
           <PipelineStage id="DI" title="Domain inference (automatic)">
             One LLM call after crawl when rule-based domain confidence is low. Infers site purpose
@@ -72,7 +73,8 @@ export function OverviewPage() {
             exists; deterministic report structure always.
           </PipelineStage>
           <PipelineStage id="📦" title="Delivery agent">
-            Stakeholder-ready delivery report (PDF / JSON) packaging everything from the run.
+            Stakeholder-ready delivery report (PDF / JSON) packaging everything from the run. The
+            PDF headline is the automated release gate (95% / 85% bands), not the Manager Go/Hold label.
           </PipelineStage>
         </Pipeline>
         <Note tone="info">
@@ -203,7 +205,8 @@ export function OverviewPage() {
             worker for local dev.
           </li>
           <li>
-            <strong>Reports:</strong> pdfkit Manager PDF + Delivery JSON. SSE at{' '}
+            <strong>Reports:</strong> pdfkit PDF from <code>@zero/api</code> (
+            <code>releaseGate</code> on pass rate) + Delivery JSON. SSE at{' '}
             <code>/runs/:id/stream</code> is primary (<code>useRunStream.js</code>); the React
             client falls back to 3s polling after SSE failures.
           </li>

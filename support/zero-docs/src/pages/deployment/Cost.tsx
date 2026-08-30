@@ -93,9 +93,9 @@ export function DeployCost() {
           ],
           [
             'Web Analyzer crawl',
-            'Playwright crawl when no TC file and short notes',
+            'Playwright crawl when no TC file is uploaded',
             '$0 local · ~$0.05–0.15 cloud',
-            'Upload TCs or longer BA notes to skip the crawl stage',
+            'Upload a TC file to skip the crawl; BA notes do not skip it',
           ],
           [
             'Object storage',

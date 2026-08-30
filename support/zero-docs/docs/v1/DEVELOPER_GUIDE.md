@@ -26,8 +26,8 @@ There is **no multi-repo split**. Sibling folders under `~/Product/code/` (aha, 
 
 | Mode | Input | What runs |
 |------|-------|-----------|
-| **Autonomous (URL-only)** | Public URL, no TC file, short/empty notes | Multi-page crawl → optional domain inference → major functional cases → `discovered_flows` execution |
-| **Guided** | URL + Figma / uploaded TCs / BA notes | Same agent chain; Web Analyzer optional; CSV runs use `minimal` execution |
+| **Autonomous (URL-only)** | Public URL, no TC file (BA notes optional) | Multi-page crawl → optional domain inference → major functional cases → `discovered_flows` execution |
+| **Guided** | URL + Figma / uploaded TCs / BA notes | Same agent chain; Web Analyzer runs unless a TC file is uploaded; CSV runs use `minimal` execution |
 
 Agent chain:
 
@@ -47,7 +47,7 @@ Templates run first so the pipeline **always completes**; `@zero/orchestrator/ll
 2. Manual test cases  
 3. Playwright + Java/Selenium script text  
 4. Execution evidence (screenshots under `dist/artifacts/`)  
-5. Manager + Delivery reports (PDF/JSON download)
+5. Manager + Delivery reports (PDF/JSON download — PDF headline is the automated `releaseGate`, not the Manager Go/Hold label)
 
 **Product truth your team must internalize:** CSV/default execution is **minimal** (load URL + wait for body). URL-only auto runs use **`discovered_flows`** (multi-step checks on top critical flows). Neither replaces full production E2E in your own CI — export Java/Playwright for that.
 
@@ -264,7 +264,7 @@ More Docker-specific notes: [DOCKER.md](./DOCKER.md).
 
 | Stage | What it actually does today |
 |-------|-----------------------------|
-| `webAnalyzer` | Only if no TC file and notes are short/empty — multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES`) |
+| `webAnalyzer` | Whenever no TC file is uploaded (BA notes do not skip it) — multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES`) |
 | `domainInference` | After Web Analyzer, before BA — one LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC` |
 | `ba` | Template consolidation (`consolidateRequirements`); optional LLM enrich |
 | `manualQa` | Cases from CSV / UI rows / `majorFunctionalCases` / channel templates |
@@ -348,7 +348,7 @@ Normalize keys via `packages/locators/elementLogger.js`. Element log API: `POST 
 
 Env: `ZERO_ANALYZER_MAX_PAGES` (default 8) caps multi-page crawl depth.
 
-**Team rule:** Manager “Go/No-Go” from in-app execution is **orchestration confidence**, not full product E2E proof.
+**Team rule:** The PDF **release gate** (`>= 95%` Full pass, `85–94%` Conditional pass, `< 85%` Manual check) and the Manager “Go / Conditional Go / Hold” label are **orchestration confidence**, not full product E2E proof.
 
 ### E. Persistence / productionization
 
@@ -378,7 +378,7 @@ S7 dropped the `/api` prefix. All paths below are on the API service (`http://lo
 | Keys / agents | `/provider-keys`, `/agent-settings`, `/keys*` | Drive LLM enrich when keys exist |
 | Ops | `/health`, `/health/detailed`, `/api-docs` | Swagger UI at `/api-docs` (name, not a prefix) |
 
-**Input rules:** Target URL required. **Guided:** ≥1 of Figma / TC file (txt/md/csv/json/xlsx/xls) / BA notes. **Autonomous:** URL only (no TC, short notes) triggers Web Analyzer + Q1–Q4 pipeline.
+**Input rules:** Target URL required. **Guided:** ≥1 of Figma / TC file (txt/md/csv/json/xlsx/xls) / BA notes. **Autonomous:** URL only (no TC file; notes optional) always runs Web Analyzer + Q1–Q4 pipeline.
 
 Passwords from UI → `runSecrets` only (not written into artifacts). Never log them.
 

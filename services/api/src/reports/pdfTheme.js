@@ -87,6 +87,9 @@ function createPalette(themeId, options) {
   };
 
   const verdictTones = {
+    "full pass": { fg: C.pass, bg: C.passBg },
+    "conditional pass": { fg: C.skip, bg: C.skipBg },
+    "manual check": { fg: C.fail, bg: C.failBg },
     go: { fg: C.pass, bg: C.passBg },
     "conditional go": { fg: C.skip, bg: C.skipBg },
     hold: { fg: C.fail, bg: C.failBg },

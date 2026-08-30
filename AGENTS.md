@@ -79,7 +79,7 @@ docker compose up --build workflow
 
 Order in `stageKeys`: optional `webAnalyzer` → `ba` → `manualQa` → `automationQa` → `execution` → optional `accessibility`/`performance`/`security` → `manager` → `delivery`.
 
-1. **Web Analyzer** — when no TC file and notes are short; multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES` default 8)
+1. **Web Analyzer** — whenever no TC file is uploaded (BA notes are a focus hint and do not skip it); multi-page Playwright crawl via `@zero/analyzer` (`crawlLinkedPages`, `ZERO_ANALYZER_MAX_PAGES` default 8)
 2. **Domain inference** — after Web Analyzer, before BA: one LLM call when `websiteTypeConfidence < 0.5` or type is `GENERIC` (`@zero/orchestrator/inferDomain.js`); skipped without key or when `ZERO_LLM=off`
 3. **BA** — template consolidation of URL + optional Figma / uploaded TCs / notes / analyzer insights
 4. **Manual QA** — cases from CSV, UI rows, URL analysis (`majorFunctionalCases`), or channel templates
@@ -87,6 +87,8 @@ Order in `stageKeys`: optional `webAnalyzer` → `ba` → `manualQa` → `automa
 6. **Execution** — Playwright with retries + screenshots under `dist/artifacts/`
 7. **Optional** — accessibility / performance / security Playwright passes
 8. **Manager / Delivery** — executive review + stakeholder delivery report
+
+The PDF report decides the release verdict itself from the automated pass rate — `>= 95%` Full pass (manual spot check), `85–94%` Conditional pass, `< 85%` Manual check, unscored when nothing executed (`releaseGate` in `services/api/src/reports/runPdfReport.js`). The Manager agent's failure-count label (Go / Conditional Go / Hold) is printed alongside as a secondary signal, not as the headline.
 
 Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Rule-based types also include SAAS, MARKETPLACE, ECOMMERCE, etc. (`@zero/analyzer` `WEBSITE_TYPES`).
 
@@ -150,7 +152,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 - **Target URL** required (any public site — OTT, SaaS, marketplace, corporate, etc.).
 - **Guided mode:** at least one of Figma link, uploaded TC file (`.txt`/`.md`/`.csv`/`.json`; also `.xlsx`/`.xls`), or BA notes.
-- **Autonomous mode:** URL only — Web Analyzer runs when no TC file and notes are short/empty; Q1–Q4 pipeline (crawl → cases → flows → optional domain inference) applies automatically.
+- **Autonomous mode:** URL only (optionally with BA notes) — Web Analyzer runs whenever no TC file is uploaded; Q1–Q4 pipeline (crawl → cases → flows → optional domain inference) applies automatically.
 - Optional: forced channel profile, runtime login credentials, headed browser.
 
 ## ML training (optional)
