@@ -121,13 +121,14 @@
 }
 
 .nav-item:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--text-2);
+  background: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-strong) 18%, transparent);
+  color: var(--text);
 }
 
-.nav-item--active {
-  background: var(--surface-hover)!important;
-  color: var(--text)!important;
+.nav-item.nav-item--active {
+  background: var(--surface-hover);
+  color: var(--text);
   font-weight: 600;
 
   &:after {
@@ -142,25 +143,9 @@
   }
 }
 
-/* Declared after .nav-item so the accent fill wins over the base transparent background. */
-.nav-item--cta {
-  background: var(--accent-strong);
-  color: var(--on-accent);
-  border: 1px solid var(--accent-strong);
-  font-weight: 600;
-  margin-bottom: 3px;
-}
-
-.nav-item--cta:hover:not(:disabled),
-.nav-item--cta.nav-item--active {
-  background: var(--accent-dark)!important;
-  border-color: var(--accent-dark);
-  color: var(--on-accent)!important;
-}
-
-/* The accent fill already signals "selected"; the brand bar would only add noise. */
-.nav-item--cta.nav-item--active:after {
-  display: none;
+.nav-item.nav-item--active:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .nav-icon {

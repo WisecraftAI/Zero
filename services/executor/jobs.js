@@ -7,6 +7,11 @@ const { getSelectors, detectDomain, getDomainConfig } = require("@zero/locators/
 const { resolveExecutionMode, EXECUTION_MODES, isRunCancelRequested, RunStoppedError, isRunStoppedError } = require("@zero/domain");
 const { buildDiscoveredFlowTests } = require("@zero/builders/playwright/discoveredFlows");
 
+function resolveDiscoveredFlowLimit(env = process.env) {
+  const configured = Number(env.ZERO_DISCOVERED_FLOW_LIMIT);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 20;
+}
+
 function analyzerContextOptions(browser, env = process.env) {
   const version = String(browser?.version?.() || "124.0.0.0");
   const locale = String(env.ZERO_ANALYZER_LOCALE || "en-US");
@@ -275,6 +280,9 @@ function createJobs(deps) {
     const isUploadedMode = run.input.executionMode === "uploaded_tc_only";
     const isManualMode = run.input.executionMode === "manual_tc_only";
     const isTcDrivenMode = isUploadedMode || isManualMode;
+    const discoveredFlowLimit = resolveDiscoveredFlowLimit(process.env);
+    const manualCases = run.artifacts.manualTestCases?.testCases || [];
+    const discoveredCaseSource = manualCases.length ? manualCases : majorFunctionalCases;
 
     console.log(`[Execution] Website type: ${websiteTypeName} (${websiteType})`);
     console.log(`[Execution] Mode: ${resolvedExecutionMode}`);
@@ -288,8 +296,14 @@ function createJobs(deps) {
         const flowTests = buildDiscoveredFlowTests({
           ottUrl: run.input.ottUrl,
           userFlows,
-          manualTestCases: run.artifacts.manualTestCases?.testCases || majorFunctionalCases,
+          manualTestCases: discoveredCaseSource,
           hasLoginSecrets: Boolean(loginSecret?.username || loginSecret?.password || run.input.login?.username),
+          maxFlows: discoveredFlowLimit,
+          onHealed: ({ key, selector }) => (
+            selector
+              ? saveLearnedSelector(host, key, `selector:${selector}`)
+              : Promise.resolve()
+          )
         });
         if (flowTests.length > 0) {
           console.log(`[Execution] discovered_flows: running ${flowTests.length} flow(s)`);
@@ -1708,6 +1722,7 @@ function createJobs(deps) {
         while (retries <= 1 && !passed) {
           try {
             const execResult = await testDef.execute(page, trace);
+            stepResults = execResult?.stepResults || null;
             if (execResult && execResult.skip) {
               skipped = true;
               skipReason = execResult.reason || "Scenario skipped";
@@ -1721,7 +1736,6 @@ function createJobs(deps) {
                   `Flow failed: ${execResult.flowName || testDef.title}`
               );
             }
-            stepResults = execResult?.stepResults || null;
             screenshot = await screenshotForCase(page, run, testDef.id, "passed", retries + 1);
             passed = true;
             if (execResult && execResult.stepResults) {
@@ -1744,6 +1758,8 @@ function createJobs(deps) {
           id: testDef.id,
           title: testDef.title,
           flowName: testDef.flowName || null,
+          sourceCaseId: testDef.sourceCaseId || null,
+          traceability: testDef.traceability || null,
           status: skipped ? "skipped" : (passed ? "passed" : "failed"),
           retries,
           durationMs: Date.now() - start,
@@ -1788,6 +1804,10 @@ function createJobs(deps) {
     const skipped = tests.filter((t) => t.status === "skipped").length;
     const failed = tests.filter((t) => t.status === "failed").length;
     const executable = tests.length - skipped;
+    const healed = tests.reduce(
+      (count, test) => count + (test.steps || []).filter((step) => step.healing).length,
+      0
+    );
 
     return {
       metadata: {
@@ -1795,7 +1815,24 @@ function createJobs(deps) {
         source: "Execution Service",
         mode: useDiscoveredFlows
           ? "discovered_flows"
-          : (useMinimalExecution ? "minimal" : (rerunFailedOnly ? "rerun-failed" : "full"))
+          : (useMinimalExecution ? "minimal" : (rerunFailedOnly ? "rerun-failed" : "full")),
+        ...(useDiscoveredFlows
+          ? {
+              selection: {
+                primarySource: discoveredCaseSource.length ? "manualTestCases" : "userFlows",
+                candidateCount: discoveredCaseSource.length || userFlows.length,
+                limit: discoveredFlowLimit,
+                selectedCount: allTests.length,
+                truncated: (discoveredCaseSource.length || userFlows.length) > discoveredFlowLimit
+              },
+              healing: {
+                enabled: !["0", "false", "off", "no"].includes(
+                  String(process.env.ZERO_LOCATOR_HEALING || "on").trim().toLowerCase()
+                ),
+                healed
+              }
+            }
+          : {})
       },
       totals: {
         total: tests.length,

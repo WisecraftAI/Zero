@@ -335,12 +335,14 @@ function ExecutionTab({ run }) {
   if (!data) return <Awaiting />;
   const tests = data.tests || [];
   const totals = data.totals || {};
+  const healed = data.metadata?.healing?.healed || 0;
   return (
     <div className="exec-panel">
       <div className="exec-summary">
         <span className="exec-stat"><strong>{totals.total ?? 0}</strong> run</span>
         <span className="exec-stat status-passed"><strong>{totals.passed ?? 0}</strong> passed</span>
         <span className="exec-stat status-failed"><strong>{totals.failed ?? 0}</strong> failed</span>
+        {healed > 0 ? <span className="exec-stat status-healed"><strong>{healed}</strong> healed</span> : null}
         <span className="exec-stat">Pass rate: <strong>{totals.passRate ?? '0%'}</strong></span>
       </div>
       <table className="data-table exec-table">
@@ -355,9 +357,20 @@ function ExecutionTab({ run }) {
               <td><span className={`status-${t.status}`}>{t.status}</span></td>
               <td className="exec-error">{t.error ? String(t.error).slice(0, 90) + (String(t.error).length > 90 ? '…' : '') : '—'}</td>
               <td>
-                {t.screenshot
-                  ? <a href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer" className="screenshot-link">Screenshot ↗</a>
-                  : '—'}
+                <div className="exec-evidence">
+                  {t.screenshot
+                    ? <a href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer" className="screenshot-link">Screenshot ↗</a>
+                    : null}
+                  {t.steps?.some(step => step.healing) ? (
+                    <span
+                      className="healed-badge"
+                      title={t.steps.filter(step => step.healing).map(step => step.healing.selector || step.healing.evidence).join(', ')}
+                    >
+                      Locator healed
+                    </span>
+                  ) : null}
+                  {!t.screenshot && !t.steps?.some(step => step.healing) ? '—' : null}
+                </div>
               </td>
             </tr>
           ))}

@@ -85,6 +85,30 @@ function statusFor(cfg, hasKey) {
 
 const STATUS_LABEL = { idle: 'IDLE', active: 'ACTIVE', optimizing: 'CONFIG' };
 
+const TEST_AGENT_FLOW = [
+  {
+    id: 'planner',
+    step: '01',
+    name: 'Planner',
+    desc: 'Analyzes the crawl and turns user journeys into a prioritized, traceable test plan.',
+    output: 'Requirements + manual cases',
+  },
+  {
+    id: 'generator',
+    step: '02',
+    name: 'Generator',
+    desc: 'Converts approved cases and locator candidates into executable Playwright flows.',
+    output: 'Runnable browser tests',
+  },
+  {
+    id: 'healer',
+    step: '03',
+    name: 'Healer',
+    desc: 'Recovers changed locators from accessible intent and learns stable selectors for the host.',
+    output: 'Healed steps + evidence',
+  },
+];
+
 export default function AgentsView({ onNavigate }) {
   const [settings, setSettings] = useState({});
   const [keys, setKeys] = useState({});
@@ -185,6 +209,46 @@ export default function AgentsView({ onNavigate }) {
           enabling={enablingAi}
         />
       )}
+
+      <section className="agv-test-agents" aria-labelledby="test-agents-title">
+        <div className="agv-test-agents-head">
+          <div>
+            <span className="agv-section-label">PLAYWRIGHT TEST AGENTS</span>
+            <h2 id="test-agents-title">Plan, generate, execute, and heal</h2>
+          </div>
+          <span className="agv-runtime-badge">
+            <span className="agv-status-dot" />
+            Continuous improvement enabled
+          </span>
+        </div>
+        <div className="agv-agent-flow">
+          {TEST_AGENT_FLOW.map((agent, index) => (
+            <div className={`agv-flow-stage agv-flow-stage--${agent.id}`} key={agent.id}>
+              <div className="agv-flow-stage-top">
+                <span className="agv-flow-icon"><FlowAgentIcon kind={agent.id} /></span>
+                <span className="agv-flow-step">{agent.step}</span>
+              </div>
+              <h3>{agent.name}</h3>
+              <p>{agent.desc}</p>
+              <div className="agv-flow-output">{agent.output}</div>
+              {index < TEST_AGENT_FLOW.length - 1 && (
+                <span className="agv-flow-arrow" aria-hidden="true">→</span>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="agv-improvement-loop">
+          <span>Application</span>
+          <i aria-hidden="true" />
+          <span>Test plan</span>
+          <i aria-hidden="true" />
+          <span>Playwright tests</span>
+          <i aria-hidden="true" />
+          <span>Execution evidence</span>
+          <i aria-hidden="true" />
+          <span>Learned locators</span>
+        </div>
+      </section>
 
       {/* Stat cards */}
       <div className="agv-stats">
@@ -511,3 +575,26 @@ const DotsIcon = () => (
     <circle cx="11" cy="7" r="1.3" fill="currentColor" />
   </svg>
 );
+
+function FlowAgentIcon({ kind }) {
+  if (kind === 'planner') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 4.5h8M9 2.5h6v4H9zM6 5.5H4.5v16h15v-16H18M8 11h8M8 15h8M8 19h5" />
+      </svg>
+    );
+  }
+  if (kind === 'generator') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+        <circle cx="12" cy="12" r="4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.8 5.1a5 5 0 0 0-6.3 6.3L3.2 16.7a2.9 2.9 0 0 0 4.1 4.1l5.3-5.3a5 5 0 0 0 6.3-6.3l-3 3-3.1-.8-.8-3.1z" />
+    </svg>
+  );
+}

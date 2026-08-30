@@ -103,7 +103,7 @@ const Icons = {
 
 const NAV_ITEMS = [
   { id: 'home',        icon: 'home',         title: 'Home' },
-  { id: 'new-run',     icon: 'newRun',       title: 'New Run',      cta: true },
+  { id: 'new-run',     icon: 'newRun',       title: 'New Run' },
   { id: 'dashboard',   icon: 'dashboard',    title: 'Dashboard' },
   { id: 'runs',        icon: 'runs',         title: 'Runs' },
   { id: 'pipelines',   icon: 'pipelines',    title: 'Pipelines',    soon: true },
@@ -136,7 +136,7 @@ export default function Sidebar({ activeView, onNavigate }) {
             : (
               <button
                 key={item.id}
-                className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''} ${item.soon ? 'nav-item--soon' : ''} ${item.cta ? 'nav-item--cta' : ''}`}
+                className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''} ${item.soon ? 'nav-item--soon' : ''}`}
                 onClick={() => !item.soon && onNavigate(item.id)}
                 title={isExpanded ? undefined : (item.title + (item.soon ? ' (soon)' : ''))}
                 disabled={item.soon}

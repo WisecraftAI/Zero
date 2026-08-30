@@ -6,6 +6,11 @@ const {
   buildDiscoveredFlowTests,
   runDiscoveredFlows,
 } = require("./discoveredFlows");
+const {
+  healingEnabled,
+  healingKeyForStep,
+  healLocator,
+} = require("./locatorHealing");
 
 module.exports = {
   buildPlaywrightSpec,
@@ -14,4 +19,7 @@ module.exports = {
   buildExecutionSteps,
   buildDiscoveredFlowTests,
   runDiscoveredFlows,
+  healingEnabled,
+  healingKeyForStep,
+  healLocator,
 };

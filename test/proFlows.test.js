@@ -167,13 +167,14 @@ describe("pro type-specific flows", () => {
 
 describe("pro form and fallback flows", () => {
   it("builds contact form flow with formId", () => {
-    const flow = buildContactFormFlow([{ id: "contact-main", purpose: "contact" }]);
+    const flow = buildContactFormFlow([{ id: "contact-main", purpose: "contact", fieldCount: 3 }]);
 
     expect(flow).toMatchObject({
       name: "Contact Form Submission",
       formId: "contact-main"
     });
     expect(buildContactFormFlow([])).toBeNull();
+    expect(buildContactFormFlow([{ id: "empty-contact", purpose: "contact", fieldCount: 0 }])).toBeNull();
   });
 
   it("builds login flow from login forms or auth category", () => {
@@ -200,6 +201,14 @@ describe("pro form and fallback flows", () => {
 
     expect(buildGenericMediaFlow(ctx, existing)).toBeNull();
     expect(buildGenericMediaFlow(ctx, [])).toMatchObject({ name: "Media Content Playback" });
+    expect(
+      buildGenericMediaFlow(
+        createElementContext([
+          { category: "MEDIA", tagName: "div", selector: "div.video-slide-overlay", text: "Image", src: null }
+        ]),
+        []
+      )
+    ).toBeNull();
   });
 });
 
@@ -229,7 +238,7 @@ describe("detectUserFlows integration", () => {
         { category: "SEARCH", selector: "input.search" },
         { category: "MEDIA", selector: "video.hero" }
       ],
-      [{ id: "contact", purpose: "contact" }]
+      [{ id: "contact", purpose: "contact", fieldCount: 3 }]
     );
 
     expect(flowNames(flows)).toEqual(

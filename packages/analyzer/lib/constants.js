@@ -158,7 +158,7 @@ const ELEMENT_CATEGORIES = {
     priority: 'High'
   },
   MEDIA: {
-    selectors: ['video', 'audio', 'iframe[src*="youtube"]', 'iframe[src*="vimeo"]', '[class*="player"]', '[class*="video"]'],
+    selectors: ['video', 'audio', 'iframe[src*="youtube"]', 'iframe[src*="vimeo"]'],
     priority: 'High'
   },
   SEARCH: {
@@ -211,7 +211,7 @@ const LIGHT_ELEMENT_CATEGORIES = {
   TABLES: ['table', '[role="grid"]', '[role="table"]'],
   LISTS: ['ul', 'ol', '[role="list"]', '[role="listbox"]'],
   INTERACTIVE: ['[onclick]', '[data-action]', '[class*="click"]', '[class*="toggle"]', '[tabindex]'],
-  MEDIA: ['video', 'audio', 'iframe[src*="youtube"]', 'iframe[src*="vimeo"]', '[class*="player"]'],
+  MEDIA: ['video', 'audio', 'iframe[src*="youtube"]', 'iframe[src*="vimeo"]'],
   SEARCH: ['input[type="search"]', 'input[name*="search"]', 'input[placeholder*="search"]', '[class*="search"]', '[role="searchbox"]'],
   CART: ['[class*="cart"]', '[data-cart]', '[href*="cart"]', '[class*="basket"]'],
   AUTH: ['[class*="login"]', '[class*="signin"]', '[class*="signup"]', '[class*="register"]', '[href*="login"]', '[href*="auth"]']
