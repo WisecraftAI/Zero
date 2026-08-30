@@ -176,6 +176,10 @@ function createJobs(deps) {
   async function screenshotForCase(page, run, testId, status, attempt) {
     const fileName = `${testId}-${status}-attempt-${attempt}.png`;
     const absolutePath = path.join(run.runDir, fileName);
+    // A step can end mid-navigation, which captures a blank frame instead of the
+    // state the case actually reached.
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(400).catch(() => {});
     await page.screenshot({ path: absolutePath, fullPage: false });
     try {
       const buf = await fs.readFile(absolutePath);

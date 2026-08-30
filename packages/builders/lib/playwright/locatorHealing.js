@@ -1,9 +1,15 @@
 "use strict";
 
+// A lone generic noun matches something on nearly every page, so it can never
+// stand in for the flow's own target: healing on "user" or "product" would let
+// every flow prove itself against the landing page.
 const STOP_WORDS = new Set([
-  "and", "button", "click", "complete", "each", "enter", "field", "flow",
-  "functionality", "link", "open", "page", "select", "should", "submit",
-  "test", "that", "the", "then", "type", "verify", "with", "works"
+  "action", "and", "button", "click", "complete", "component", "content",
+  "detail", "details", "each", "element", "enter", "entry", "feature", "field",
+  "flow", "functionality", "item", "link", "main", "open", "page", "point",
+  "primary", "product", "screen", "section", "select", "should", "site",
+  "submit", "test", "that", "the", "then", "type", "user", "verify", "view",
+  "with", "works"
 ]);
 
 function healingEnabled(env = process.env) {

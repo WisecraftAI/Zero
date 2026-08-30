@@ -378,6 +378,46 @@ describe("Q3 discovered flow execution", () => {
     expect(trace.join("\n")).not.toMatch(/flow:navigate-click/);
   });
 
+  it("a navigate click that leaves the url unchanged is not evidence", async () => {
+    const trace = [];
+    const page = createMockPage({
+      visibleSelectors: ["body", "nav", 'nav a:has-text("Wishlist")'],
+      visibleText: [],
+    });
+    page.url = "https://shop.example.test/";
+    const step = {
+      action: "navigate",
+      target: 'From the homepage, open "Wishlist" in the main navigation',
+      description: 'From the homepage, open "Wishlist" in the main navigation',
+    };
+
+    const result = await executeFlowStep(page, step, { ottUrl: "https://shop.example.test", loaded: true }, trace);
+
+    expect(result).toEqual({ ok: true, evidence: false });
+    expect(trace).toContain("flow:navigate-no-move");
+  });
+
+  it("does not heal a step onto a lone generic noun", async () => {
+    const page = {
+      getByRole(role, { name }) {
+        const matches = name.test("Search for groceries");
+        return { first() { return this; }, async isVisible() { return matches; } };
+      },
+      getByText(term) {
+        const matches = /^(product|user)$/i.test(term);
+        return { first() { return this; }, async isVisible() { return matches; } };
+      },
+    };
+
+    const healed = await healLocator(
+      page,
+      { action: "verify", target: "Product Details", description: "Verify the Product Details UI is visible and usable" },
+      "verify"
+    );
+
+    expect(healed).toBeNull();
+  });
+
   it("reaching the landing page alone does not make a case pass", async () => {
     const [testDef] = buildDiscoveredFlowTests({
       ottUrl: "https://shop.example.test",
