@@ -7,6 +7,11 @@ const BASE = 'http://localhost:3000';
 const API = 'http://localhost:3001';
 
 async function main() {
+  const runPayload = await fetch(`${API}/runs`).then((res) => res.json()).catch(() => ({}));
+  const runs = Array.isArray(runPayload) ? runPayload : runPayload.runs || [];
+  const completedRun = runs.find((run) => run.status === 'completed');
+  const completedRunId = completedRun?.id || completedRun?.runId || '';
+
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const issues = [];
@@ -53,9 +58,12 @@ async function main() {
   const runRows = await page.locator('table tbody tr, .run-row, [class*="runs"] tr').count();
   note(runRows > 0, 'Runs list', `${runRows} runs listed`);
 
-  // Open first run
-  const firstRow = page.locator('table tbody tr, .run-row').first();
-  await firstRow.click();
+  // Prefer a completed run so evidence and report controls have stable data.
+  const runRowsLocator = page.locator('table tbody tr, .run-row');
+  const targetRow = completedRunId
+    ? runRowsLocator.filter({ hasText: completedRunId.slice(0, 12) }).first()
+    : runRowsLocator.first();
+  await targetRow.click();
   await page.waitForTimeout(1200);
 
   const pipelineStages = await page.locator('.pipeline-stage, [class*="pipeline"] [class*="stage"], .pf-stage').count();
