@@ -1,6 +1,8 @@
 "use strict";
 
-const MAX_FLOWS = 5;
+const { healLocator } = require("./locatorHealing");
+
+const MAX_FLOWS = 20;
 const ELEMENT_WAIT_MS = 3000;
 const NAV_TIMEOUT_MS = 60000;
 
@@ -14,6 +16,18 @@ function priorityRank(priority) {
 
 function unique(list) {
   return [...new Set((list || []).filter(Boolean))];
+}
+
+// "navigate" must not read as a navigation-menu intent, so every word is bounded.
+const NAV_INTENT = /\bnav\b|\bnavbar\b|\bnavigation\b|\bmenu\b|\bheader\b/;
+
+// Containers that prove nothing beyond "the page rendered".
+const PAGE_CONTAINERS = new Set(["body", "main", "html", "#root", "#app", "#__next"]);
+
+const GENERIC_TARGETS = /^(homepage|home|landing|main navigation|navigation|nav|menu|header|footer|page|site|entry point)$/i;
+
+function intentOf(step) {
+  return `${step?.target || ""} ${step?.description || ""}`.toLowerCase();
 }
 
 function looksLikeSelector(value) {
@@ -43,24 +57,95 @@ function flowKey(name) {
     .trim();
 }
 
+function significantWords(value) {
+  return flowKey(value)
+    .split(" ")
+    .filter((word) => word.length > 3 && !["flow", "verify", "functionality"].includes(word));
+}
+
+function selectorSupportsStep(selector, step, action = step.action) {
+  const value = String(selector || "").toLowerCase();
+  const intent = `${step.target || ""} ${step.description || ""}`.toLowerCase();
+  const normalizedAction = String(action || "verify").toLowerCase();
+
+  if (!value) return false;
+  if (normalizedAction === "click" || normalizedAction === "interact" || normalizedAction === "tap") {
+    if (/^(body|main|header|footer|nav|\[role=['"]?(navigation|contentinfo|banner)['"]?\])$/.test(value)) {
+      return false;
+    }
+    if (!/(^|[\s>])(a|button|input)\b|href|role=['"]?(button|link|menuitem)|onclick|data-action|button|link/.test(value)) {
+      return false;
+    }
+  }
+  if (normalizedAction === "input" && !/(input|textarea|contenteditable)/.test(value)) return false;
+  if (/search|query/.test(intent)) {
+    return /search|query|type=['"]search|name=['"]q['"]|\[role=['"]search/.test(value);
+  }
+  if (/video|audio|media|playback|play button/.test(intent)) {
+    return /(^|[\s>])video\b|(^|[\s>])audio\b|iframe.*(youtube|vimeo)|play/.test(value);
+  }
+  if (/footer|contentinfo/.test(intent) && normalizedAction !== "scroll") {
+    return /footer|contentinfo/.test(value);
+  }
+  if (NAV_INTENT.test(intent) && normalizedAction !== "navigate") {
+    return /nav|navigation|header.*(a|button)|menu/.test(value);
+  }
+  return true;
+}
+
 function normalizeFlowSteps(flow) {
   const flowSelectors = asSelectorList(flow.elements);
   const raw = flow.steps || [];
   return raw.map((step) => {
     if (typeof step === "string") {
-      return { action: "verify", description: step, target: null, selectors: flowSelectors, requiresAuth: false };
+      const normalized = { action: actionFromDescription(step), description: step, target: step, requiresAuth: false };
+      return {
+        ...normalized,
+        selectors: flowSelectors.filter((selector) => selectorSupportsStep(selector, normalized))
+      };
     }
     const ownSelectors = asSelectorList(step.selector);
-    return {
+    const normalized = {
       action: String(step.action || "verify").toLowerCase(),
       description: step.description || step.target || step.action || "Verify step",
       target: step.target || null,
       value: step.value || null,
-      // Keep crawl selectors as fallbacks for the flow, but never as the only hard wait.
-      selectors: unique([...ownSelectors, ...flowSelectors]),
       requiresAuth: Boolean(step.requiresAuth || flow.requiresAuth)
     };
+    return {
+      ...normalized,
+      selectors: unique([...ownSelectors, ...flowSelectors]).filter((selector) =>
+        selectorSupportsStep(selector, normalized)
+      )
+    };
   });
+}
+
+function actionFromDescription(description) {
+  const text = String(description || "").trim().toLowerCase();
+  if (/^(navigate|go to|open|from .* open|load)\b/.test(text)) return "navigate";
+  if (/^(click|tap|choose|select|add|start|play)\b/.test(text)) return "click";
+  if (/^(enter|type|fill|complete)\b/.test(text)) return "input";
+  if (/^submit\b/.test(text)) return "submit";
+  if (/^scroll\b/.test(text)) return "scroll";
+  return "verify";
+}
+
+function matchingFlow(tc, userFlows) {
+  const caseText = `${tc.module || ""} ${tc.scenario || ""} ${tc.title || ""}`;
+  const caseWords = new Set(significantWords(caseText));
+  let best = null;
+  let bestScore = 0;
+  for (const flow of userFlows) {
+    const name = flow.name || "";
+    const exact = flowKey(caseText).includes(flowKey(name));
+    const score = significantWords(name).filter((word) => caseWords.has(word)).length + (exact ? 3 : 0);
+    if (score > bestScore) {
+      best = flow;
+      bestScore = score;
+    }
+  }
+  return bestScore >= 2 ? best : null;
 }
 
 function pickCriticalFlows(userFlows = [], manualCases = [], limit = MAX_FLOWS) {
@@ -68,7 +153,7 @@ function pickCriticalFlows(userFlows = [], manualCases = [], limit = MAX_FLOWS) 
   const seen = new Set();
 
   function tryAdd(entry) {
-    const key = flowKey(entry.name);
+    const key = entry.caseId || flowKey(entry.name);
     if (!key || seen.has(key) || picked.length >= limit) return;
     seen.add(key);
     picked.push(entry);
@@ -78,24 +163,51 @@ function pickCriticalFlows(userFlows = [], manualCases = [], limit = MAX_FLOWS) 
     .slice()
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
 
-  for (const flow of sortedFlows) {
-    tryAdd({ kind: "flow", name: flow.name || "User Flow", flow, steps: normalizeFlowSteps(flow) });
-  }
-
   const sortedCases = manualCases
     .slice()
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
 
   for (const tc of sortedCases) {
+    const evidenceFlow = matchingFlow(tc, sortedFlows);
+    const evidenceSelectors = evidenceFlow ? asSelectorList(evidenceFlow.elements) : [];
     const steps = Array.isArray(tc.steps)
-      ? tc.steps.map((s) => ({ action: "verify", description: String(s), selectors: [] }))
-      : [{ action: "verify", description: tc.scenario || tc.title || "Verify case", selectors: [] }];
+      ? tc.steps.map((step) => {
+          const description = typeof step === "string"
+            ? step
+            : step?.description || step?.target || step?.action || "Verify step";
+          const normalized = {
+            action: typeof step === "object" && step?.action
+              ? String(step.action).toLowerCase()
+              : actionFromDescription(description),
+            description: String(description),
+            target: typeof step === "object" ? step.target || description : description,
+            value: typeof step === "object" ? step.value || null : null,
+            requiresAuth: Boolean(tc.requiresAuth || (typeof step === "object" && step.requiresAuth))
+          };
+          return {
+            ...normalized,
+            selectors: evidenceSelectors.filter((selector) => selectorSupportsStep(selector, normalized))
+          };
+        })
+      : normalizeFlowSteps({
+          ...tc,
+          elements: evidenceSelectors,
+          steps: [tc.scenario || tc.title || "Verify case"]
+        });
     tryAdd({
       kind: "case",
-      name: tc.module || tc.scenario || tc.title || "Functional Case",
+      name: tc.scenario || tc.title || tc.module || "Functional Case",
       flow: tc,
+      caseId: tc.id || null,
+      traceability: tc.traceability || null,
       steps
     });
+  }
+
+  if (!sortedCases.length) {
+    for (const flow of sortedFlows) {
+      tryAdd({ kind: "flow", name: flow.name || "User Flow", flow, steps: normalizeFlowSteps(flow) });
+    }
   }
 
   return picked.slice(0, limit);
@@ -106,14 +218,17 @@ function isSensitiveStep(step) {
   return /password|payment|card|cvv|checkout|billing|ssn|otp|secret/.test(text);
 }
 
-function semanticSelectors(step) {
-  const text = `${step.action || ""} ${step.target || ""} ${step.description || ""}`.toLowerCase();
+function semanticSelectors(step, action = step?.action) {
+  const text = intentOf(step);
+  const normalizedAction = String(action || "verify").toLowerCase();
   const out = [];
   if (/footer|contentinfo/.test(text)) {
     out.push("footer", "[role='contentinfo']", ".footer");
   }
-  if (/nav|header|menu/.test(text)) {
-    out.push("nav", "[role='navigation']", "header", "header a", "[class*='nav']");
+  // Unscoped menu links only make sense when the step really is "use the menu".
+  // For a navigate step they would send every flow to the same first header link.
+  if (NAV_INTENT.test(text) && normalizedAction !== "navigate") {
+    out.push("nav a", "[role='navigation'] a", "header a", "nav button", "[class*='menu'] a");
   }
   if (/\blogo\b/.test(text)) {
     out.push("header img", "a[href='/'] img", "[class*='logo']", "img[alt*='logo' i]");
@@ -136,12 +251,74 @@ function semanticSelectors(step) {
     );
   }
   if (/product|listing|category/.test(text)) {
-    out.push("[class*='product']", "a[href*='product']", "main article", "main");
+    out.push("[class*='product']", "a[href*='product']", "main article");
   }
   if (/page load|homepage|landing/.test(text)) {
     out.push("main", "body", "#root", "#app", "#__next");
   }
   return unique(out);
+}
+
+function quotedLabels(step) {
+  const text = `${step?.target || ""} ${step?.description || ""}`;
+  const labels = [];
+  const pattern = /"([^"]{2,40})"/g;
+  let match = pattern.exec(text);
+  while (match) {
+    labels.push(match[1].trim());
+    match = pattern.exec(text);
+  }
+  return labels;
+}
+
+/** Analyzer steps name a real path, e.g. `Navigate to /search ("Search results")`. */
+function pathTarget(step) {
+  const text = `${step?.target || ""} ${step?.description || ""}`;
+  const match = /\b(?:navigate to|go to|open|load)\s+(\/[A-Za-z0-9\-._~/%?=&+]*)/i.exec(text);
+  return match ? match[1] : null;
+}
+
+/** Labels a link or control could plausibly carry, so navigation stays target-specific. */
+function linkTerms(step) {
+  const candidates = [...quotedLabels(step), ...verifyTerms(step)];
+  const cleaned = candidates.map((candidate) =>
+    String(candidate)
+      .replace(/^from the homepage,?\s*/i, "")
+      .replace(/\s+in the main navigation$/i, "")
+      .replace(/^(the|a|an)\s+/i, "")
+      .replace(/\s+(entry point|page|screen|section|ui|functionality|flow)$/i, "")
+      .trim()
+  );
+  return unique(
+    cleaned.filter((term) => term.length >= 3 && term.length <= 32 && !GENERIC_TARGETS.test(term))
+  ).slice(0, 4);
+}
+
+function textSelectorValue(term) {
+  return String(term).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function navTargetSelectors(step) {
+  return unique(
+    linkTerms(step).flatMap((term) => {
+      const label = textSelectorValue(term);
+      return [
+        `nav a:has-text("${label}")`,
+        `header a:has-text("${label}")`,
+        `a:has-text("${label}")`,
+        `[role='menuitem']:has-text("${label}")`,
+        `button:has-text("${label}")`
+      ];
+    })
+  );
+}
+
+function absoluteUrl(path, baseUrl) {
+  try {
+    return new URL(path, baseUrl).toString();
+  } catch {
+    return null;
+  }
 }
 
 function locatorFor(page, selector) {
@@ -152,11 +329,33 @@ function locatorFor(page, selector) {
   return page.locator(sel).first();
 }
 
-async function firstVisible(page, selectors, timeout = ELEMENT_WAIT_MS) {
+async function locatorSupportsIntent(locator, step, action) {
+  const intent = `${step?.target || ""} ${step?.description || ""}`.toLowerCase();
+  if (!/search|query/.test(intent) || !["click", "input", "verify"].includes(String(action || step?.action))) {
+    return true;
+  }
+  if (typeof locator.getAttribute !== "function") return true;
+
+  const attributes = await Promise.all(
+    ["name", "placeholder", "aria-label", "type"].map((name) =>
+      locator.getAttribute(name).catch(() => null)
+    )
+  );
+  const evidence = attributes.filter(Boolean).join(" ").toLowerCase();
+  const isLocationInput = /location|locality|address|pincode|postal|delivery area/.test(evidence);
+  const isProductInput = /product|item|grocery|catalog|shop/.test(evidence);
+  return !isLocationInput || isProductInput;
+}
+
+async function firstVisible(page, selectors, timeout = ELEMENT_WAIT_MS, step = null, action = null) {
   for (const sel of unique(selectors)) {
+    if (step && !selectorSupportsStep(sel, step, action || step.action)) continue;
     try {
       const loc = locatorFor(page, sel);
-      if (await loc.isVisible({ timeout })) {
+      if (
+        await loc.isVisible({ timeout }) &&
+        await locatorSupportsIntent(loc, step, action || step?.action)
+      ) {
         return { locator: loc, selector: sel };
       }
     } catch {
@@ -175,7 +374,7 @@ function verifyTerms(step) {
       terms.push(text);
     }
     for (const chunk of text.split(/[,;/]| and /i)) {
-      const cleaned = chunk.replace(/^(verify|click|scroll to|go to|navigate to|load)\s+/i, "").trim();
+      const cleaned = chunk.replace(/^(verify|click|open|scroll to|go to|navigate to|load)\s+/i, "").trim();
       if (cleaned.length > 3 && cleaned.length < 40) terms.push(cleaned);
     }
   }
@@ -195,6 +394,25 @@ async function firstVisibleText(page, terms, timeout = 2000) {
     }
   }
   return null;
+}
+
+async function healedTarget(page, step, action, trace) {
+  const healing = await healLocator(page, step, action);
+  if (!healing) return null;
+  trace.push(`flow:healed:${healing.key}:${healing.evidence}`);
+  return healing;
+}
+
+async function reportHealing(ctx, step, healing) {
+  if (!healing || typeof ctx.onHealed !== "function") return;
+  await ctx.onHealed({
+    key: healing.key,
+    selector: healing.selector,
+    strategy: healing.strategy,
+    evidence: healing.evidence,
+    action: step.action,
+    target: step.target || step.description || null
+  });
 }
 
 async function dismissNoise(page, trace) {
@@ -245,38 +463,75 @@ async function navigateToIntent(page, step, ctx, trace) {
 
   await ensureOnSite(page, ctx, trace);
   const intent = `${target} ${step.description || ""}`.toLowerCase();
-  if (!target || /home|landing|homepage/.test(intent)) {
+  const terms = linkTerms(step);
+  const path = pathTarget(step);
+
+  if (path) {
+    const url = absoluteUrl(path, ctx.ottUrl);
+    if (url) {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+      if (typeof page.waitForTimeout === "function") await page.waitForTimeout(800);
+      await dismissNoise(page, trace);
+      trace.push(`flow:navigate:${url}`);
+      return { ok: true };
+    }
+  }
+
+  // Only a step with no other target is really "stay on the landing page".
+  if (!terms.length && /home|landing|homepage/.test(intent)) {
     trace.push(`flow:navigate:${ctx.ottUrl}`);
+    return { ok: true, evidence: false };
+  }
+
+  const labelled = await firstVisible(page, navTargetSelectors(step), ELEMENT_WAIT_MS);
+  if (labelled) {
+    await labelled.locator.click({ timeout: 5000 });
+    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
+    trace.push(`flow:navigate-click:${labelled.selector}`);
     return { ok: true };
   }
 
-  const found = await firstVisible(page, semanticSelectors(step), ELEMENT_WAIT_MS);
+  const found = await firstVisible(page, semanticSelectors(step, "navigate"), ELEMENT_WAIT_MS, step, "click");
   if (found) {
-    await found.locator.click({ timeout: 5000 }).catch(() => {});
+    await found.locator.click({ timeout: 5000 });
     if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
     trace.push(`flow:navigate-click:${found.selector}`);
     return { ok: true };
   }
 
-  const byText = await firstVisibleText(page, verifyTerms(step), 1500);
+  const healed = await healedTarget(page, step, "navigate", trace);
+  if (healed) {
+    await healed.locator.click({ timeout: 5000 });
+    if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
+    await reportHealing(ctx, step, healed);
+    return { ok: true, healing: healed };
+  }
+
+  const byText = await firstVisibleText(page, terms, 1500);
   if (byText) {
-    await byText.locator.click({ timeout: 5000 }).catch(() => {});
+    await byText.locator.click({ timeout: 5000 });
     if (typeof page.waitForTimeout === "function") await page.waitForTimeout(600);
     trace.push(`flow:navigate-text:${byText.term}`);
     return { ok: true };
   }
 
   trace.push(`flow:navigate-stay:${target.slice(0, 40) || "current"}`);
-  return { ok: true };
+  return { skipped: true, reason: "navigation_target_not_found" };
 }
 
-async function clickStep(page, step, trace) {
-  const candidates = [...(step.selectors || []), ...semanticSelectors(step)];
-  const found = await firstVisible(page, candidates, ELEMENT_WAIT_MS);
+async function clickStep(page, step, ctx, trace) {
+  const candidates = [...(step.selectors || []), ...navTargetSelectors(step), ...semanticSelectors(step, "click")];
+  const found = await firstVisible(page, candidates, ELEMENT_WAIT_MS, step, "click");
   if (found) {
     await found.locator.click({ timeout: 5000 });
     trace.push(`flow:click:${found.selector}`);
     return { ok: true };
+  }
+  const healed = await healedTarget(page, step, "click", trace);
+  if (healed) {
+    await healed.locator.click({ timeout: 5000 });
+    await reportHealing(ctx, step, healed);
+    return { ok: true, healing: healed };
   }
   const text = step.target || step.description;
   const byText = await firstVisibleText(page, unique([text, ...verifyTerms(step)]), 2500);
@@ -285,28 +540,33 @@ async function clickStep(page, step, trace) {
     trace.push(`flow:click-text:${byText.term.slice(0, 40)}`);
     return { ok: true };
   }
-  throw new Error(`Click target not found: ${(step.description || "").slice(0, 80)}`);
+  trace.push(`flow:click-inconclusive:${(step.description || "target").slice(0, 40)}`);
+  return { skipped: true, reason: "click_target_not_found" };
 }
 
-async function inputStep(page, step, trace) {
+async function inputStep(page, step, ctx, trace) {
   const value = step.value || "test query";
   const candidates = [
     ...(step.selectors || []),
-    ...semanticSelectors(step),
-    'input[type="search"]',
-    "input:not([type='hidden'])",
-    "textarea"
+    ...semanticSelectors(step, "input")
   ];
-  const found = await firstVisible(page, candidates, ELEMENT_WAIT_MS);
+  const found = await firstVisible(page, candidates, ELEMENT_WAIT_MS, step, "input");
   if (found) {
     await found.locator.fill(value, { timeout: 5000 });
     trace.push(`flow:input:${found.selector}`);
     return { ok: true };
   }
-  throw new Error(`Input target not found: ${(step.description || "").slice(0, 80)}`);
+  const healed = await healedTarget(page, step, "input", trace);
+  if (healed) {
+    await healed.locator.fill(value, { timeout: 5000 });
+    await reportHealing(ctx, step, healed);
+    return { ok: true, healing: healed };
+  }
+  trace.push(`flow:input-inconclusive:${(step.description || "target").slice(0, 40)}`);
+  return { skipped: true, reason: "input_target_not_found" };
 }
 
-async function scrollStep(page, step, trace) {
+async function scrollStep(page, step, ctx, trace) {
   if (typeof page.evaluate === "function") {
     const intent = `${step.target || ""} ${step.description || ""}`.toLowerCase();
     if (/footer|bottom/.test(intent)) {
@@ -317,14 +577,26 @@ async function scrollStep(page, step, trace) {
     if (typeof page.waitForTimeout === "function") await page.waitForTimeout(400);
   }
   trace.push(`flow:scroll:${(step.target || step.description || "page").slice(0, 40)}`);
-  return verifyStep(page, { ...step, action: "verify" }, trace);
+  return verifyStep(page, { ...step, action: "verify" }, trace, ctx);
 }
 
-async function verifyStep(page, step, trace) {
-  const found = await firstVisible(page, [...(step.selectors || []), ...semanticSelectors(step)], ELEMENT_WAIT_MS);
+async function verifyStep(page, step, trace, ctx = {}) {
+  const found = await firstVisible(
+    page,
+    [...(step.selectors || []), ...semanticSelectors(step, "verify")],
+    ELEMENT_WAIT_MS,
+    step,
+    "verify"
+  );
   if (found) {
     trace.push(`flow:verify-selector:${found.selector}`);
-    return { ok: true };
+    return { ok: true, evidence: !PAGE_CONTAINERS.has(found.selector.toLowerCase()) };
+  }
+
+  const healed = await healedTarget(page, step, "verify", trace);
+  if (healed) {
+    await reportHealing(ctx, step, healed);
+    return { ok: true, healing: healed };
   }
 
   const byText = await firstVisibleText(page, verifyTerms(step), 2000);
@@ -345,11 +617,9 @@ async function verifyStep(page, step, trace) {
   }
 
   const visible = await waitForPage(page);
-  if (visible) {
-    trace.push(`flow:verify-body:${(step.description || "visible").slice(0, 40)}`);
-    return { ok: true };
-  }
-  throw new Error("Page did not load: body not visible");
+  if (!visible) throw new Error("Page did not load: body not visible");
+  trace.push(`flow:verify-inconclusive:${(step.description || "visible").slice(0, 40)}`);
+  return { skipped: true, reason: "insufficient_verification_evidence" };
 }
 
 async function executeFlowStep(page, step, ctx, trace) {
@@ -373,11 +643,11 @@ async function executeFlowStep(page, step, ctx, trace) {
   }
   if (action === "click") {
     await ensureOnSite(page, ctx, trace);
-    return clickStep(page, step, trace);
+    return clickStep(page, step, ctx, trace);
   }
   if (action === "input") {
     await ensureOnSite(page, ctx, trace);
-    return inputStep(page, step, trace);
+    return inputStep(page, step, ctx, trace);
   }
   if (action === "submit") {
     await ensureOnSite(page, ctx, trace);
@@ -391,34 +661,52 @@ async function executeFlowStep(page, step, ctx, trace) {
       trace.push(`flow:submit:${submit.selector}`);
       return { ok: true };
     }
-    const input = await firstVisible(page, ["input[type='search']", "input:not([type='hidden'])"], ELEMENT_WAIT_MS);
+    const healed = await healedTarget(page, step, "submit", trace);
+    if (healed) {
+      await healed.locator.click({ timeout: 5000 });
+      await reportHealing(ctx, step, healed);
+      return { ok: true, healing: healed };
+    }
+    const isSearchSubmit = /search|query/.test(`${step.target || ""} ${step.description || ""}`.toLowerCase());
+    const input = isSearchSubmit
+      ? await firstVisible(page, ["input[type='search']"], ELEMENT_WAIT_MS, step, "input")
+      : null;
     if (input && typeof input.locator.press === "function") {
       await input.locator.press("Enter");
       trace.push("flow:submit:enter");
       return { ok: true };
     }
     trace.push("flow:submit:skipped");
-    return { ok: true };
+    return { skipped: true, reason: "submit_target_not_found" };
   }
   if (action === "scroll") {
     await ensureOnSite(page, ctx, trace);
-    return scrollStep(page, step, trace);
+    return scrollStep(page, step, ctx, trace);
   }
 
   await ensureOnSite(page, ctx, trace);
-  return verifyStep(page, step, trace);
+  return verifyStep(page, step, trace, ctx);
 }
 
-function buildDiscoveredFlowTests({ ottUrl, userFlows = [], manualTestCases = [], hasLoginSecrets = false }) {
-  const picked = pickCriticalFlows(userFlows, manualTestCases, MAX_FLOWS);
+function buildDiscoveredFlowTests({
+  ottUrl,
+  userFlows = [],
+  manualTestCases = [],
+  hasLoginSecrets = false,
+  maxFlows = MAX_FLOWS,
+  onHealed = null
+}) {
+  const picked = pickCriticalFlows(userFlows, manualTestCases, maxFlows);
   if (!picked.length) return [];
 
   return picked.map((entry, index) => ({
-    id: `FLOW-${String(index + 1).padStart(3, "0")}`,
+    id: entry.caseId ? `EXEC-${entry.caseId}` : `FLOW-${String(index + 1).padStart(3, "0")}`,
     title: entry.name,
     flowName: entry.name,
+    sourceCaseId: entry.caseId,
+    traceability: entry.traceability,
     execute: async (page, trace) => {
-      const ctx = { ottUrl, hasLoginSecrets, loaded: false };
+      const ctx = { ottUrl, hasLoginSecrets, loaded: false, onHealed };
       const stepResults = [];
 
       await ensureOnSite(page, ctx, trace);
@@ -430,7 +718,16 @@ function buildDiscoveredFlowTests({ ottUrl, userFlows = [], manualTestCases = []
             description: step.description,
             action: step.action,
             status: result.skipped ? "skipped" : "passed",
-            reason: result.reason || null
+            evidence: result.skipped ? false : result.evidence !== false,
+            reason: result.reason || null,
+            healing: result.healing
+              ? {
+                  key: result.healing.key,
+                  selector: result.healing.selector,
+                  strategy: result.healing.strategy,
+                  evidence: result.healing.evidence
+                }
+              : undefined
           });
         } catch (err) {
           stepResults.push({
@@ -443,6 +740,21 @@ function buildDiscoveredFlowTests({ ottUrl, userFlows = [], manualTestCases = []
         }
       }
 
+      const currentUrl = typeof page.url === "function" ? page.url() : page.url;
+      if (currentUrl) trace.push(`flow:final-url:${currentUrl}`);
+
+      // Landing on the site is not a result. A pass needs at least one step that
+      // matched something specific to the flow's own target.
+      const provenSteps = stepResults.filter((step) => step.status === "passed" && step.evidence).length;
+      if (provenSteps === 0) {
+        return {
+          flowName: entry.name,
+          stepResults,
+          failed: false,
+          skip: true,
+          reason: "No step had sufficient target-specific evidence"
+        };
+      }
       return { flowName: entry.name, stepResults, failed: false };
     }
   }));

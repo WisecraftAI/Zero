@@ -68,6 +68,166 @@
   font-size: 0.9rem;
 }
 
+/* ─── Playwright agent lifecycle ────────────────────────── */
+.agv-test-agents {
+  --planner-color: var(--green);
+  --generator-color: var(--blue);
+  --healer-color: var(--stage-plan);
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--planner-color) 10%, transparent), transparent 34%),
+    radial-gradient(circle at 94% 100%, color-mix(in srgb, var(--healer-color) 10%, transparent), transparent 36%),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.agv-test-agents-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+
+  h2 {
+    margin: 5px 0 0;
+    color: var(--text);
+    font-size: clamp(1.1rem, 2vw, 1.45rem);
+    letter-spacing: -0.025em;
+  }
+}
+
+.agv-runtime-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+.agv-agent-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agv-flow-stage {
+  --stage-color: var(--text-2);
+
+  position: relative;
+  min-width: 0;
+  padding: 15px;
+  background: color-mix(in srgb, var(--stage-color) 4%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--stage-color) 34%, var(--border));
+  border-radius: var(--radius);
+
+  &--planner { --stage-color: var(--planner-color); }
+  &--generator { --stage-color: var(--generator-color); }
+  &--healer { --stage-color: var(--healer-color); }
+
+  h3 {
+    margin: 12px 0 5px;
+    color: var(--stage-color);
+    font-size: 0.95rem;
+  }
+
+  p {
+    min-height: 3.7em;
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+}
+
+.agv-flow-stage-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agv-flow-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--stage-color);
+  background: color-mix(in srgb, var(--stage-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-color) 35%, transparent);
+  border-radius: 50%;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+.agv-flow-step {
+  color: var(--stage-color);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.agv-flow-output {
+  margin-top: 12px;
+  padding-top: 9px;
+  color: var(--text-3);
+  border-top: 1px solid color-mix(in srgb, var(--stage-color) 18%, var(--border));
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.agv-flow-arrow {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: -20px;
+  width: 24px;
+  color: var(--text-3);
+  background: var(--surface);
+  text-align: center;
+  transform: translateY(-50%);
+}
+
+.agv-improvement-loop {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-md);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+
+  i {
+    flex: 1;
+    min-width: 12px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border-md), var(--accent), var(--border-md));
+  }
+}
+
 /* ─── Stat cards ─────────────────────────────────────────── */
 .agv-stats {
   display: grid;
@@ -581,6 +741,25 @@
 }
 
 @include bp.below(980px) {
+  .agv-agent-flow {
+    grid-template-columns: 1fr;
+  }
+  .agv-flow-stage p {
+    min-height: 0;
+  }
+  .agv-flow-arrow {
+    top: auto;
+    right: 50%;
+    bottom: -21px;
+    transform: translateX(50%) rotate(90deg);
+  }
+  .agv-improvement-loop {
+    flex-wrap: wrap;
+
+    i {
+      flex-basis: 18px;
+    }
+  }
   .agv-stats {
     grid-template-columns: 1fr;
   }
@@ -600,5 +779,14 @@
   }
   .agv-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@include bp.below(640px) {
+  .agv-test-agents-head {
+    flex-direction: column;
+  }
+  .agv-runtime-badge {
+    white-space: normal;
   }
 }

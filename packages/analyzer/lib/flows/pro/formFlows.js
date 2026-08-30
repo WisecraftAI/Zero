@@ -1,7 +1,9 @@
 const { createFlow, formsWithPurpose, hasFlowNamed } = require('./helpers');
 
 function buildContactFormFlow(forms) {
-  const contactForms = formsWithPurpose(forms, 'contact');
+  const contactForms = formsWithPurpose(forms, 'contact').filter(
+    (form) => Number(form.fieldCount || form.fields?.length || 0) > 0
+  );
   if (contactForms.length === 0) {
     return null;
   }
@@ -81,7 +83,15 @@ function buildGenericSearchFlow(ctx, existingFlows) {
 }
 
 function buildGenericMediaFlow(ctx, existingFlows) {
-  if (!ctx.hasCategory('MEDIA') || hasFlowNamed(existingFlows, 'Video')) {
+  const mediaElements = ctx.getElements('MEDIA').filter((element) => {
+    const tagName = String(element.tagName || '').toLowerCase();
+    const selector = String(element.originalSelector || element.selector || '').toLowerCase();
+    if (tagName === 'video' || tagName === 'audio' || /^(video|audio)\b/.test(selector)) {
+      return true;
+    }
+    return tagName === 'iframe' && /(youtube|vimeo)/.test(String(element.src || selector));
+  });
+  if (mediaElements.length === 0 || hasFlowNamed(existingFlows, 'Video')) {
     return null;
   }
 
@@ -100,7 +110,7 @@ function buildGenericMediaFlow(ctx, existingFlows) {
       'Play controls are functional',
       'Media plays without errors'
     ],
-    elements: ctx.elementSelectors('MEDIA')
+    elements: mediaElements.slice(0, 3).map((element) => element.selector).filter(Boolean)
   });
 }
 

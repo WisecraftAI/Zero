@@ -545,6 +545,13 @@
     color: var(--text);
   }
 }
+.status-healed {
+  color: var(--stage-plan);
+
+  strong {
+    color: var(--stage-plan);
+  }
+}
 .exec-table {
   font-size: 0.82rem;
 }
@@ -559,6 +566,23 @@
 }
 .screenshot-link {
   font-size: 0.8rem; color: var(--accent);
+}
+.exec-evidence {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+.healed-badge {
+  display: inline-flex;
+  padding: 2px 6px;
+  color: var(--stage-plan);
+  background: color-mix(in srgb, var(--stage-plan) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-plan) 28%, var(--border));
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  white-space: nowrap;
 }
 
 .screenshot-grid {

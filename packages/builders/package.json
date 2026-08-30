@@ -10,6 +10,7 @@
     "./javaSeleniumBuilder": "./javaSeleniumBuilder.js",
     "./playwright": "./lib/playwright/index.js",
     "./playwright/discoveredFlows": "./lib/playwright/discoveredFlows.js",
+    "./playwright/locatorHealing": "./lib/playwright/locatorHealing.js",
     "./selenium": "./lib/selenium/index.js",
     "./shared/selectors": "./lib/shared/selectors.js",
     "./shared/text": "./lib/shared/text.js"
