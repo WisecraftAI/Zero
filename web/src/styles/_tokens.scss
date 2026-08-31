@@ -1,6 +1,8 @@
 // Non-color design tokens — radius, type scale, space, layout.
 // Shared by every theme; palettes live in _themes.scss.
 
+@use 'breakpoints' as bp;
+
 :root {
   /* Radius — generous on containers, tight on controls */
   --radius-xs: 4px;
@@ -44,6 +46,51 @@
   --measure:   760px;
   --measure-wide: 1280px;
 
+  /* Widest a page's content may grow before it centers. Without this, tables
+     and prose stretch to the full width of a 4K demo screen. */
+  --content-max: 1600px;
+  /* Horizontal gutter around page content, widened with the viewport. */
+  --gutter: var(--space-6);
+
+  /* Full viewport height that accounts for mobile browser chrome. */
+  --app-h: 100vh;
+
   --transition: 0.16s cubic-bezier(0.2, 0, 0, 1);
   --focus-ring: 0 0 0 3px var(--accent-glow);
+}
+
+@supports (height: 100dvh) {
+  :root { --app-h: 100dvh; }
+}
+
+@include bp.below(bp.$tablet) {
+  :root { --gutter: var(--space-5); }
+}
+
+@include bp.below(bp.$phone) {
+  :root { --gutter: var(--space-4); }
+}
+
+/* Large desktop — let content breathe before it hits the cap. */
+@include bp.above(bp.$wide) {
+  :root {
+    --content-max: 1840px;
+    --gutter: var(--space-7);
+  }
+}
+
+/* TV / 4K. These screens are read from a distance, so the whole rem scale
+   steps up rather than only the container growing. Every size in the app is
+   rem-based, so moving the root size carries the type, icons and controls
+   together; media queries stay in px and are unaffected. */
+@include bp.above(bp.$tv) {
+  :root {
+    font-size: 20px;
+    --content-max: 2400px;
+    --measure-wide: 1800px;
+    --gutter: var(--space-8);
+    --sidebar-w: 72px;
+    --sidebar-w-open: 260px;
+    --topbar-h: 68px;
+  }
 }

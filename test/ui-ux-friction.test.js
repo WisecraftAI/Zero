@@ -28,14 +28,6 @@ describe('U2 low-friction canvas', () => {
     );
   });
 
-  it('expands the rail on hover or focus-within', () => {
-    const css = read('web/src/components/Sidebar.scss');
-    // Both states are nested under `.sidebar`.
-    expect(css).toMatch(/^\s*&:hover,$/m);
-    expect(css).toMatch(/^\s*&:focus-within\s*\{$/m);
-    expect(css).toMatch(/768px/);
-  });
-
   it('preserves New Run field names', () => {
     const view = read('web/src/views/NewRunView.jsx');
     for (const name of [

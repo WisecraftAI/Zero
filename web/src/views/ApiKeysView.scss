@@ -1,11 +1,9 @@
 @use '../styles/breakpoints' as bp;
 
 .api-keys-view {
-  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 100%;
 }
 
 /* Stats row */
@@ -343,7 +341,7 @@
   }
 }
 
-@include bp.below(800px) {
+@include bp.below(bp.$tablet) {
   .apk-stats {
     grid-template-columns: 1fr;
   }

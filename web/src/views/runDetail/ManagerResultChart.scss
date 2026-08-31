@@ -1,0 +1,260 @@
+@use '../../styles/breakpoints' as bp;
+
+.manager-results {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+
+    h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.3;
+    }
+
+    p {
+      margin: 3px 0 0;
+      color: var(--text-3);
+      font-size: 0.78rem;
+    }
+  }
+
+  &__all {
+    min-height: 32px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--text-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+
+    &:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    &.is-selected {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+  }
+
+  &__body {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+
+  &__donut {
+    position: relative;
+    flex: none;
+    line-height: 0;
+
+    .recharts-sector {
+      cursor: pointer;
+      transition: fill-opacity var(--transition);
+    }
+  }
+
+  // Sits inside the donut hole; the ring itself owns the pointer events.
+  &__center {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    inset: 0;
+    line-height: 1.2;
+    pointer-events: none;
+
+    strong {
+      color: var(--text);
+      font-size: 1.7rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    span {
+      color: var(--text-3);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  }
+
+  &__tip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--text-2);
+    font-size: 0.76rem;
+    line-height: 1;
+
+    strong {
+      color: var(--text);
+    }
+  }
+
+  &__tip-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+  }
+
+  &__legend {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__segment {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+
+    &:hover:not(:disabled) {
+      border-color: currentColor;
+    }
+
+    &.is-selected {
+      box-shadow: inset 0 0 0 2px currentColor;
+    }
+
+    &:disabled {
+      color: var(--text-3);
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    &--passed {
+      color: var(--green);
+    }
+
+    &--failed {
+      color: var(--red);
+    }
+
+    &--skipped {
+      color: var(--amber);
+    }
+
+    &:hover .manager-results__tooltip,
+    &:focus-visible .manager-results__tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+  }
+
+  &__symbol {
+    width: 22px;
+    height: 22px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    font-weight: 800;
+    line-height: 20px;
+    text-align: center;
+  }
+
+  &__label {
+    color: currentColor;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  &__segment strong {
+    color: currentColor;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__percentage {
+    min-width: 38px;
+    color: var(--text-3);
+    font-size: 0.74rem;
+    text-align: right;
+  }
+
+  &__tooltip {
+    position: absolute;
+    z-index: 3;
+    bottom: calc(100% + 6px);
+    left: 12px;
+    visibility: hidden;
+    width: max-content;
+    max-width: 190px;
+    padding: 5px 8px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    background: var(--surface-3);
+    box-shadow: var(--shadow-sm);
+    color: var(--text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+  }
+
+  &__all:focus-visible,
+  &__segment:focus-visible {
+    z-index: 1;
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@include bp.below(bp.$narrow) {
+  .manager-results__body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .manager-results__donut {
+    align-self: center;
+  }
+}
+
+@include bp.reduced-motion {
+  .manager-results {
+    &__tooltip,
+    &__donut .recharts-sector {
+      transition: none;
+    }
+  }
+}

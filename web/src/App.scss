@@ -355,8 +355,17 @@
   }
 }
 
-.view, .view-full {
-  padding: var(--space-5) var(--space-6);
+/* Page container. The cap is what stops tables and prose from stretching to
+   the full width of a large desktop or 4K demo screen; below the cap it is a
+   plain fluid column with a viewport-sized gutter. */
+.view {
+  padding: var(--space-5) var(--gutter);
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.view-full {
+  padding: var(--space-5) var(--gutter);
 }
 
 .view-header {
@@ -391,6 +400,13 @@
   grid-template-columns: repeat(auto-fit,minmax(170px,1fr));
   gap: 12px;
   margin-bottom: 20px;
+}
+
+/* Two per row beats one very wide card on a phone. */
+@include bp.below(bp.$phone) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .breadcrumb {
@@ -435,8 +451,29 @@
   margin-bottom: 12px;
 }
 
-@include bp.below(768px) {
+@include bp.below(bp.$narrow) {
   .view, .view-full {
-    padding: var(--space-4);
+    padding: var(--space-4) var(--gutter);
+  }
+
+  .view-header {
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .view-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* Data tables carry more columns than a narrow viewport is going to fit.
+   Scroll the table itself rather than letting it push the page sideways —
+   the row groups stay in an anonymous table box, so columns still align. */
+@include bp.below(bp.$tablet) {
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    overscroll-behavior-x: contain;
   }
 }

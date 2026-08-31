@@ -55,7 +55,7 @@
   }
 }
 
-@include bp.below(720px) {
+@include bp.below(bp.$narrow) {
 
   .ai-banner {
     flex-direction: column;

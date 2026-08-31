@@ -31,6 +31,7 @@
     "test": "jest --coverage",
     "test:smoke": "jest --coverage=false test/smoke.test.js",
     "test:ci": "jest --coverage=false --runInBand",
+    "test:web": "npm test -w @zero/web",
     "test:e2e": "playwright test"
   },
   "keywords": [

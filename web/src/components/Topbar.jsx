@@ -1,10 +1,20 @@
 import { memo } from 'react';
 import './Topbar.scss';
 
-function Topbar({ title, breadcrumb, statusBadge, actions }) {
+function Topbar({ title, breadcrumb, statusBadge, actions, navOpen = false, onToggleNav }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        <button
+          type="button"
+          className="topbar-menu-btn"
+          onClick={onToggleNav}
+          aria-label="Menu"
+          aria-expanded={navOpen}
+          aria-controls="app-sidebar"
+        >
+          <MenuIcon />
+        </button>
         {breadcrumb ? (
           <div className="topbar-breadcrumb">
             {breadcrumb.map((crumb, i) => (
@@ -46,6 +56,11 @@ function Topbar({ title, breadcrumb, statusBadge, actions }) {
 
 export default memo(Topbar);
 
+const MenuIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
 const SearchIcon = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
     <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.3"/>

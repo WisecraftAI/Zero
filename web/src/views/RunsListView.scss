@@ -1,6 +1,4 @@
-.runs-list-view {
-  max-width: 100%;
-}
+@use '../styles/breakpoints' as bp;
 
 .stat-value--green {
   color: var(--green)!important;
@@ -28,6 +26,10 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  /* Without this the group is floored at its max-content width and the search
+     box plus every status chip stay on one unbreakable line. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .runs-filter-right {
@@ -71,6 +73,14 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+}
+
+@include bp.below(bp.$phone) {
+  .runs-search-wrap {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .runs-filter-chip {

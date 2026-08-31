@@ -58,19 +58,34 @@ function StatusGlyph({ status }) {
   );
 }
 
+// The executor namespaces its results (`EXEC-<caseId>`, `FLOW-001`, `AUTO-001`),
+// so a plan case ID never equals a test ID. `sourceCaseId` and the `EXEC-` prefix
+// are the two links back to the case that produced the test.
+function indexExecutionByCase(execution) {
+  const byCase = new Map();
+  const register = (key, test) => {
+    if (!key) return;
+    const normalized = String(key).toUpperCase();
+    if (!byCase.has(normalized)) byCase.set(normalized, test);
+  };
+  for (const test of execution) {
+    register(test.sourceCaseId, test);
+    const id = String(test.id || '');
+    register(id, test);
+    if (id.toUpperCase().startsWith('EXEC-')) register(id.slice(5), test);
+  }
+  return byCase;
+}
+
 function buildFlowNodes(run) {
   const manual = run?.artifacts?.manualTestCases;
   const plan = manual?.testCases || manual?.cases || (Array.isArray(manual) ? manual : []);
   const execution = run?.artifacts?.executionReport?.tests || [];
-  const executionById = new Map(
-    execution
-      .filter((test) => test.id)
-      .map((test) => [String(test.id).toUpperCase(), test]),
-  );
+  const executionByCase = indexExecutionByCase(execution);
 
   if (plan.length > 0) {
     return plan.map((item) => {
-      const match = item.id ? executionById.get(String(item.id).toUpperCase()) : null;
+      const match = item.id ? executionByCase.get(String(item.id).toUpperCase()) : null;
       return {
         id: item.id || '',
         title: item.scenario || item.title || 'Untitled Step',

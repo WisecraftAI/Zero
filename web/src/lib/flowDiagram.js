@@ -15,6 +15,15 @@ export const SOURCE_LABELS = {
   execution: 'From execution'
 };
 
+const COVERAGE_OUTCOMES = {
+  passed: 'Passed',
+  failed: 'Failed',
+  skipped: 'Skipped',
+  queued: 'Queued'
+};
+
+const COVERAGE_OUTCOME_ORDER = Object.keys(COVERAGE_OUTCOMES);
+
 export const SYSTEM_LANES = [
   {
     id: 'intake',
@@ -204,6 +213,73 @@ export function journeysFromRun(run) {
 
 export function flowDiagramSourceLabel(journeys) {
   return SOURCE_LABELS[journeys[0]?.source] || '';
+}
+
+export function buildJourneyCoverageSankey(journeys) {
+  if (!Array.isArray(journeys) || journeys.length < 2) return null;
+
+  const coverage = journeys.map((journey) => ({
+    group: String(journey?.priority || '').trim(),
+    outcome: COVERAGE_OUTCOMES[journey?.status] ? journey.status : 'queued',
+    source: journey?.source
+  }));
+  const outcomes = new Set(coverage.map(({ outcome }) => outcome));
+  if (outcomes.size < 2) return null;
+
+  const hasPriorities = coverage.some(({ group }) => group);
+  const groups = [];
+  const groupIndexes = new Map();
+  for (const item of coverage) {
+    const group = hasPriorities
+      ? item.group || 'Unprioritized'
+      : SOURCE_LABELS[item.source] || 'Other source';
+    item.group = group;
+    if (!groupIndexes.has(group)) {
+      groupIndexes.set(group, groups.length);
+      groups.push(group);
+    }
+  }
+
+  const visibleOutcomes = COVERAGE_OUTCOME_ORDER.filter((outcome) => outcomes.has(outcome));
+  const nodes = [
+    ...groups.map((name) => ({ name, kind: 'group' })),
+    ...visibleOutcomes.map((status) => ({
+      name: COVERAGE_OUTCOMES[status],
+      kind: 'outcome',
+      status
+    }))
+  ];
+  const outcomeIndexes = new Map(
+    visibleOutcomes.map((outcome, index) => [outcome, groups.length + index])
+  );
+  const counts = new Map();
+  for (const { group, outcome } of coverage) {
+    const key = `${group}\u0000${outcome}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  const links = [];
+  const summary = [];
+  for (const group of groups) {
+    for (const outcome of visibleOutcomes) {
+      const value = counts.get(`${group}\u0000${outcome}`) || 0;
+      if (value === 0) continue;
+      links.push({
+        source: groupIndexes.get(group),
+        target: outcomeIndexes.get(outcome),
+        value
+      });
+      summary.push({
+        id: `${group}-${outcome}`,
+        group,
+        outcome,
+        outcomeLabel: COVERAGE_OUTCOMES[outcome],
+        count: value
+      });
+    }
+  }
+
+  return { nodes, links, summary };
 }
 
 export function systemNodesForRun(run) {

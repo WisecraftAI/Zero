@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-5);
+  padding: 0 var(--gutter);
   flex-shrink: 0;
   gap: var(--space-4);
 
@@ -28,6 +28,8 @@
     letter-spacing: -.02em;
     color: var(--text);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &-breadcrumb {
@@ -36,6 +38,10 @@
     gap: 0;
     font-size: var(--fs-sm);
     font-family: var(--font-mono);
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   &-breadcrumb-item {
@@ -97,19 +103,28 @@
   color: var(--green);
 }
 
+/* The quiet-until-hover treatment only works where a hover state exists. On
+   touch it left search, notifications and help permanently invisible, so
+   coarse pointers get them shown outright. */
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
   transition: opacity var(--transition);
 }
 
-.topbar:hover .topbar-right, .topbar:focus-within .topbar-right {
-  opacity: 1;
-  pointer-events: auto;
+@include bp.hover {
+  .topbar-right {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .topbar:hover .topbar-right,
+  .topbar:focus-within .topbar-right {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .topbar-search {
@@ -171,8 +186,58 @@
   align-items: center;
 }
 
-@include bp.below(768px) {
+/* Opens the nav drawer. Only exists at widths where the sidebar has left the
+   layout — above that the rail is always on screen. */
+.topbar-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin-left: -6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border-md);
+  }
+}
+
+@include bp.below(bp.$tablet) {
+  .topbar-menu-btn {
+    display: flex;
+  }
+}
+
+@include bp.below(bp.$desktop) {
   .topbar-search {
+    min-width: 180px;
+  }
+}
+
+@include bp.below(bp.$narrow) {
+  .topbar-search {
+    display: none;
+  }
+
+  .topbar-status-badge {
+    display: none;
+  }
+}
+
+@include bp.below(bp.$phone) {
+  .topbar {
+    gap: var(--space-2);
+  }
+
+  /* Notifications and help are secondary; the title needs the room. */
+  .topbar-icon-btn {
     display: none;
   }
 }

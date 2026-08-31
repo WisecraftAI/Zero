@@ -23,7 +23,7 @@ function pendingStage(run, tab) {
   return { label: source.label, status: status || 'pending' };
 }
 
-function RunDetailTabPanel({ run, tab, runId }) {
+function RunDetailTabPanel({ run, tab, runId, onNavigate }) {
   if (!run) {
     if (!runId) return <div className="tab-empty">No active run. Start one from New Run.</div>;
     return <TabLoading title="Loading run…" detail="Fetching pipeline state." />;
@@ -51,7 +51,7 @@ function RunDetailTabPanel({ run, tab, runId }) {
     flow: FlowTab,
   };
   const Panel = panels[tab];
-  return Panel ? <Panel run={run} /> : null;
+  return Panel ? <Panel run={run} onNavigate={onNavigate} /> : null;
 }
 
 export default memo(RunDetailTabPanel);

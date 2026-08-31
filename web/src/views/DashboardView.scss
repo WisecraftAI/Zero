@@ -1,6 +1,4 @@
-.dash-view {
-  max-width: 100%;
-}
+@use '../styles/breakpoints' as bp;
 
 .dash-hero {
   border-radius: var(--radius);
@@ -10,6 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
   cursor: pointer;
   transition: border-color var(--transition);
 
@@ -42,6 +41,8 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
+    flex: 1 1 16rem;
   }
 
   &-eyebrow {
@@ -96,6 +97,22 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+@include bp.below(bp.$phone) {
+  .dash-hero {
+    padding: 16px;
+  }
+
+  /* Actions drop to their own full-width row rather than being clipped. */
+  .dash-hero-right {
+    width: 100%;
+  }
+
+  .dash-url-cell {
+    max-width: none;
+  }
 }
 
 .dash-live-dot--stopping {

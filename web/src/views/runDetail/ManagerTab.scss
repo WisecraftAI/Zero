@@ -1,0 +1,117 @@
+.manager-scope,
+.manager-section-summary {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.manager-scope {
+  padding: 0 2px;
+  color: var(--text-2);
+}
+
+.manager-section-summary {
+  margin-bottom: 10px;
+}
+
+.manager-table-wrap {
+  overflow-x: auto;
+}
+
+.manager-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.manager-evidence-card {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--transition),
+    transform var(--transition);
+
+  &:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  img {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-3);
+    object-fit: cover;
+  }
+
+  &__caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 10px;
+  }
+}
+
+// Reserves the donut's height so the panel does not jump when recharts lands.
+.manager-results-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 264px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 0.82rem;
+}
+
+.manager-empty,
+.manager-results-empty {
+  margin: 0;
+  border: 1px dashed var(--border-md);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.manager-empty {
+  padding: 18px;
+}
+
+.manager-results-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 28px 18px;
+
+  strong {
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manager-evidence-card {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}

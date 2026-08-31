@@ -1,14 +1,21 @@
+import { lazy, Suspense } from 'react';
 import {
+  buildJourneyCoverageSankey,
   journeysFromRun,
   flowDiagramSourceLabel,
   systemNodesForRun
 } from '../lib/flowDiagram';
 import './FlowDiagram.scss';
 
+// Recharts is loaded only when this page has enough varied journey outcomes
+// to make a coverage chart informative.
+const FlowCoverageSankey = lazy(() => import('./FlowCoverageSankey'));
+
 export default function FlowDiagram({ run }) {
   const journeys = journeysFromRun(run);
   const lanes = systemNodesForRun(run);
   const source = flowDiagramSourceLabel(journeys);
+  const coverage = buildJourneyCoverageSankey(journeys);
   const host = hostFromUrl(run?.input?.ottUrl);
 
   return (
@@ -37,6 +44,12 @@ export default function FlowDiagram({ run }) {
           ))}
         </div>
       </section>
+
+      {coverage ? (
+        <Suspense fallback={<div className="fd-chart-loading" role="status">Loading journey coverage chart…</div>}>
+          <FlowCoverageSankey data={coverage} />
+        </Suspense>
+      ) : null}
 
       <section className="fd-journeys" aria-labelledby="fd-journeys-title">
         <div className="fd-section-head">

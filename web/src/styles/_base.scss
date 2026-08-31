@@ -18,7 +18,13 @@ body {
   transition: background 0.18s ease, color 0.18s ease;
 }
 
-#root { min-height: 100vh; }
+#root { min-height: var(--app-h); }
+
+/* Set while the mobile nav drawer is open. Scoped to the widths where the
+   drawer actually overlays content, so it is inert on desktop. */
+@include bp.below(bp.$tablet) {
+  body.nav-open { overflow: hidden; }
+}
 
 .skip-to-content {
   position: absolute;

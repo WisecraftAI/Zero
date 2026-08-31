@@ -1,11 +1,9 @@
 @use '../styles/breakpoints' as bp;
 
 .agents-view {
-  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 100%;
 }
 
 /* ─── Header ─────────────────────────────────────────────── */
@@ -21,6 +19,10 @@
 }
 
 .agv-status-pill {
+  --pill-color: var(--accent);
+  --pill-bg: var(--accent-bg);
+  --pill-border: var(--accent-border);
+
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -30,19 +32,33 @@
   letter-spacing: 0.1em;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  color: var(--accent);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  color: var(--pill-color);
+
+  &--partial {
+    --pill-color: var(--amber);
+    --pill-bg: var(--amber-bg);
+    --pill-border: var(--amber-border);
+  }
+
+  &--templates {
+    --pill-color: var(--text-2);
+    --pill-bg: var(--surface-2);
+    --pill-border: var(--border-md);
+  }
 }
 .agv-status-dot {
   width: 6px; height: 6px;
-  background: var(--accent);
+  background: currentColor;
   border-radius: 50%;
-  box-shadow: 0 0 0 3px var(--accent-glow);
   animation: agv-blink 1.6s infinite;
 }
 @keyframes agv-blink {
   0%,100% { opacity: 1 } 50% { opacity: 0.4 }
+}
+@include bp.reduced-motion {
+  .agv-status-dot { animation: none; }
 }
 
 .agv-header-actions {
@@ -52,6 +68,11 @@
 }
 
 .agv-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 10px 14px;
   background: var(--red-bg);
   color: var(--red);
@@ -68,11 +89,12 @@
   font-size: 0.9rem;
 }
 
-/* ─── Playwright agent lifecycle ────────────────────────── */
+/* ─── Run phases ────────────────────────────────────────── */
 .agv-test-agents {
-  --planner-color: var(--green);
-  --generator-color: var(--blue);
-  --healer-color: var(--stage-plan);
+  --plan-color: var(--stage-plan);
+  --author-color: var(--stage-author);
+  --execute-color: var(--stage-execute);
+  --review-color: var(--stage-report);
 
   display: flex;
   flex-direction: column;
@@ -80,17 +102,17 @@
   padding: 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--planner-color) 10%, transparent), transparent 34%),
-    radial-gradient(circle at 94% 100%, color-mix(in srgb, var(--healer-color) 10%, transparent), transparent 36%),
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--plan-color) 10%, transparent), transparent 34%),
+    radial-gradient(circle at 94% 100%, color-mix(in srgb, var(--review-color) 10%, transparent), transparent 36%),
     var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
 
 .agv-test-agents-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: end;
   gap: 18px;
 
   h2 {
@@ -101,23 +123,16 @@
   }
 }
 
-.agv-runtime-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
-  padding: 5px 9px;
+.agv-test-agents-lead {
+  margin: 0;
   color: var(--text-2);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 
 .agv-agent-flow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
   gap: 14px;
 }
 
@@ -125,15 +140,18 @@
   --stage-color: var(--text-2);
 
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: 15px;
   background: color-mix(in srgb, var(--stage-color) 4%, var(--surface-2));
   border: 1px solid color-mix(in srgb, var(--stage-color) 34%, var(--border));
   border-radius: var(--radius);
 
-  &--planner { --stage-color: var(--planner-color); }
-  &--generator { --stage-color: var(--generator-color); }
-  &--healer { --stage-color: var(--healer-color); }
+  &--plan { --stage-color: var(--plan-color); }
+  &--author { --stage-color: var(--author-color); }
+  &--execute { --stage-color: var(--execute-color); }
+  &--review { --stage-color: var(--review-color); }
 
   h3 {
     margin: 12px 0 5px;
@@ -142,13 +160,45 @@
   }
 
   p {
-    min-height: 3.7em;
     margin: 0;
     color: var(--text-2);
     font-size: 0.78rem;
     line-height: 1.55;
   }
+
+  .agv-flow-note {
+    margin-top: 9px;
+    color: var(--text-3);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
 }
+
+.agv-flow-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.agv-flow-agent {
+  padding: 2px 7px;
+  color: var(--stage-color);
+  background: color-mix(in srgb, var(--stage-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-color) 30%, transparent);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.02em;
+
+  &--none {
+    color: var(--text-3);
+    background: transparent;
+    border-color: var(--border-md);
+    border-style: dashed;
+  }
+}
+
 
 .agv-flow-stage-top {
   display: flex;
@@ -185,26 +235,14 @@
 }
 
 .agv-flow-output {
-  margin-top: 12px;
-  padding-top: 9px;
+  margin-top: auto;
+  padding-top: 13px;
   color: var(--text-3);
   border-top: 1px solid color-mix(in srgb, var(--stage-color) 18%, var(--border));
   font-family: var(--font-mono);
   font-size: 0.64rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-}
-
-.agv-flow-arrow {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
-  right: -20px;
-  width: 24px;
-  color: var(--text-3);
-  background: var(--surface);
-  text-align: center;
-  transform: translateY(-50%);
 }
 
 .agv-improvement-loop {
@@ -225,6 +263,60 @@
     min-width: 12px;
     height: 1px;
     background: linear-gradient(90deg, var(--border-md), var(--accent), var(--border-md));
+  }
+}
+
+.agv-loop-caption {
+  margin: -6px 0 0;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+/* ─── AI vs template explainer ───────────────────────────── */
+.agv-enrichment {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agv-enrichment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.agv-enrich-card {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+
+  &--ai {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+  }
+
+  h3 {
+    margin: 0 0 5px;
+    color: var(--text);
+    font-size: 0.88rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+
+  code {
+    padding: 1px 5px;
+    color: var(--accent);
+    background: var(--surface-2);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
   }
 }
 
@@ -287,7 +379,7 @@
 
 .agv-table-head, .agv-tr {
   display: grid;
-  grid-template-columns: 1.6fr 0.8fr 1.8fr 1.5fr 60px;
+  grid-template-columns: 1.5fr 1.3fr 1.5fr 1.2fr 132px;
   gap: 12px;
   padding: 12px 16px;
   align-items: center;
@@ -330,6 +422,19 @@
 }
 .agv-agent-id {
   font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-3);
+}
+
+.agv-td--status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.agv-status-hint {
+  color: var(--text-3);
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
 /* Status badge */
@@ -621,6 +726,17 @@
   }
 }
 
+.agv-inline-link {
+  padding: 0;
+  color: var(--accent);
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .agv-prompt-actions {
   display: flex;
   align-items: center;
@@ -740,18 +856,14 @@
   line-height: 1.55;
 }
 
-@include bp.below(980px) {
+@include bp.below(bp.$tablet) {
+  .agv-test-agents-head {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  /* Keep the four phases in a balanced 2 × 2 instead of 3 + 1. */
   .agv-agent-flow {
-    grid-template-columns: 1fr;
-  }
-  .agv-flow-stage p {
-    min-height: 0;
-  }
-  .agv-flow-arrow {
-    top: auto;
-    right: 50%;
-    bottom: -21px;
-    transform: translateX(50%) rotate(90deg);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .agv-improvement-loop {
     flex-wrap: wrap;
@@ -771,8 +883,20 @@
   }
   .agv-tr {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
     padding: 14px 16px;
+  }
+  /* The header row is hidden, so each cell states its own column. */
+  .agv-td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
   .agv-td--actions {
     justify-content: flex-start;
@@ -782,11 +906,8 @@
   }
 }
 
-@include bp.below(640px) {
-  .agv-test-agents-head {
-    flex-direction: column;
-  }
-  .agv-runtime-badge {
-    white-space: normal;
+@include bp.below(bp.$phone) {
+  .agv-agent-flow {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

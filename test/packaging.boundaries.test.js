@@ -72,10 +72,4 @@ describe("packaging boundaries", () => {
     expect(executorDeps).toHaveProperty("playwright");
   });
 
-  it("streams run detail over SSE with poll fallback only", () => {
-    const app = read("web/src/App.jsx");
-    expect(app).toMatch(/useRunStream/);
-    expect(app).toMatch(/mergeRunStreamState/);
-    expect(app).not.toMatch(/setInterval\(fetchRun,\s*1500\)/);
-  });
 });

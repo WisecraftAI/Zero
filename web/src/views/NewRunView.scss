@@ -1,7 +1,10 @@
 @use '../styles/breakpoints' as bp;
 
+/* Opts out of the shared .view measure: the wash is a full-bleed canvas and
+   .nrv-body inside it carries the real content width. */
 .new-run-view.nrv--canvas {
   padding: 0;
+  max-width: none;
   background: var(--wash) no-repeat top center / 100% 360px,var(--bg);
   min-height: 100%;
 }
@@ -14,7 +17,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-height: calc(100vh - var(--topbar-h));
+  min-height: calc(var(--app-h) - var(--topbar-h));
 }
 
 .nrv-steps {
@@ -821,7 +824,7 @@
   }
 }
 
-@include bp.below(900px) {
+@include bp.below(bp.$tablet) {
   .nrv-step-hint {
     display: none;
   }
@@ -831,7 +834,7 @@
   }
 }
 
-@include bp.below(768px) {
+@include bp.below(bp.$narrow) {
   .nrv-body {
     padding: var(--space-4) var(--space-4) var(--space-3);
     gap: var(--space-3);
@@ -888,7 +891,7 @@
   }
 }
 
-@include bp.below(640px) {
+@include bp.below(bp.$phone) {
   .nrv-body {
     padding: var(--space-3) var(--space-3) var(--space-2);
   }

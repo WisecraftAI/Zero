@@ -38,7 +38,7 @@ function TabBadge({ passed, failed }) {
   );
 }
 
-function RunDetailContent({ run, runId, activeTab, onTabChange, onBack, transport, actions }) {
+function RunDetailContent({ run, runId, activeTab, onTabChange, onBack, onNavigate, transport, actions }) {
   const tabs = getVisibleTabs(run);
   const defaultTab = tabs[0]?.id || 'requirements';
   const tabIsValid = tabs.some((tab) => tab.id === activeTab);
@@ -119,7 +119,9 @@ function RunDetailContent({ run, runId, activeTab, onTabChange, onBack, transpor
               </button>
             ))}
           </div>
-          <div className="rdt-tab-content"><RunDetailTabPanel run={run} tab={currentTab} runId={runId} /></div>
+          <div className="rdt-tab-content">
+            <RunDetailTabPanel run={run} tab={currentTab} runId={runId} onNavigate={onNavigate} />
+          </div>
         </div>
         <div className="rdt-actual-flow-panel">
           <div className="rdt-side-label">{run?.status === 'running' && <span className="rdt-side-live-dot" />}Actual Flow</div>

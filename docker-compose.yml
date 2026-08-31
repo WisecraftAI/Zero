@@ -91,6 +91,9 @@ services:
       args:
         # Baked into the Vite bundle at build time; matches the api service publish.
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001}
+        # SEO: no public origin locally, and localhost must never be indexed.
+        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-}
+        VITE_SEO_INDEX: ${VITE_SEO_INDEX:-false}
     image: zero-web
     ports:
       - "${WEB_PORT:-3000}:3000"

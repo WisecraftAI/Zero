@@ -94,9 +94,9 @@ const Icons = {
       <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
-  menu: (
+  close: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
     </svg>
   ),
 };
@@ -115,16 +115,27 @@ const NAV_ITEMS = [
   { id: 'team',        icon: 'team',         title: 'Team',         soon: true },
 ];
 
-function Sidebar({ activeView, onNavigate }) {
+function Sidebar({ activeView, onNavigate, open = false, onClose }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <aside className={`sidebar ${isExpanded ? 'sidebar--expanded' : ''}`}>
+    <aside
+      className={`sidebar ${isExpanded ? 'sidebar--expanded' : ''} ${open ? 'sidebar--open' : ''}`}
+      id="app-sidebar"
+    >
       {/* Brand mark (always top left) */}
       <div className="sidebar-head">
         <button className="sidebar-logo" onClick={() => onNavigate('home')} title="ZERO Home" aria-label="ZERO — go to home">
           <ZeroMark size={32} />
           <ZeroWordmark size={22} className="sidebar-brand-text" />
+        </button>
+        <button
+          type="button"
+          className="sidebar-close"
+          onClick={onClose}
+          aria-label="Close menu"
+        >
+          {Icons.close}
         </button>
       </div>
 
@@ -138,7 +149,7 @@ function Sidebar({ activeView, onNavigate }) {
                 key={item.id}
                 className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''} ${item.soon ? 'nav-item--soon' : ''}`}
                 onClick={() => !item.soon && onNavigate(item.id)}
-                title={isExpanded ? undefined : (item.title + (item.soon ? ' (soon)' : ''))}
+                title={isExpanded || open ? undefined : (item.title + (item.soon ? ' (soon)' : ''))}
                 disabled={item.soon}
                 aria-current={activeView === item.id ? 'page' : undefined}
               >
@@ -158,7 +169,7 @@ function Sidebar({ activeView, onNavigate }) {
         <button
           className={`nav-item ${activeView === 'locators' ? 'nav-item--active' : ''}`}
           onClick={() => onNavigate('locators')}
-          title={isExpanded ? undefined : "Locator Intelligence"}
+          title={isExpanded || open ? undefined : 'Locator Intelligence'}
           aria-current={activeView === 'locators' ? 'page' : undefined}
         >
           <span className="nav-icon">{Icons.locators}</span>

@@ -1,11 +1,13 @@
 @use '../styles/breakpoints' as bp;
 
 .run-detail-view {
-  padding: 24px 28px;
+  padding: var(--space-5) var(--gutter);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  width: 100%;
 }
 
 .rdt-error-banner {
@@ -241,9 +243,10 @@
   }
 }
 
-/* Side panel */
+/* Side panel — clamped rather than fixed so it keeps pace with the type scale
+   on a TV without eating half the row on a small laptop. */
 .rdt-side-panel {
-  width: 220px;
+  width: clamp(200px, 18%, 320px);
   flex-shrink: 0;
   background: var(--surface);
   border: 1px solid var(--green-border);
@@ -718,7 +721,102 @@
   font-size: 0.875rem; color: var(--text-2);
 }
 .element-log-info {
-  padding: 12px 0; font-size: 0.9rem; color: var(--text-2);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  max-width: 720px;
+  padding: var(--space-5);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+
+    svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  }
+
+  &__content {
+    min-width: 0;
+
+    h3 {
+      margin: 3px 0 var(--space-2);
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: var(--fs-lg);
+      line-height: 1.3;
+    }
+
+    > p {
+      max-width: 62ch;
+      margin: 0;
+      color: var(--text-2);
+      font-size: var(--fs-sm);
+      line-height: 1.6;
+    }
+  }
+
+  &__eyebrow {
+    color: var(--accent);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &__steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-4);
+    margin: var(--space-4) 0;
+    padding: 0;
+    color: var(--text-2);
+    font-size: var(--fs-xs);
+    list-style: none;
+
+    li {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    span {
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+      color: var(--accent);
+      background: var(--accent-bg);
+      border-radius: var(--radius-pill);
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+  }
+
+  @include bp.below(bp.$phone) {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+
+    &__steps {
+      flex-direction: column;
+    }
+  }
 }
 .flow-wrap {
   overflow-x: auto;
@@ -953,31 +1051,9 @@
   font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.55; overflow-x: auto; white-space: pre; max-height: 400px; overflow-y: auto;
 }
 
-@include bp.below(900px) {
-  .run-detail-view {
-    padding: 16px;
-  }
-  .rdt-body {
-    flex-direction: column;
-  }
-  .rdt-actual-flow-panel {
-    width: 100%;
-  }
-  .rdt-tab-panel {
-    max-height: none;
-  }
-  .rdt-tab-content {
-    padding: 14px 16px;
-    overflow-y: visible;
-  }
-  .vitals-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ─── Actual Flow Sidebar Panel Styles ───────────────────── */
 .rdt-actual-flow-panel {
-  width: 300px;
+  width: clamp(260px, 22%, 400px);
   flex-shrink: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1123,4 +1199,59 @@
   justify-content: center;
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+/* ─── Responsive ─────────────────────────────────────────
+   Kept at the end of the file: the side panels declare fixed widths further
+   up, and media queries add no specificity, so these have to come last to
+   win. Collapsing at $tablet matches the shell, which drops its sidebar at
+   the same width. */
+@include bp.below(bp.$tablet) {
+  /* Stretch matters as much as the direction: with align-items:flex-start a
+     stacked child is sized by its widest content, so a wide table pushed the
+     tab panel past the viewport instead of scrolling inside it. */
+  .rdt-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rdt-side-panel,
+  .rdt-actual-flow-panel {
+    width: 100%;
+    max-height: none;
+  }
+
+  .rdt-tab-panel {
+    max-height: none;
+  }
+
+  .rdt-tab-content {
+    padding: 14px 16px;
+    overflow-y: visible;
+  }
+
+  .vitals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@include bp.below(bp.$phone) {
+  .vitals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rdt-header {
+    padding: 14px 16px;
+  }
+
+  /* Truncating to a fixed pixel width leaves almost nothing readable once the
+     viewport is this narrow; let the scrolling table carry the width. */
+  .exec-title,
+  .exec-error {
+    max-width: none;
+  }
+
+  .af-node {
+    padding: 12px;
+  }
 }

@@ -1,4 +1,5 @@
 import { lazy, useCallback, useEffect, useRef, useState } from 'react';
+import PageMetadata from './components/PageMetadata';
 import AppShell from './layouts/AppShell';
 import { currentRoute, pathForRoute, routeForPath } from './lib/routes';
 import './App.scss';
@@ -118,6 +119,7 @@ export default function App() {
             activeTab={activeTab}
             onTabChange={selectRunTab}
             onBack={() => navigate('runs')}
+            onNavigate={navigate}
           />
         );
       case 'locators':
@@ -134,12 +136,15 @@ export default function App() {
   };
 
   return (
-    <AppShell
-      activeView={view}
-      onNavigate={navigate}
-      topbarProps={getTopbarProps(view)}
-    >
-      {renderView()}
-    </AppShell>
+    <>
+      <PageMetadata route={route} />
+      <AppShell
+        activeView={view}
+        onNavigate={navigate}
+        topbarProps={getTopbarProps(view)}
+      >
+        {renderView()}
+      </AppShell>
+    </>
   );
 }

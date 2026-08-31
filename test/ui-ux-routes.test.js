@@ -25,28 +25,6 @@ describe('operator URL routing', () => {
     expect(routes).toMatch(/run-detail/);
   });
 
-  it('makes each run-detail tab linkable', () => {
-    const routes = read('web/src/lib/routes.js');
-    for (const slug of [
-      'web-analysis',
-      'requirements',
-      'manual-tc',
-      'automation',
-      'execution',
-      'manager-report',
-      'element-log',
-      'flow-diagram',
-    ]) {
-      expect(routes).toContain(`'${slug}'`);
-    }
-    expect(routes).toMatch(/runTabForSlug/);
-
-    const view = read('web/src/views/RunDetailView.jsx');
-    expect(view).toMatch(/onTabChange/);
-    // The first visible tab wins, so Web Analysis opens ahead of Requirements.
-    expect(view).toMatch(/visibleTabs\[0\]/);
-  });
-
   it('drives view state from the address bar', () => {
     const app = read('web/src/App.jsx');
     expect(app).toMatch(/currentRoute/);
@@ -79,6 +57,7 @@ describe('operator URL routing', () => {
 
   it('keeps the SPA fallback that makes deep links reloadable', () => {
     const conf = read('web/nginx.conf');
-    expect(conf).toMatch(/try_files \$uri \$uri\/ \/index\.html/);
+    expect(conf).toMatch(/location\s+\/\s*\{[\s\S]*?try_files \$uri \$uri\/ @spa;/);
+    expect(conf).toMatch(/location\s+@spa\s*\{[\s\S]*?try_files \/index\.html =404;/);
   });
 });

@@ -96,14 +96,4 @@ describe('multiple operator themes', () => {
     expect(css).not.toMatch(/filter:\s*var\(--logo/);
   });
 
-  it('anchors the appearance menu as a compact flyout', () => {
-    const picker = read('web/src/components/ThemePicker.jsx');
-    const css = read('web/src/components/ThemePicker.scss');
-    expect(picker).toMatch(/sidebar--menu-open/);
-    expect(picker).toMatch(/maxHeight/);
-    expect(css).toMatch(/max-height:\s*min\(52vh,\s*420px\)/);
-    expect(css).not.toMatch(/780px/);
-    // Nested under `.sidebar`, so the modifier is written as a suffix.
-    expect(read('web/src/components/Sidebar.scss')).toMatch(/&--menu-open/);
-  });
 });

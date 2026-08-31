@@ -1,0 +1,328 @@
+@use '../../styles/breakpoints' as bp;
+
+.auto-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &__lede {
+    margin: 0;
+    max-width: 78ch;
+    color: var(--text-2);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+}
+
+.auto-section-summary {
+  margin: 0 0 12px;
+  max-width: 82ch;
+  color: var(--text-3);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.auto-note {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  line-height: 1.5;
+
+  &--ai {
+    border-left-color: var(--accent);
+  }
+
+  &--template {
+    border-left-color: var(--border-strong);
+  }
+}
+
+// Four summary cards read better than the shared three-column grid.
+.auto-intro .vitals-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+/* ─── Step-by-step flow ───────────────────────────────────── */
+.auto-flow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+
+  + .auto-flow {
+    margin-top: 8px;
+  }
+
+  > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  &__title {
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  &__count {
+    color: var(--text-3);
+    font-size: 0.75rem;
+  }
+
+  .auto-steps {
+    padding: 0 12px 12px;
+  }
+}
+
+.auto-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auto-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  &__index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-3);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+
+  &__body {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__text {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  &__detail {
+    margin: 0;
+    color: var(--text-3);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  &__code {
+    padding: 4px 7px;
+    border-radius: var(--radius-xs);
+    background: var(--surface-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  &__locators > summary {
+    color: var(--text-3);
+    font-size: 0.76rem;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+      color: var(--text-2);
+    }
+  }
+}
+
+.auto-locators {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__meaning {
+    color: var(--text-2);
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  &__value {
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ─── Element locator cards ───────────────────────────────── */
+.auto-element-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auto-element {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__name {
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  &__count {
+    color: var(--text-3);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  &__plain {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  &__selector {
+    padding: 4px 7px;
+    border-radius: var(--radius-xs);
+    background: var(--surface-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  &__more > summary {
+    color: var(--text-3);
+    font-size: 0.76rem;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+      color: var(--text-2);
+    }
+  }
+}
+
+.auto-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-2);
+  }
+}
+
+.auto-case-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ─── Generated code ──────────────────────────────────────── */
+.auto-script {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+
+  + .auto-script {
+    margin-top: 8px;
+  }
+
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  &__title {
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  &__purpose {
+    margin: 0 12px 8px;
+    color: var(--text-3);
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+
+  .auto-copy {
+    display: block;
+    margin: 0 12px 8px;
+  }
+
+  .code-block {
+    margin: 0 12px 12px;
+  }
+}
+
+@include bp.below(bp.$narrow) {
+  .auto-element-grid {
+    grid-template-columns: 1fr;
+  }
+}

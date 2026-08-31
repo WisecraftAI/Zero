@@ -1,0 +1,87 @@
+@use '../styles/breakpoints' as bp;
+
+.flow-coverage {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+
+  &__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+    align-items: center;
+    gap: var(--space-5);
+  }
+
+  &__chart-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  &__chart-wrap svg {
+    display: block;
+    min-width: 760px;
+  }
+
+  &__link {
+    stroke-opacity: 0.36;
+  }
+
+  &__summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__summary li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+  }
+
+  &__summary li > span:last-child {
+    flex: none;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+  }
+
+  &__outcome {
+    font-weight: 700;
+
+    &--passed {
+      color: var(--green);
+    }
+
+    &--failed {
+      color: var(--red);
+    }
+
+    &--skipped {
+      color: var(--amber);
+    }
+
+    &--queued {
+      color: var(--text-3);
+    }
+  }
+}
+
+@include bp.below(bp.$tablet) {
+  .flow-coverage__body {
+    grid-template-columns: 1fr;
+  }
+}

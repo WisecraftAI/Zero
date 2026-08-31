@@ -8,6 +8,12 @@ WORKDIR /src
 ARG VITE_API_BASE_URL=http://localhost:3001
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
+# SEO. Empty origin omits canonical/og:url/og:image; indexing is off by default.
+ARG VITE_PUBLIC_SITE_URL=
+ARG VITE_SEO_INDEX=false
+ENV VITE_PUBLIC_SITE_URL=$VITE_PUBLIC_SITE_URL
+ENV VITE_SEO_INDEX=$VITE_SEO_INDEX
+
 COPY package.json package-lock.json ./
 COPY web ./web
 RUN npm ci --workspace @zero/web --include-workspace-root

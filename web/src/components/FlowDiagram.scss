@@ -166,6 +166,15 @@
   font-size: 0.84rem;
 }
 
+.fd-chart-loading {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
 .fd-journey-list {
   display: flex;
   flex-direction: column;
@@ -344,7 +353,7 @@
   color: var(--text-3);
 }
 
-@include bp.below(900px) {
+@include bp.below(bp.$tablet) {
   .fd-sys-node,
   .fd-step-node {
     max-width: none;

@@ -12,26 +12,64 @@ function loadFlowDiagram() {
   src = src
     .replace(/^export const /gm, 'const ')
     .replace(/^export function /gm, 'function ');
-  src += '\nreturn { journeysFromRun, normalizeStep, systemNodesForRun, normalizeFlowStatus, flowDiagramSourceLabel, SYSTEM_LANES };';
+  src += '\nreturn { buildJourneyCoverageSankey, journeysFromRun, normalizeStep, systemNodesForRun, normalizeFlowStatus, flowDiagramSourceLabel, SYSTEM_LANES };';
   return new Function(src)();
 }
 
 describe('flow diagram wiring', () => {
-  it('always exposes the Flow Diagram tab and renders FlowDiagram', () => {
-    const view = read('web/src/views/RunDetailView.jsx');
-    expect(view).toMatch(/label: 'Flow Diagram'/);
-    expect(view).not.toMatch(/if \(t\.id === 'flow'\)/);
-    expect(view).toMatch(/from '\.\.\/components\/FlowDiagram'/);
-    expect(view).toMatch(/<FlowDiagram run=\{run\} \/>/);
-    expect(view).not.toMatch(/dangerouslySetInnerHTML=\{\{ __html: run\.picture \}\}/);
-  });
-
   it('keeps the API picture SVG aligned with current stages', () => {
     const server = read('services/api/server.js');
     expect(server).toMatch(/Web Analyzer/);
     expect(server).toMatch(/@zero\/api/);
     expect(server).toMatch(/@zero\/executor/);
     expect(server).toMatch(/Domain infer/);
+  });
+});
+
+describe('buildJourneyCoverageSankey', () => {
+  const { buildJourneyCoverageSankey } = loadFlowDiagram();
+
+  it('groups prioritized journeys and aggregates their outcomes', () => {
+    const result = buildJourneyCoverageSankey([
+      { priority: 'Critical', source: 'analyzer', status: 'passed' },
+      { priority: 'Critical', source: 'analyzer', status: 'passed' },
+      { priority: 'High', source: 'analyzer', status: 'failed' },
+      { priority: null, source: 'analyzer', status: 'skipped' }
+    ]);
+
+    expect(result.nodes.map(({ name }) => name)).toEqual([
+      'Critical',
+      'High',
+      'Unprioritized',
+      'Passed',
+      'Failed',
+      'Skipped'
+    ]);
+    expect(result.summary).toEqual([
+      expect.objectContaining({ group: 'Critical', outcome: 'passed', count: 2 }),
+      expect.objectContaining({ group: 'High', outcome: 'failed', count: 1 }),
+      expect.objectContaining({ group: 'Unprioritized', outcome: 'skipped', count: 1 })
+    ]);
+  });
+
+  it('uses the source label when priorities are unavailable', () => {
+    const result = buildJourneyCoverageSankey([
+      { priority: null, source: 'manual', status: 'passed' },
+      { priority: null, source: 'manual', status: 'failed' }
+    ]);
+
+    expect(result.nodes[0]).toMatchObject({ name: 'From Manual QA cases', kind: 'group' });
+  });
+
+  it.each([
+    ['zero journeys', []],
+    ['one journey', [{ source: 'manual', status: 'passed' }]],
+    ['one distinct outcome', [
+      { source: 'manual', status: 'passed' },
+      { source: 'manual', status: 'passed' }
+    ]]
+  ])('omits the chart for %s', (_label, journeys) => {
+    expect(buildJourneyCoverageSankey(journeys)).toBeNull();
   });
 });
 

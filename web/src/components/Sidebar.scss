@@ -1,5 +1,24 @@
 @use '../styles/breakpoints' as bp;
 
+// The rail shows labels when it is pinned open, when the theme menu holds it
+// open, when the mobile drawer is open, or when focus lands inside it.
+// :hover is kept separate and gated to fine pointers — on touch it produces a
+// sticky expanded rail that never collapses again after a tap.
+$pinned: '.sidebar--expanded, .sidebar--menu-open, .sidebar--open, .sidebar:focus-within';
+$hovered: '.sidebar:hover';
+
+@mixin expanded {
+  #{$pinned} {
+    @content;
+  }
+
+  @include bp.hover {
+    #{$hovered} {
+      @content;
+    }
+  }
+}
+
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
@@ -8,7 +27,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  height: 100vh;
+  height: var(--app-h);
   position: sticky;
   top: 0;
   overflow: hidden;
@@ -16,14 +35,6 @@
   gap: 2px;
   transition: width .22s cubic-bezier(.2,0,0,1);
   z-index: 100;
-
-  &--expanded,
-  &--menu-open,
-  &:hover,
-  &:focus-within {
-    width: var(--sidebar-w-open);
-    min-width: var(--sidebar-w-open);
-  }
 
   &-head {
     height: var(--topbar-h);
@@ -34,13 +45,6 @@
     padding: 0 6px;
     margin-bottom: 6px;
     transition: padding .22s ease;
-  }
-
-  &--expanded .sidebar-head,
-  &--menu-open .sidebar-head,
-  &:hover .sidebar-head,
-  &:focus-within .sidebar-head {
-    padding: 0 14px;
   }
 
   &-logo {
@@ -57,13 +61,6 @@
     transition: justify-content .22s ease;
   }
 
-  &--expanded .sidebar-logo,
-  &--menu-open .sidebar-logo,
-  &:hover .sidebar-logo,
-  &:focus-within .sidebar-logo {
-    justify-content: flex-start;
-  }
-
   &-logo .zero-mark {
     transition: transform var(--transition);
   }
@@ -76,14 +73,23 @@
   &-brand-text {
     display: none;
   }
+}
 
-  &--expanded .sidebar-brand-text,
-  &--menu-open .sidebar-brand-text,
-  &:hover .sidebar-brand-text,
-  &:focus-within .sidebar-brand-text {
-    display: block;
+@include expanded {
+  width: var(--sidebar-w-open);
+  min-width: var(--sidebar-w-open);
+
+  .sidebar-head {
+    padding: 0 14px;
   }
 
+  .sidebar-logo {
+    justify-content: flex-start;
+  }
+
+  .sidebar-brand-text {
+    display: block;
+  }
 }
 
 .sidebar-nav {
@@ -91,10 +97,7 @@
   flex-direction: column;
   gap: 3px;
   padding: 0 6px;
-}
-
-.sidebar--expanded .sidebar-nav, .sidebar--menu-open .sidebar-nav, .sidebar:hover .sidebar-nav, .sidebar:focus-within .sidebar-nav {
-  padding: 0 12px;
+  overflow-y: auto;
 }
 
 .nav-item {
@@ -113,11 +116,7 @@
   gap: 10px;
   position: relative;
   padding: 0;
-}
-
-.sidebar--expanded .nav-item, .sidebar--menu-open .nav-item, .sidebar:hover .nav-item, .sidebar:focus-within .nav-item {
-  justify-content: flex-start;
-  padding: 0 12px;
+  flex-shrink: 0;
 }
 
 .nav-item:hover:not(:disabled) {
@@ -166,11 +165,6 @@
   font-weight: 500;
 }
 
-.sidebar--expanded .nav-label, .sidebar--menu-open .nav-label, .sidebar:hover .nav-label, .sidebar:focus-within .nav-label {
-  display: block;
-  opacity: 1;
-}
-
 .nav-badge {
   margin-left: auto;
   font-size: .62rem;
@@ -180,11 +174,6 @@
   color: var(--text-3);
   opacity: 0;
   display: none;
-}
-
-.sidebar--expanded .nav-badge, .sidebar--menu-open .nav-badge, .sidebar:hover .nav-badge, .sidebar:focus-within .nav-badge {
-  display: block;
-  opacity: .7;
 }
 
 .nav-item--soon {
@@ -200,10 +189,7 @@
   height: 1px;
   background: var(--border);
   margin: 6px;
-}
-
-.sidebar--expanded .sidebar-divider, .sidebar--menu-open .sidebar-divider, .sidebar:hover .sidebar-divider, .sidebar:focus-within .sidebar-divider {
-  margin: 6px 0;
+  flex-shrink: 0;
 }
 
 .sidebar-spacer {
@@ -218,10 +204,6 @@
   margin-top: auto;
 }
 
-.sidebar--expanded .sidebar-foot, .sidebar--menu-open .sidebar-foot, .sidebar:hover .sidebar-foot, .sidebar:focus-within .sidebar-foot {
-  padding: 0 12px;
-}
-
 .sidebar-profile {
   display: flex;
   align-items: center;
@@ -232,10 +214,6 @@
   transition: background .2s;
   border-radius: var(--radius-sm);
   justify-content: center;
-}
-
-.sidebar--expanded .sidebar-profile, .sidebar--menu-open .sidebar-profile, .sidebar:hover .sidebar-profile, .sidebar:focus-within .sidebar-profile {
-  justify-content: flex-start;
 }
 
 .sidebar-profile:hover {
@@ -264,11 +242,6 @@
   min-width: 0;
 }
 
-.sidebar--expanded .sidebar-profile-info, .sidebar--menu-open .sidebar-profile-info, .sidebar:hover .sidebar-profile-info, .sidebar:focus-within .sidebar-profile-info {
-  display: flex;
-  opacity: 1;
-}
-
 .profile-name {
   font-size: .78rem;
   font-weight: 600;
@@ -293,20 +266,104 @@
   }
 }
 
-@include bp.below(768px) {
+/* Only meaningful in drawer mode; the rail is dismissed by collapsing it. */
+.sidebar-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+
+  &:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+@include expanded {
+  .sidebar-nav,
+  .sidebar-foot {
+    padding: 0 12px;
+  }
+
+  .nav-item {
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+
+  .nav-label {
+    display: block;
+    opacity: 1;
+  }
+
+  .nav-badge {
+    display: block;
+    opacity: .7;
+  }
+
+  .sidebar-divider {
+    margin: 6px 0;
+  }
+
+  .sidebar-profile {
+    justify-content: flex-start;
+  }
+
+  .sidebar-profile-info {
+    display: flex;
+    opacity: 1;
+  }
+}
+
+/* ── Drawer mode ────────────────────────────────────────
+   Below the tablet breakpoint the sidebar leaves the flow and slides over the
+   page. It is driven entirely by .sidebar--open (set from the Topbar's menu
+   button) — never by :hover, which touch devices cannot produce. */
+@include bp.below(bp.$tablet) {
   .sidebar {
     position: fixed;
     left: 0;
     top: 0;
-    transform: translate(calc(-100% + 12px));
+    width: min(86vw, 300px);
+    min-width: 0;
+    transform: translateX(-100%);
     box-shadow: none;
+    /* Hidden while closed so the nav stays out of the tab order; the delay
+       keeps it visible for the length of the slide-out. */
+    visibility: hidden;
+    transition: transform .22s cubic-bezier(.2,0,0,1), visibility 0s linear .22s;
 
-    &:hover,
-    &:focus-within,
-    &--expanded,
-    &--menu-open {
+    &--open {
       transform: none;
+      visibility: visible;
       box-shadow: var(--shadow-lg);
+      transition: transform .22s cubic-bezier(.2,0,0,1), visibility 0s;
     }
+  }
+
+  /* Collapsing is a desktop affordance; in the drawer the header X closes. */
+  .sidebar-collapse-toggle {
+    display: none;
+  }
+
+  .sidebar--open .sidebar-close {
+    display: flex;
+  }
+
+  /* Touch targets get the recommended minimum. */
+  .nav-item {
+    height: 44px;
+  }
+}
+
+@include bp.reduced-motion {
+  .sidebar {
+    transition: none;
   }
 }

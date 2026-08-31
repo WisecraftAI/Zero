@@ -1,6 +1,11 @@
 @use '../styles/breakpoints' as bp;
 
 .marketing-home {
+  // Shared measure for every section on the page. It grows on very large
+  // screens so the marketing story doesn't sit in a narrow ribbon on a 4K
+  // demo display, where the root type scale has also stepped up.
+  --marketing-w: 1380px;
+
   position: relative;
   overflow: hidden;
   min-height: 100%;
@@ -16,8 +21,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(360px, .9fr);
   align-items: center;
   gap: clamp(36px, 6vw, 88px);
-  width: min(1380px, calc(100% - 64px));
-  min-height: min(720px, calc(100vh - var(--topbar-h)));
+  width: min(var(--marketing-w), calc(100% - 64px));
+  min-height: min(720px, calc(var(--app-h) - var(--topbar-h)));
   margin: 0 auto;
   padding: 72px 0 88px;
 
@@ -256,7 +261,7 @@
 }
 
 .marketing-ai-setup {
-  width: min(1380px, calc(100% - 64px));
+  width: min(var(--marketing-w), calc(100% - 64px));
   margin: 0 auto 64px;
 
   .ai-banner {
@@ -265,7 +270,7 @@
 }
 
 .marketing-pipeline {
-  padding: 96px max(32px, calc((100% - 1380px) / 2));
+  padding: 96px max(32px, calc((100% - var(--marketing-w)) / 2));
   background: var(--surface-2);
   border-block: 1px solid var(--border);
 }
@@ -464,7 +469,7 @@
   display: grid;
   grid-template-columns: minmax(320px, .8fr) 1fr;
   gap: clamp(56px, 9vw, 140px);
-  width: min(1380px, calc(100% - 64px));
+  width: min(var(--marketing-w), calc(100% - 64px));
   margin: 0 auto;
   padding: 112px 0;
 }
@@ -603,7 +608,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 40px;
-  width: min(1380px, calc(100% - 64px));
+  width: min(var(--marketing-w), calc(100% - 64px));
   margin: 0 auto 64px;
   padding: 42px 46px;
   border-radius: var(--radius-lg);
@@ -666,7 +671,7 @@
   to { transform: rotate(360deg); }
 }
 
-@include bp.below(980px) {
+@include bp.below(bp.$tablet) {
   .marketing-hero {
     grid-template-columns: 1fr;
     min-height: auto;
@@ -704,7 +709,7 @@
   }
 }
 
-@include bp.below(640px) {
+@include bp.below(bp.$phone) {
   .marketing-hero,
   .marketing-ai-setup,
   .marketing-outcomes,
@@ -807,6 +812,18 @@
     flex-direction: column;
     gap: 18px;
     width: 100%;
+  }
+}
+
+@include bp.above(bp.$wide) {
+  .marketing-home {
+    --marketing-w: 1560px;
+  }
+}
+
+@include bp.above(bp.$tv) {
+  .marketing-home {
+    --marketing-w: 2200px;
   }
 }
 

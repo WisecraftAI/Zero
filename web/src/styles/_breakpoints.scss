@@ -1,15 +1,56 @@
-// Responsive helpers. Call sites pass the literal width so the breakpoint
-// stays greppable in the stylesheet that owns it.
+// Responsive helpers and the one breakpoint ladder the whole app shares.
 //
 //   @use '../styles/breakpoints' as bp;
-//   .sidebar { @include bp.below(768px) { ... } }
+//   .sidebar { @include bp.below(bp.$tablet) { ... } }
+//
+// Use these names rather than fresh literals. Mixing ad-hoc widths (760, 800,
+// 900, 980) is what left the shell switching to its mobile layout at one width
+// while the views inside it were still in their desktop layout.
 
-// Below this width the sidebar stops holding layout space and becomes an
-// overlay rail. Shared by AppShell, Sidebar and NewRunView.
+// Small phone — single column, no side-by-side anything.
+$phone: 640px;
+// Large phone / small tablet portrait.
 $narrow: 768px;
+// The shell boundary: at or below this the sidebar is an overlay drawer with a
+// hamburger, above it the rail holds layout space. Shared by AppShell, Sidebar,
+// Topbar and every view that collapses its side panel.
+$tablet: 1024px;
+// Comfortable desktop. Below this, wide multi-column tables need to relax.
+$desktop: 1440px;
+// Large desktop — content stops growing and starts centering.
+$wide: 1920px;
+// TV / 4K demo screens — read from across the room, so type scales up.
+$tv: 2560px;
 
 @mixin below($width) {
   @media (max-width: $width) {
+    @content;
+  }
+}
+
+@mixin above($width) {
+  @media (min-width: $width + 1px) {
+    @content;
+  }
+}
+
+@mixin between($min, $max) {
+  @media (min-width: $min + 1px) and (max-width: $max) {
+    @content;
+  }
+}
+
+// Real hover with a precise pointer. Anything that only reveals itself on
+// hover must be wrapped in this, or it becomes unreachable on touch.
+@mixin hover {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
+// Touch and other coarse pointers — no hover, larger hit targets.
+@mixin touch {
+  @media (hover: none), (pointer: coarse) {
     @content;
   }
 }

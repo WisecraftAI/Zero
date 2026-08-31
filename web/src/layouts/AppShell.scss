@@ -2,11 +2,7 @@
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
-
-  @include bp.below(768px) {
-    display: block;
-  }
+  min-height: var(--app-h);
 }
 
 .app-body {
@@ -14,12 +10,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-
-  @include bp.below(768px) {
-    min-height: 100vh;
-    width: 100%;
-  }
+  min-height: var(--app-h);
 }
 
 .app-main {
@@ -27,6 +18,37 @@
   overflow-y: auto;
   background: var(--bg);
   min-height: 0;
+}
+
+/* Dismiss layer for the mobile nav drawer. Inert until the drawer opens, and
+   never rendered as a hit target on desktop where the sidebar holds layout
+   space. A button so it responds to pointer and keyboard alike. */
+.app-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--bg) 55%, #000);
+  opacity: 0;
+  cursor: default;
+  transition: opacity var(--transition);
+}
+
+@include bp.below(bp.$tablet) {
+  .app-shell {
+    display: block;
+  }
+
+  .app-body {
+    width: 100%;
+  }
+
+  .app-shell--nav-open .app-scrim {
+    display: block;
+    opacity: 1;
+  }
 }
 
 .app-main-error {
