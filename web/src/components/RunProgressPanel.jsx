@@ -1,22 +1,10 @@
-import { useEffect, useState } from 'react';
-import {
-  computeRunProgress,
-  formatDuration,
-  runElapsedMs,
-  stageDurationMs
-} from '../lib/runProgress';
+import { computeRunProgress } from '../lib/runProgress';
+import RunElapsed from './RunElapsed';
 import './RunProgressPanel.scss';
 
 export default function RunProgressPanel({ run, streamTransport }) {
-  const [now, setNow] = useState(() => Date.now());
-
   const isLive = run?.status === 'running';
   const isStopping = run?.status === 'stopping';
-  useEffect(() => {
-    if (!isLive && !isStopping) return undefined;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [isLive, isStopping]);
 
   if (!run) {
     return (
@@ -30,11 +18,7 @@ export default function RunProgressPanel({ run, streamTransport }) {
   }
 
   const progress = computeRunProgress(run);
-  const elapsed = formatDuration(runElapsedMs(run, now));
   const runningStage = progress.runningKey ? run.stages[progress.runningKey] : null;
-  const stageElapsed = runningStage
-    ? formatDuration(stageDurationMs(runningStage, now))
-    : null;
 
   const transportLabel =
     streamTransport === 'sse'
@@ -50,7 +34,7 @@ export default function RunProgressPanel({ run, streamTransport }) {
       <div className="run-progress-top">
         <div className="run-progress-stats">
           <span className="run-progress-elapsed" title="Total run time">
-            {isLive ? 'Elapsed' : 'Total time'}: <strong>{elapsed}</strong>
+            {isLive ? 'Elapsed' : 'Total time'}: <strong><RunElapsed run={run} /></strong>
           </span>
           <span className="run-progress-stages">
             Stage <strong>{Math.min(progress.completed + (progress.runningKey ? 1 : 0), progress.total)}</strong>
@@ -78,14 +62,15 @@ export default function RunProgressPanel({ run, streamTransport }) {
           <SpinIcon />
           <span>
             <strong>{progress.currentLabel}</strong>
-            {stageElapsed ? ` · ${stageElapsed} on this stage` : ' · in progress'}
+            {' · '}
+            <RunElapsed stage={runningStage} suffix=" on this stage" fallback="in progress" />
           </span>
         </p>
       )}
 
       {!isLive && !isStopping && run.status === 'completed' && (
         <p className="run-progress-msg run-progress-msg--done">
-          Pipeline finished in <strong>{elapsed}</strong>
+          Pipeline finished in <strong><RunElapsed run={run} /></strong>
           {run.artifacts?.executionReport?.totals?.passRate != null && (
             <> · Pass rate <strong>{run.artifacts.executionReport.totals.passRate}</strong></>
           )}
@@ -101,13 +86,13 @@ export default function RunProgressPanel({ run, streamTransport }) {
 
       {!isLive && run.status === 'stopped' && (
         <p className="run-progress-msg run-progress-msg--fail">
-          Run stopped after <strong>{elapsed}</strong>
+          Run stopped after <strong><RunElapsed run={run} /></strong>
         </p>
       )}
 
       {!isLive && !isStopping && run.status === 'failed' && (
         <p className="run-progress-msg run-progress-msg--fail">
-          Run failed after <strong>{elapsed}</strong>
+          Run failed after <strong><RunElapsed run={run} /></strong>
           {run.error ? ` · ${run.error}` : ''}
         </p>
       )}

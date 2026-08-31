@@ -17,5 +17,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Without this Vite hops to 5174 and shadows the docs container on localhost.
+    strictPort: true,
   },
 });

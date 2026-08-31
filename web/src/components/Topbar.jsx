@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import './Topbar.scss';
 
-export default function Topbar({ title, breadcrumb, statusBadge, actions }) {
+function Topbar({ title, breadcrumb, statusBadge, actions }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -42,6 +43,8 @@ export default function Topbar({ title, breadcrumb, statusBadge, actions }) {
     </header>
   );
 }
+
+export default memo(Topbar);
 
 const SearchIcon = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">

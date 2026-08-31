@@ -20,6 +20,17 @@ import {
   SUCCESS_METRICS,
 } from '@/data/nextMilestone';
 import { UX_MILESTONE } from '@/data/uxMilestone';
+import {
+  KEEP_OUT_OF_REDUX,
+  RUNS_API_CONTRACT,
+  STORE_ACCEPTANCE,
+  STORE_AGENT_CUT,
+  STORE_LAYOUT,
+  STORE_OUT_OF_SCOPE,
+  STORE_PHASES,
+  STORE_VERIFY,
+  UX_STORE_MILESTONE,
+} from '@/data/uxStoreMilestone';
 import { useHashTab } from '@/hooks/useHashTab';
 
 const NEXT_TABS = [
@@ -28,6 +39,7 @@ const NEXT_TABS = [
   { id: 'q5-contract', label: 'Contract', tag: 'one answer' },
   { id: 'q5-delivery', label: 'Delivery', tag: '5 exits' },
   { id: 'q5-release', label: 'Release gate', tag: 'proof + DoD' },
+  { id: 'u3-store', label: 'U3 Store', tag: 'RTK Query' },
 ] as const satisfies readonly SubTabDef[];
 
 function Outcome() {
@@ -272,6 +284,95 @@ npm run workflow:verify -- --milestone Q5`}
   );
 }
 
+function U3Store() {
+  return (
+    <>
+      <h3>
+        {UX_STORE_MILESTONE.id} · {UX_STORE_MILESTONE.name}{' '}
+        <StatusBadge status={UX_STORE_MILESTONE.status} />
+      </h3>
+      <p className="sub">
+        {UX_STORE_MILESTONE.objective} Track <code>{UX_STORE_MILESTONE.track}</code> · depends on{' '}
+        {UX_STORE_MILESTONE.dependsOn}. Canonical agent spec{' '}
+        <code>support/agent-workflow/{UX_STORE_MILESTONE.spec}</code>. Implement via{' '}
+        <code>/zero-web</code> when the ask is store / RTK / SPA data layer — DETECT still prefers
+        Q5.
+      </p>
+
+      <Note tone="warn">
+        <strong>RTK Query is the product.</strong> Do not build a classic <code>runsSlice</code> +
+        thunks that reimplement cache, tags, polling, and optimistic updates. Vite + React 18 —
+        skip RSC / <code>React.cache</code> / Server Actions.
+      </Note>
+
+      <h3>Phases</h3>
+      <Pipeline>
+        {STORE_PHASES.map((phase) => (
+          <PipelineStage key={phase.id} id={phase.id} title={phase.title}>
+            {phase.body}
+            <br />
+            <strong>Exit:</strong> {phase.exit}
+          </PipelineStage>
+        ))}
+      </Pipeline>
+
+      <ProvidersTable
+        caption="runsApi contract — FormData for POST /runs; optimistic stop on list + detail."
+        headers={['Method', 'Path', 'Tags / behaviour']}
+        rows={RUNS_API_CONTRACT.map((row) => [row.method, <code key={row.path}>{row.path}</code>, row.tags])}
+      />
+
+      <CardGrid columns={2}>
+        <Card title="Store layout">
+          <ul className="compact">
+            {STORE_LAYOUT.map((item) => (
+              <li key={item}>
+                <code>{item}</code>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Keep out of Redux">
+          <ul className="compact">
+            {KEEP_OUT_OF_REDUX.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </Card>
+      </CardGrid>
+
+      <CardGrid columns={2}>
+        <Card title="Agent cut (PR order)">
+          <ol className="compact">
+            {STORE_AGENT_CUT.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </Card>
+        <Card title="Out of scope">
+          <ul className="compact">
+            {STORE_OUT_OF_SCOPE.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </Card>
+      </CardGrid>
+
+      <h3>Acceptance</h3>
+      <ul className="compact">
+        {STORE_ACCEPTANCE.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+
+      <h3>Verify</h3>
+      <CodeBlock lang="bash" label="U3 release gate">
+        {STORE_VERIFY.join('\n')}
+      </CodeBlock>
+    </>
+  );
+}
+
 export function NextMilestonePage() {
   const tabIds = useMemo(() => NEXT_TABS.map((tab) => tab.id), []);
   const [tab, setTab] = useHashTab(tabIds, 'q5-outcome');
@@ -287,7 +388,7 @@ export function NextMilestonePage() {
         <code>support/agent-workflow/{NEXT_MILESTONE.spec}</code>.
       </p>
 
-      <SubTabs tabs={NEXT_TABS} active={tab} onSelect={setTab} ariaLabel="Q5 execution milestone" />
+      <SubTabs tabs={NEXT_TABS} active={tab} onSelect={setTab} ariaLabel="Open milestones" />
 
       <div id={`subpanel-${tab}`} role="tabpanel" aria-labelledby={`subtab-${tab}`}>
         {tab === 'q5-outcome' && <Outcome />}
@@ -295,13 +396,16 @@ export function NextMilestonePage() {
         {tab === 'q5-contract' && <Contract />}
         {tab === 'q5-delivery' && <Delivery />}
         {tab === 'q5-release' && <ReleaseGate />}
+        {tab === 'u3-store' && <U3Store />}
       </div>
 
       <Note tone="info">
-        Queued in parallel: <code>{UX_MILESTONE.id}</code> {UX_MILESTONE.name}{' '}
+        Queued UX: <code>{UX_MILESTONE.id}</code> {UX_MILESTONE.name}{' '}
         <StatusBadge status={UX_MILESTONE.status} /> — {UX_MILESTONE.objective} Spec{' '}
-        <code>support/agent-workflow/{UX_MILESTONE.spec}</code>. DETECT still prefers Q5;
-        implement U1/U2 via <code>/zero-web</code> when the work is UI/UX.
+        <code>support/agent-workflow/{UX_MILESTONE.spec}</code>. Open the{' '}
+        <a href="#u3-store">U3 Store</a> tab for phases, <code>runsApi</code> contract, and agent
+        cut. U1–U2 are done; implement U3 via <code>/zero-web</code> when the work is SPA data
+        layer.
       </Note>
     </section>
   );

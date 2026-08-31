@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Provider } from 'react-redux';
 import App from './App';
 import { applyTheme, readStoredTheme, resolveStoredTheme } from './lib/themes';
+import { store } from './store';
 import './index.scss';
 
 // index.html resolves the theme before first paint; this only covers the case
@@ -13,6 +15,8 @@ if (!document.documentElement.getAttribute('data-theme')) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <Provider store={store}>
+      <App />
+    </Provider>
   </React.StrictMode>
 );

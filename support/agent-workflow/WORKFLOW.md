@@ -7,7 +7,7 @@ Two tracks, in order:
 1. **Capability** M1–M7 — probes are green. Do not re-implement.
 2. **Packaging** S0–S7 — done.
 3. **Product** Q1–Q5 — autonomous any-URL QA. Q1–Q4 done; **Q5 is open and is the active product milestone**.
-4. **UX** U1–U2 — operator console. **Done**, parallel to Q5. Implement via `/zero-web` when the user asks for UI/UX. DETECT still prints Q5 first.
+4. **UX** U1–U3 — operator console. **U1–U3 done**. Q5 remains the active product milestone.
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌────────────┐
@@ -26,7 +26,7 @@ Two tracks, in order:
 
 Read in order:
 
-1. `support/zero-docs` — Target architecture, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, U1–U2 done
+1. `support/zero-docs` — Target architecture, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, **U1–U3 done**
 2. `AGENTS.md` — conventions
 3. `support/agent-workflow/progress.json`
 4. If the user named a workspace → `prompts/repos/<name>.md` + `agents/repo-coder.md`
@@ -34,7 +34,7 @@ Read in order:
 6. Capability north-star: `prompts/target-arch.md`
 7. Packaging north-star: `prompts/packaging.md`
 8. Product north-star: `prompts/autonomous-qa.md`
-9. UX north-star: `prompts/ui-ux.md`
+9. UX north-star: `prompts/ui-ux.md` (U3 plan also mirrored in `support/zero-docs/src/data/uxStoreMilestone.ts`)
 
 ## Step 1 — DETECT
 
@@ -42,7 +42,7 @@ Read in order:
 npm run workflow:status
 ```
 
-Use the printed id (`M1`…`M7`, `S0`…`S7`, `Q1`…`Q5`, or `U1`/`U2`). Order: earliest failing **M** → **S** → **Q** → **U**. UI work may proceed on U1/U2 while Q5 is open if the user asked for UI/UX. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement. Today the earliest unfinished product step is `Q5`; UX is queued in parallel.
+Use the printed id (`M1`…`M7`, `S0`…`S7`, `Q1`…`Q5`, or `U1`/`U2`/`U3`). Order: earliest failing **M** → **S** → **Q** → **U**. When all probes pass and `current` is `null`, stop. Do not invent another milestone without an explicitly approved requirement. Today the active product step is `Q5`; UX U1–U3 is complete.
 
 ## Step 2 — PLAN
 
@@ -62,13 +62,13 @@ Act as **implementer** (`agents/implementer.md`):
 - Prefer `ZERO_CLOUD=local` adapters so `npm start` still works without AWS
 - Ask before destructive DB migrations or breaking `/runs` (S7) contracts
 - For S3–S6, follow `prompts/packaging.md` and the matching `/zero-*` skill
-- For U1/U2, follow `prompts/ui-ux.md` and `/zero-web`; do not change APIs or the pipeline
+- For U1–U3, follow `prompts/ui-ux.md` and `/zero-web`; do not change APIs or the pipeline
 
 ## Step 4 — VERIFY
 
 ```bash
 npm run workflow:verify -- --milestone S5
-# or M1 … M7 / S0 … S6
+# or M1 … M7 / S0 … S7 / Q1 … Q5 / U1 … U3
 # use S6 for a full completed-workflow verification
 ```
 
@@ -84,12 +84,13 @@ Update `support/agent-workflow/progress.json` only after verify exits 0:
 - Set `track` to `capability` | `packaging` | `product` | `ux`
 - Append a short note under `history`
 - Flip the matching row in `support/zero-docs/src/data/migration.ts` when status changes
+- For U3, also flip `support/zero-docs/src/data/uxMilestone.ts` / `uxStoreMilestone.ts` status
 
 ## Step 6 — CONTINUE or STOP
 
 - If user asked for a single step → stop and summarize what flipped.
 - If user asked to run autonomously / “make target real” → loop from DETECT.
-- If all M1–M7, S0–S7, Q1–Q5, and U1–U2 probes pass → stop and report complete.
+- If all M1–M7, S0–S7, Q1–Q5, and U1–U3 probes pass → stop and report complete.
 - Stop and ask when blocked (secrets, infra credentials, irreversible data loss).
 
 ## Hard stops (never bypass)
@@ -98,6 +99,5 @@ Update `support/agent-workflow/progress.json` only after verify exits 0:
 - Compose runtime services and images remain `api` / `zero-api`, `orchestrator` / `zero-orchestrator`, and `executor` / `zero-executor`
 - Do not put Playwright Chromium back in the HTTP API after S4
 - Do not skip S3 to jump to images
-- Do not import vendor SDKs outside `@zero/cloud`
-- Do not serve `/artifacts` world-readable
-- Services never import sibling `services/*`
+- Do not invent Azure as the only cloud; keep `ZERO_CLOUD=local|aws|gcp|azure|vercel`
+- Do not put route / theme / wizard drafts into Redux during U3

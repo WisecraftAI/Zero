@@ -7,25 +7,25 @@ Two tracks plus product plus UX. Same loop. Do not invent a different cloud shap
 | Capability | M1–M7 | Probes green. Do not re-implement. |
 | Packaging | S0–S7 | Done. |
 | **Product** | **Q1–Q5** | **Q1–Q4 done. `Q5` trustworthy site understanding is reopened — this is the active product track.** |
-| **UX** | **U1–U2** | **Done.** Operator console + low-friction canvas — `/zero-web`. |
+| **UX** | **U1–U3** | **U1–U3 done.** |
 
 Ground truth:
 
 | Source | Role |
 |--------|------|
-| `support/zero-docs` | Target, sequence, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, U1–U2 done |
+| `support/zero-docs` | Target, sequence, workspaces, M1–M7 / S0–S7 / Q1–Q4 done, Q5 open, **U1–U3 done** |
 | `AGENTS.md` | Layout, pipeline, conventions |
 | `support/agent-workflow/progress.json` | Live status (`current`, `track`) |
 | `prompts/packaging.md` | North-star for S3–S7 |
 | `prompts/autonomous-qa.md` | North-star for Q1–Q5 (any-URL QA) |
-| `prompts/ui-ux.md` | North-star for U1–U2 (operator console) |
+| `prompts/ui-ux.md` | North-star for U1–U3 (operator console + store) |
 | `prompts/target-arch.md` | North-star for M1–M7 (frozen) |
 | `prompts/repos/` | One coding contract per workspace |
 
 ## Quick start
 
 ```bash
-# 1. Where are we? Prints M1–M7, S0–S7, Q1–Q5, and U1–U2.
+# 1. Where are we? Prints M1–M7, S0–S7, Q1–Q5, and U1–U3.
 npm run workflow:status
 
 # 2. In Cursor:
@@ -50,7 +50,7 @@ docker compose up --build workflow
 support/agent-workflow/
 ├── README.md
 ├── WORKFLOW.md               DETECT → PLAN → IMPLEMENT → VERIFY → ADVANCE
-├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U2
+├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U3
 ├── agents/                   planner · implementer · verifier · repo-coder
 ├── milestones/
 │   ├── M1-durable-store.md … M7-multi-cloud.md
@@ -58,14 +58,15 @@ support/agent-workflow/
 │   ├── Q1-deep-crawl.md … Q5-domain-subdomain.md
 │   └── U1-professional-ui-ux.md
 │       U2-low-friction-canvas.md
+│       U3-redux-store.md
 ├── prompts/
 │   ├── target-arch.md        capability north-star (done)
 │   ├── packaging.md          packaging north-star (S3–S6)
 │   ├── autonomous-qa.md      product north-star (Q1–Q5)
-│   ├── ui-ux.md              UX north-star (U1–U2)
+│   ├── ui-ux.md              UX north-star (U1–U3)
 │   └── repos/                one prompt per workspace
 └── scripts/
-    ├── detect-milestone.js   M* and S* probes
+    ├── detect-milestone.js   M* · S* · Q* · U* probes
     ├── verify-milestone.js
     └── status-server.js
 ```
@@ -80,12 +81,14 @@ support/agent-workflow/
 
 Prompt: `prompts/autonomous-qa.md` · Spec: `milestones/Q5-domain-subdomain.md`
 
-## UX order — U1–U2 done (parallel to Q5)
+## UX order — U1–U3 done
 
 1. **U1** Professional operator UI/UX · `/zero-web` — landmarks, tokens, theme ✓
 2. **U2** Ultra-low-friction canvas · `/zero-web` — single-canvas New Run, hover rail ✓
+3. **U3** Redux Toolkit store (RTK Query) · `/zero-web` — **done** — App only routes; SSE patches RTK cache
 
-Prompt: `prompts/ui-ux.md` · Specs: `milestones/U1-professional-ui-ux.md`, `milestones/U2-low-friction-canvas.md`
+Prompt: `prompts/ui-ux.md` · Specs: `milestones/U1-*.md`, `U2-*.md`, `U3-redux-store.md`
+Zero-docs: Next Milestone → **U3 Store** (`src/data/uxStoreMilestone.ts`)
 
 ## Packaging order (strict)
 
@@ -98,7 +101,7 @@ Prompt: `prompts/ui-ux.md` · Specs: `milestones/U1-professional-ui-ux.md`, `mil
 7. **S6** Azure / Vercel + GATE-9 — done · skill `/zero-cloud`
 8. **S7** Web image split + `/api` prefix drop — done · skill `/zero-web`
 
-Capability and packaging are complete. The product track is active at `Q5`. `U1`/`U2` UX probes are green. Runtime follow-ons (not new milestones): host-scoped `agent_memory`, split `llm/` modules, pathname SPA routes, Run Detail flow diagram. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
+Capability, packaging, and UX U1–U3 are complete. The product track is active at `Q5`. Runtime follow-ons (not new milestones): host-scoped `agent_memory`, split `llm/` modules, pathname SPA routes, Run Detail flow diagram. Run status/verify after boundary changes; begin a further milestone only when an explicitly approved requirement is added.
 
 Each workspace has three names: **Folder** · **npm package** · **Cursor skill**. See `prompts/repos/README.md`.
 

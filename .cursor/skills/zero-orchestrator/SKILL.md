@@ -7,6 +7,7 @@ description: >-
 
 # @zero/orchestrator
 
+0. Read `.cursor/skills/javascript/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/orchestrator.md`
 2. Preserve `stageKeys` order
 3. LLM via `@zero/orchestrator/llm` with template fallback

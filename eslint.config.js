@@ -1,5 +1,8 @@
 "use strict";
 
+const react = require("eslint-plugin-react");
+const reactHooks = require("eslint-plugin-react-hooks");
+
 module.exports = [
   {
     ignores: [
@@ -24,12 +27,26 @@ module.exports = [
   },
   {
     files: ["web/**/*.{js,jsx}"],
+    plugins: {
+      react,
+      "react-hooks": reactHooks
+    },
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
       parserOptions: {
         ecmaFeatures: { jsx: true }
       }
+    },
+    settings: {
+      react: {
+        version: "detect"
+      }
+    },
+    rules: {
+      ...react.configs.flat["jsx-runtime"].rules,
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error"
     }
   }
 ];

@@ -1,11 +1,11 @@
 export const UX_MILESTONE = {
-  id: 'U2',
+  id: 'U3',
   track: 'ux',
-  name: 'Ultra-low-friction canvas',
-  spec: 'milestones/U2-low-friction-canvas.md',
+  name: 'Redux Toolkit store (RTK Query)',
+  spec: 'milestones/U3-redux-store.md',
   status: 'done',
-  state: 'closed',
-  dependsOn: 'U1 tokens and landmarks · S7 SPA split',
+  state: 'complete',
+  dependsOn: 'U1 tokens and landmarks · U2 canvas · S7 SPA split',
   objective:
-    'Paste a URL and start a run from one canvas. Advanced options stay disclosed in-place; chrome is a hover rail, not a dashboard.',
+    'RTK Query owns runs/settings/locators. App only routes. SSE patches the cache. Route, theme, wizard, and elapsed ticks stay out of Redux.',
 } as const;

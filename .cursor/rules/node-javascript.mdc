@@ -1,0 +1,28 @@
+---
+description: Node CommonJS services and packages — javascript + backend patterns.
+globs: services/**/*.js,packages/**/*.js,scripts/**/*.js
+alwaysApply: false
+---
+
+# Node services and packages
+
+1. Read `.cursor/skills/javascript/SKILL.md` before changing JS in `services/` or `packages/`.
+2. API routes: also `nodejs-backend-patterns` and `zero-api`.
+3. Playwright jobs: also `playwright-best-practices` and `zero-executor`.
+4. Orchestrator DAG: `zero-orchestrator` — do not reorder `stageKeys`.
+
+## Must
+
+- CommonJS (`require`) on the server; no ESM-only syntax in these trees unless the file already is ESM
+- Validate inputs at the HTTP boundary; typed/structured errors; correct status codes
+- `async`/`await` with `Promise.all` for independent I/O; never swallow errors
+- Infra (queue, object store, secrets, cache) only through `@zero/cloud`
+- Tests for changed behavior under `test/`
+
+## Must not
+
+- Import sibling `services/*` from another service
+- Put AWS/GCP SDKs outside `packages/cloud`
+- Log or persist login passwords
+- Treat `X-User-Email` as identity
+- Launch Chromium from the API or orchestrator

@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import './DashboardView.scss';
-import { computeRunProgress, formatDuration, runElapsedMs } from '../lib/runProgress';
+import { computeRunProgress } from '../lib/runProgress';
 import { isLiveRunStatus } from '../lib/runControl';
 import StopRunButton from '../components/StopRunButton';
+import RunElapsed from '../components/RunElapsed';
+import { useGetRunsQuery, useStopRunMutation } from '../store/runsApi';
+import { selectLiveRunIds } from '../store/selectors';
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -28,20 +31,32 @@ function computeStats(runs) {
   return { total, completed, running, failed, avgPass };
 }
 
-export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onStopRun }) {
+export default function DashboardView({ onOpenRun, onNewRun }) {
+  const liveRunIds = useSelector(selectLiveRunIds);
+  const {
+    data: runs = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useGetRunsQuery(undefined, {
+    pollingInterval: liveRunIds.length > 0 ? 4000 : 0,
+  });
+  const [stopRun, { isError: stopFailed }] = useStopRunMutation();
   const recent = [...runs].slice(0, 6);
   const st = computeStats(runs);
   const activeRun = runs.find(r => isLiveRunStatus(r.status));
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!activeRun) return undefined;
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [activeRun?.id]);
+  const handleStopRun = (id) => {
+    void stopRun(id);
+  };
 
   return (
     <div className="view dash-view">
+      {(isError || stopFailed) && (
+        <div className="rdt-error-banner" role="alert">
+          {stopFailed ? 'Unable to stop this run.' : 'Unable to load runs.'}
+          {isError && <button type="button" className="btn btn-ghost btn-sm" onClick={refetch}>Retry</button>}
+        </div>
+      )}
 
       {/* Active pipeline status */}
       {activeRun && (
@@ -50,9 +65,9 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onSt
             <div className="dash-hero-eyebrow">
               <span className={`dash-live-dot${activeRun.status === 'stopping' ? ' dash-live-dot--stopping' : ''}`} />
               <span className="dash-live-label">
-                {activeRun.status === 'stopping'
-                  ? `STOPPING · ${formatDuration(runElapsedMs(activeRun))}`
-                  : `LIVE · ${formatDuration(runElapsedMs(activeRun))}`}
+                {activeRun.status === 'stopping' ? 'STOPPING' : 'LIVE'}
+                {' · '}
+                <RunElapsed run={activeRun} />
               </span>
             </div>
             <div className="dash-hero-url">{truncate(activeRun.input?.ottUrl || activeRun.url, 60)}</div>
@@ -70,7 +85,7 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onSt
             </div>
           </div>
           <div className="dash-hero-right">
-            <StopRunButton run={activeRun} onStop={onStopRun} />
+            <StopRunButton run={activeRun} onStop={handleStopRun} />
             <button className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); onOpenRun(activeRun.id || activeRun.runId); }}>
               View Run →
             </button>
@@ -143,7 +158,7 @@ export default function DashboardView({ runs, loading, onOpenRun, onNewRun, onSt
                     <td className="dash-date-cell">{fmtDate(run.startedAt || run.createdAt)}</td>
                     <td>
                       <div className="dash-row-actions">
-                        <StopRunButton run={run} onStop={onStopRun} className="dash-stop-btn" />
+                        <StopRunButton run={run} onStop={handleStopRun} className="dash-stop-btn" />
                         <button
                           className="btn btn-ghost btn-sm dash-view-btn"
                           onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}

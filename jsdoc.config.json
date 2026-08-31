@@ -1,0 +1,43 @@
+{
+  "plugins": [
+    "plugins/markdown",
+    "support/zero-docs/scripts/jsdoc-typescript-compat.cjs"
+  ],
+  "recurseDepth": 20,
+  "source": {
+    "include": [
+      "services",
+      "packages",
+      "web/src",
+      "scripts"
+    ],
+    "includePattern": ".+\\.(cjs|js|jsx|mjs)$",
+    "excludePattern": "(^|/)(node_modules|dist|coverage|test|tests|__tests__|generated)(/|$)|\\.generated\\."
+  },
+  "sourceType": "module",
+  "tags": {
+    "allowUnknownTags": true,
+    "dictionaries": [
+      "jsdoc",
+      "closure"
+    ]
+  },
+  "templates": {
+    "cleverLinks": true,
+    "monospaceLinks": true,
+    "default": {
+      "includeDate": false,
+      "useLongnameInNav": true
+    }
+  },
+  "opts": {
+    "access": "all",
+    "destination": "support/zero-docs/public/api",
+    "encoding": "utf8",
+    "private": true,
+    "readme": "support/zero-docs/docs/API_REFERENCE.md",
+    "recurse": true,
+    "template": "node_modules/jsdoc/templates/default",
+    "verbose": false
+  }
+}

@@ -28,3 +28,18 @@
   background: var(--bg);
   min-height: 0;
 }
+
+.app-main-error {
+  max-width: 36rem;
+  margin: var(--space-8, 2rem) auto;
+  padding: var(--space-6, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-1);
+
+  p {
+    margin: var(--space-2, 0.5rem) 0 var(--space-4, 1rem);
+    color: var(--text-2);
+  }
+}

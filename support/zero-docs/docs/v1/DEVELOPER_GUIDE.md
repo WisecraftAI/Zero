@@ -348,7 +348,7 @@ Normalize keys via `packages/locators/elementLogger.js`. Element log API: `POST 
 
 Env: `ZERO_ANALYZER_MAX_PAGES` (default 8) caps multi-page crawl depth.
 
-**Team rule:** The PDF **release gate** (`>= 95%` Full pass, `85–94%` Conditional pass, `< 85%` Manual check) and the Manager “Go / Conditional Go / Hold” label are **orchestration confidence**, not full product E2E proof.
+**Team rule:** The PDF **release gate** (`>= 95%` Full pass, `85–94%` Conditional pass, `< 85%` Manual check) and the Manager “Go / Conditional Go / Hold” label are **orchestration confidence**, not full product E2E proof. Both score a **skipped check as a failure**, because a skipped check leaves its journey unverified.
 
 ### E. Persistence / productionization
 

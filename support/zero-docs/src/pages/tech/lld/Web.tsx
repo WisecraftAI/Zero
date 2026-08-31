@@ -33,7 +33,7 @@ export function LldWeb() {
           { label: 'No login screen', detail: 'M5 API keys / JWT work; no OIDC UI' },
           { label: 'IntegrationsView', detail: 'placeholder; no backend' },
           { label: 'enableSecurity checkbox', detail: 'UI sends the field; API intake does not parse it yet (a11y/perf do)' },
-          { label: 'TypeScript hooks', detail: 'data layer is .js (useRunStream.js), not react-query .ts' },
+          { label: 'U3 RTK Query store', detail: <>open milestone — App still owns runs/SSE; plan in <code>milestones/U3-redux-store.md</code> / Next Milestone → U3 Store</> },
         ]}
       />
 

@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
-import { apiUrl, API_BASE } from '../apiBase';
+import { API_BASE } from '../apiBase';
+import { useStartRecordingMutation } from '../store/opsApi';
 import './RunForm.scss';
 
 export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, run, hasFailures, canDownload }) {
@@ -10,6 +11,7 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
   const [manualTestCases, setManualTestCases] = useState([
     { feature: '', scenario: '', expectedResult: '' }
   ]);
+  const [startRecording] = useStartRecordingMutation();
 
   useEffect(() => {
     const onMessage = (e) => {
@@ -27,12 +29,7 @@ export default function RunForm({ onSubmit, onRerunFailed, onDownload, runId, ru
     const ottUrl = form?.ottUrl?.value?.trim();
     if (!ottUrl) return;
     try {
-      const res = await fetch(apiUrl('/recordings/start'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ottUrl })
-      });
-      const data = await res.json();
+      const data = await startRecording({ ottUrl }).unwrap();
       if (data.sessionId) {
         setRecordingSessionId(data.sessionId);
         setRecordingId(null);

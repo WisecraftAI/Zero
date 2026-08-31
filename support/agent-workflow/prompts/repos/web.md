@@ -13,9 +13,26 @@ Presentation and form validation. Never holds business rules, never proxies arti
 
 - Container / presentational views (`src/views` vs `src/components`)
 - Pathname router (`src/lib/routes.js`) — `/`, `/runs`, `/runs/new`, `/runs/:id`
-- Data hooks only (`src/data/`) — no `useEffect` fetch inside presentational components
+- **U3 target:** RTK Query hooks in `src/store/` (`runsApi`, `settingsApi`, `opsApi`) — no `useEffect` fetch inside presentational components for those resources
+- Data hooks in `src/data/` bridge EventSource and setup presentation into RTK Query.
 - Colocated SCSS per view; theme tokens in `web/src/styles/`
-- SSE via one EventSource hook; degrade to polling after two failed reconnects
+- SSE via one EventSource hook; degrade to polling after two failed reconnects; **U3:** patches RTK cache via `RunStreamBridge`, not `App` state
+
+## U3 (done)
+
+When implementing the Redux store milestone, read:
+
+1. `support/agent-workflow/milestones/U3-redux-store.md`
+2. `support/agent-workflow/prompts/ui-ux.md` § U3
+3. Zero-docs mirror: `support/zero-docs/src/data/uxStoreMilestone.ts`
+
+Keep route / theme / wizard / elapsed ticks **out of Redux**. `POST /runs` stays FormData.
+
+Run each U3 PR in a fresh isolated session. Keep the U3 spec and `prompts/ui-ux.md`
+pinned as read-only references, then load only the source files in that PR's
+planner allowlist. Do not preload prior PR files, agent transcripts, or unrelated
+`src/store/` modules. Ask for one additional file with a reason when an import or
+public interface blocks the work.
 
 ## You may change
 

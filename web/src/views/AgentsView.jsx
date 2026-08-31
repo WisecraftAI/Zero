@@ -1,7 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { apiUrl } from '../apiBase';
 import AiSetupBanner from '../components/AiSetupBanner';
-import { applyGeminiToAllAgents, countActiveAgents } from '../lib/aiSetup';
+import { countActiveAgents } from '../lib/aiSetup';
+import {
+  useEnableGeminiForAllMutation,
+  useGetAgentSettingsQuery,
+  useGetProviderKeysQuery,
+  useUpdateAgentSettingMutation,
+} from '../store/settingsApi';
 import './AgentsView.scss';
 
 const AGENTS = [
@@ -110,34 +115,28 @@ const TEST_AGENT_FLOW = [
 ];
 
 export default function AgentsView({ onNavigate }) {
-  const [settings, setSettings] = useState({});
-  const [keys, setKeys] = useState({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
-  const [enablingAi, setEnablingAi] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
+  const agentsQuery = useGetAgentSettingsQuery();
+  const keysQuery = useGetProviderKeysQuery();
+  const [updateAgentSetting] = useUpdateAgentSettingMutation();
+  const [enableGeminiForAll, { isLoading: enablingAi }] = useEnableGeminiForAllMutation();
+  const settings = Object.fromEntries(
+    (agentsQuery.data?.items || []).map((item) => [item.agent, item]),
+  );
+  const keys = Object.fromEntries(
+    (keysQuery.data?.items || []).map((item) => [item.provider, item.configured]),
+  );
+  const loading = agentsQuery.isLoading || keysQuery.isLoading;
+  const loadError = agentsQuery.isError || keysQuery.isError
+    ? 'Failed to load agent settings.'
+    : '';
+  const load = () => {
     setError('');
-    try {
-      const [agentsRes, keysRes] = await Promise.all([
-        fetch(apiUrl('/agent-settings')).then(r => r.json()),
-        fetch(apiUrl('/provider-keys')).then(r => r.json()),
-      ]);
-      const byAgent = {};
-      for (const i of agentsRes.items || []) byAgent[i.agent] = i;
-      const byProvider = {};
-      for (const i of keysRes.items || []) byProvider[i.provider] = i.configured;
-      setSettings(byAgent);
-      setKeys(byProvider);
-    } catch (e) {
-      setError(e.message || 'Failed to load.');
-    } finally { setLoading(false); }
+    agentsQuery.refetch();
+    keysQuery.refetch();
   };
-
-  useEffect(() => { load(); }, []);
 
   // close action menu on outside click
   useEffect(() => {
@@ -185,7 +184,7 @@ export default function AgentsView({ onNavigate }) {
         </div>
       </div>
 
-      {error && <div className="agv-error">{error}</div>}
+      {(error || loadError) && <div className="agv-error">{error || loadError}</div>}
 
       {!loading && (
         <AiSetupBanner
@@ -195,15 +194,11 @@ export default function AgentsView({ onNavigate }) {
           totalAgents={AGENTS.length}
           onGoApiKeys={() => onNavigate?.('apikeys')}
           onEnableGemini={keys.gemini ? async () => {
-            setEnablingAi(true);
             setError('');
             try {
-              await applyGeminiToAllAgents(apiUrl);
-              await load();
+              await enableGeminiForAll().unwrap();
             } catch (e) {
-              setError(e.message || 'Failed to enable AI agents.');
-            } finally {
-              setEnablingAi(false);
+              setError(e.data?.error || e.message || 'Failed to enable AI agents.');
             }
           } : undefined}
           enabling={enablingAi}
@@ -346,12 +341,12 @@ export default function AgentsView({ onNavigate }) {
                         onClick={async () => {
                           setOpenMenuId(null);
                           if (!window.confirm(`Reset ${a.name} to defaults?`)) return;
-                          await fetch(apiUrl(`/agent-settings/${a.id}`), {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ provider: null, model: null, prompt: null }),
-                          });
-                          load();
+                          await updateAgentSetting({
+                            id: a.id,
+                            provider: null,
+                            model: null,
+                            prompt: null,
+                          }).unwrap();
                         }}
                       >
                         Reset to default
@@ -395,6 +390,7 @@ function AgentDetailView({ agent, cfg, keys, onBack, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const promptRef = useRef(null);
+  const [updateAgentSetting] = useUpdateAgentSettingMutation();
 
   const modelObj = findModel(provider, model);
   const ctxWindow = modelObj?.contextWindow || 0;
@@ -407,22 +403,17 @@ function AgentDetailView({ agent, cfg, keys, onBack, onSaved }) {
     setSaving(true);
     setStatus('');
     try {
-      const res = await fetch(apiUrl(`/agent-settings/${agent.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: provider || null,
-          model: model || null,
-          prompt: prompt || null,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save.');
+      await updateAgentSetting({
+        id: agent.id,
+        provider: provider || null,
+        model: model || null,
+        prompt: prompt || null,
+      }).unwrap();
       setStatus('Saved ✓');
       onSaved?.();
       setTimeout(() => setStatus(''), 2400);
     } catch (e) {
-      setStatus(e.message);
+      setStatus(e.data?.error || e.message || 'Failed to save.');
     } finally { setSaving(false); }
   };
 

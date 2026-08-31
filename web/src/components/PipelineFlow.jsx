@@ -1,8 +1,7 @@
 import {
-  formatDuration,
-  normalizeStageStatus,
-  stageDurationMs
+  normalizeStageStatus
 } from '../lib/runProgress';
+import RunElapsed from './RunElapsed';
 import './PipelineFlow.scss';
 
 const STAGE_META = {
@@ -19,7 +18,7 @@ const STAGE_META = {
 
 const BASE_ORDER = ['webAnalyzer', 'ba', 'manualQa', 'automationQa', 'execution', 'manager'];
 
-export default function PipelineFlow({ run, tick = Date.now() }) {
+export default function PipelineFlow({ run }) {
   const stages = run?.stages;
 
   const visibleKeys = (() => {
@@ -44,7 +43,6 @@ export default function PipelineFlow({ run, tick = Date.now() }) {
           const raw = getRawStatus(key);
           const status = getDisplayStatus(key);
           const stage = stages?.[key];
-          const duration = stage ? stageDurationMs(stage, tick) : null;
           const isLast = i === visibleKeys.length - 1;
           const prevDone = i > 0 && getRawStatus(visibleKeys[i - 1]) === 'done';
 
@@ -68,8 +66,10 @@ export default function PipelineFlow({ run, tick = Date.now() }) {
                 {meta.label}
                 {meta.optional && <span className="pipeline-opt">opt</span>}
               </div>
-              {duration != null && raw !== 'pending' && (
-                <div className="pipeline-stage-time">{formatDuration(duration)}</div>
+              {stage?.startedAt && raw !== 'pending' && (
+                <div className="pipeline-stage-time">
+                  <RunElapsed stage={stage} />
+                </div>
               )}
             </div>
           );

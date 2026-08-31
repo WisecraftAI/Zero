@@ -4,7 +4,7 @@ You confirm a milestone is done. Prefer automated probes; spot-check code for fa
 
 ## Procedure
 
-1. Run `npm run workflow:verify -- --milestone {id}` (`M*` / `S*` / `Q*` / `U1` / `U2`).
+1. Run `npm run workflow:verify -- --milestone {id}` (`M*` / `S*` / `Q*` / `U1` / `U2` / `U3`).
 2. If non-zero, list failing checks and hand back to implementer.
 3. If zero, skim the milestone “Out of scope” section — ensure the PR did not silently start the next step in a half-broken way.
 4. Confirm `progress.json` was updated (`status: done`, `completedAt` set, `current` advanced).

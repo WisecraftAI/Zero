@@ -1807,7 +1807,9 @@ function createJobs(deps) {
     const passed = tests.filter((t) => t.status === "passed").length;
     const skipped = tests.filter((t) => t.status === "skipped").length;
     const failed = tests.filter((t) => t.status === "failed").length;
-    const executable = tests.length - skipped;
+    // A skipped check leaves its journey unverified, so the pass rate scores it
+    // exactly like a failure rather than dropping it from the denominator.
+    const passRate = tests.length ? `${Math.round((passed / tests.length) * 100)}%` : "0%";
     const healed = tests.reduce(
       (count, test) => count + (test.steps || []).filter((step) => step.healing).length,
       0
@@ -1843,7 +1845,7 @@ function createJobs(deps) {
         passed,
         failed,
         skipped,
-        passRate: executable ? `${Math.round((passed / executable) * 100)}%` : "0%"
+        passRate
       },
       tests,
       locatorAnalysis

@@ -138,7 +138,7 @@ export const PRODUCT = [
   },
 ] as const;
 
-/** UX milestones U1–U2 — operator console. Parallel to Q5. */
+/** UX milestones U1–U3 — operator console + SPA store. Parallel to Q5. */
 export const UX = [
   {
     id: 'U1',
@@ -151,5 +151,11 @@ export const UX = [
     name: 'Ultra-low-friction canvas',
     status: 'done' as const,
     note: 'Single-canvas New Run, hover rail, Run Detail flow diagram. Spec: milestones/U2-low-friction-canvas.md.',
+  },
+  {
+    id: 'U3',
+    name: 'Redux Toolkit store (RTK Query)',
+    status: 'done' as const,
+    note: 'RTK Query owns runs/settings/ops; SSE patches detail cache; App only routes lazy views; Run Detail tabs are split. Spec: milestones/U3-redux-store.md.',
   },
 ] as const;

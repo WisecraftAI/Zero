@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ThemePicker from './ThemePicker';
 import { ZeroMark, ZeroWordmark } from './ZeroLogo';
 import './Sidebar.scss';
@@ -115,7 +115,7 @@ const NAV_ITEMS = [
   { id: 'team',        icon: 'team',         title: 'Team',         soon: true },
 ];
 
-export default function Sidebar({ activeView, onNavigate }) {
+function Sidebar({ activeView, onNavigate }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -205,3 +205,5 @@ export default function Sidebar({ activeView, onNavigate }) {
     </aside>
   );
 }
+
+export default memo(Sidebar);

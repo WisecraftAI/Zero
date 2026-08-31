@@ -7,6 +7,7 @@ description: >-
 
 # @zero/api
 
+0. Read `.cursor/skills/javascript/SKILL.md` and `.cursor/skills/nodejs-backend-patterns/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/api.md`
 2. Edit route/middleware/auth only — never launch Chromium
 3. Infra only through `@zero/cloud`

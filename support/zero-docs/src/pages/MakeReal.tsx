@@ -13,7 +13,7 @@ const NORTH_STAR = `You are implementing ZER0 (ai-qa-orchestrator) so the Target
 1. AGENTS.md — layout, pipeline, conventions
 2. zero-docs (this site) — target, sequence, per-workspace patterns, done/not-done
 3. public/architectureV2.html — reference HTML (same blueprint)
-4. support/agent-workflow/WORKFLOW.md + prompts/packaging.md (S0–S7) + prompts/autonomous-qa.md (Q1–Q5, Q5 open) + prompts/ui-ux.md (U1–U2 done) + prompts/target-arch.md (M1–M7, frozen)
+4. support/agent-workflow/WORKFLOW.md + prompts/packaging.md (S0–S7) + prompts/autonomous-qa.md (Q1–Q5, Q5 open) + prompts/ui-ux.md (U1–U2 done, U3 open) + prompts/target-arch.md (M1–M7, frozen)
 5. support/agent-workflow/prompts/repos/<name>.md for the workspace you are touching
 6. Live code: services/api/server.js (HTTP API composition root) + packages/* + web/
 
@@ -45,10 +45,10 @@ export function MakeRealPage() {
         <p className="sub">
           A state machine in <code>support/agent-workflow/</code> that kept coding agents on the
           Target architecture. Capability M1–M7, packaging S0–S7, product Q1–Q4, and UX U1–U2 are
-          complete. Product <strong>Q5</strong> (trustworthy classification) is the open
-          milestone. Use agent-workflow to verify boundaries and scope per-workspace edits. For
-          system parts, read <a href="#architecture">Architecture</a> and{' '}
-          <a href="#tech-stack">Tech Stack</a>.
+          complete. Product <strong>Q5</strong> (trustworthy classification) and UX{' '}
+          <strong>U3</strong> (RTK Query store) are open. Use agent-workflow to verify boundaries
+          and scope per-workspace edits. For system parts, read <a href="#architecture">Architecture</a>{' '}
+          and <a href="#tech-stack">Tech Stack</a>.
         </p>
         <Diagram ariaLabel="Agent workflow loop">
 {`  DETECT  →  PLAN (planner.md)  →  IMPLEMENT (implementer + repo skill)  →  VERIFY
@@ -81,11 +81,12 @@ export function MakeRealPage() {
               <code>milestones/Q*-*.md</code>.
             </p>
           </Card>
-          <Card title="UX track · U1–U2">
+          <Card title="UX track · U1–U3">
             <p>
-              Operator console (tokens, landmarks) and low-friction New Run canvas.{' '}
-              <StatusBadge status="done" />. Pathname routes and Run Detail flow diagram shipped
-              after close. Specs in <code>milestones/U*-*.md</code>.
+              Operator console (tokens, landmarks) and low-friction New Run canvas — U1–U2{' '}
+              <StatusBadge status="done" />. <code>U3</code> Redux Toolkit / RTK Query store is{' '}
+              <StatusBadge status="not-done" /> (Next Milestone → U3 Store). Specs in{' '}
+              <code>milestones/U*-*.md</code>.
             </p>
           </Card>
         </CardGrid>
@@ -177,18 +178,18 @@ npm test -- --testPathPattern=smoke`}
 {`support/agent-workflow/
 ├── README.md                 how to run the loop
 ├── WORKFLOW.md               DETECT → PLAN → IMPLEMENT → VERIFY → ADVANCE
-├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U2
+├── progress.json             M1–M7 + S0–S7 + Q1–Q5 + U1–U3
 ├── agents/
 │   ├── planner.md            one milestone, files + risks
 │   ├── implementer.md        code against the plan
 │   ├── verifier.md           probes + red flags
 │   └── repo-coder.md         route a "update X" ask to the right prompt
-├── milestones/               M1–M7 · S0–S7 · Q1–Q5 · U1–U2
+├── milestones/               M1–M7 · S0–S7 · Q1–Q5 · U1–U3
 ├── prompts/
 │   ├── target-arch.md        capability north-star (frozen)
 │   ├── packaging.md          packaging north-star (S0–S7)
 │   ├── autonomous-qa.md      product north-star (Q1–Q5)
-│   ├── ui-ux.md              UX north-star (U1–U2)
+│   ├── ui-ux.md              UX north-star (U1–U3; U3 open)
 │   └── repos/                one prompt per target workspace
 │       ├── web.md
 │       ├── api.md
@@ -201,7 +202,7 @@ npm test -- --testPathPattern=smoke`}
 │       ├── builders.md
 │       └── analyzer.md
 └── scripts/
-    ├── detect-milestone.js   M*, S*, and Q* probes
+    ├── detect-milestone.js   M*, S*, Q*, and U* probes
     ├── verify-milestone.js   acceptance checks
     └── status-server.js      HTTP :5175 /status /verify`}
         </Diagram>

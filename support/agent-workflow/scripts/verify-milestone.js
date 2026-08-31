@@ -58,9 +58,9 @@ function main() {
       'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7',
       'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7',
       'Q1', 'Q2', 'Q3', 'Q4', 'Q5',
-      'U1', 'U2',
+      'U1', 'U2', 'U3',
     ];
-    const parallel = new Set(['U1', 'U2']);
+    const parallel = new Set(['U1', 'U2', 'U3']);
     if (
       !parallel.has(requested) &&
       order.indexOf(requested) > order.indexOf(data.earliestUnfinished)

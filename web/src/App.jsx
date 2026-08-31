@@ -1,25 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 import AppShell from './layouts/AppShell';
-import DashboardView from './views/DashboardView';
-import RunsListView from './views/RunsListView';
-import NewRunView from './views/NewRunView';
-import RunDetailView from './views/RunDetailView';
-import LocatorsView from './views/LocatorsView';
-import ApiKeysView from './views/ApiKeysView';
-import AgentsView from './views/AgentsView';
-import IntegrationsView from './views/IntegrationsView';
-import MarketingHomeView from './views/MarketingHomeView';
-import { apiUrl } from './apiBase';
-import { mergeRunStreamState } from './data/runStream';
-import { runElapsedMs, formatDuration } from './lib/runProgress';
-import { isLiveRunStatus, isTerminalRunStatus } from './lib/runControl';
-import { useRunStream } from './data/useRunStream';
 import { currentRoute, pathForRoute, routeForPath } from './lib/routes';
 import './App.scss';
 
-/* Topbar config per view */
-function getTopbarProps(view, run, streamTransport, clockTick = 0) {
-  void clockTick;
+const AgentsView = lazy(() => import('./views/AgentsView'));
+const ApiKeysView = lazy(() => import('./views/ApiKeysView'));
+const DashboardView = lazy(() => import('./views/DashboardView'));
+const IntegrationsView = lazy(() => import('./views/IntegrationsView'));
+const LocatorsView = lazy(() => import('./views/LocatorsView'));
+const MarketingHomeView = lazy(() => import('./views/MarketingHomeView'));
+const NewRunView = lazy(() => import('./views/NewRunView'));
+const RunDetailView = lazy(() => import('./views/RunDetailView'));
+const RunsListView = lazy(() => import('./views/RunsListView'));
+
+function getTopbarProps(view) {
   switch (view) {
     case 'home':
       return { title: 'Home' };
@@ -27,31 +21,10 @@ function getTopbarProps(view, run, streamTransport, clockTick = 0) {
       return { title: 'Dashboard', statusBadge: 'System Live' };
     case 'runs':
       return { breadcrumb: ['ZERO', 'Runs'], statusBadge: 'System Stable' };
-      case 'new-run':
-        return { title: 'New Run' };
-    case 'run-detail': {
-      const name = run?.input?.ottUrl
-        ? run.input.ottUrl.replace(/^https?:\/\//, '').slice(0, 40)
-        : 'Loading…';
-      const elapsed =
-        isLiveRunStatus(run?.status) && run?.createdAt
-          ? formatDuration(runElapsedMs(run))
-          : null;
-      const liveBadge =
-        streamTransport === 'sse'
-          ? 'Live (SSE)'
-          : streamTransport === 'poll'
-            ? 'Live (poll fallback)'
-            : run?.status === 'stopping'
-              ? 'Stopping'
-              : run?.status === 'running'
-                ? 'Running'
-                : undefined;
-      return {
-        breadcrumb: ['Runs', name],
-        statusBadge: liveBadge && elapsed ? `${liveBadge} · ${elapsed}` : liveBadge
-      };
-    }
+    case 'new-run':
+      return { title: 'New Run' };
+    case 'run-detail':
+      return { breadcrumb: ['Runs', 'Run detail'] };
     case 'locators':
       return { breadcrumb: ['ZERO', 'Locator Intelligence'] };
     case 'apikeys':
@@ -67,34 +40,18 @@ function getTopbarProps(view, run, streamTransport, clockTick = 0) {
 
 export default function App() {
   const [route, setRoute] = useState(currentRoute);
-  const [activeRun, setActiveRun] = useState(null);
-  const [runs, setRuns] = useState([]);
-  const [runsLoading, setRunsLoading] = useState(false);
-  const [runLoadError, setRunLoadError] = useState('');
-  const [runActionError, setRunActionError] = useState('');
-  const [clock, setClock] = useState(0);
-
   const { view, runId: activeRunId, tab: activeTab } = route;
   const routeRef = useRef(route);
   const urlSynced = useRef(false);
   // Tab auto-selection replaces the entry so back/forward only walk operator clicks.
   const historyMode = useRef('push');
 
-  useEffect(() => {
-    if (view !== 'run-detail' || !isLiveRunStatus(activeRun?.status)) return undefined;
-    const t = setInterval(() => setClock((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [view, activeRun?.status, activeRunId]);
-
   const navigate = useCallback((to, runId = null, tab = null) => {
-    setRunLoadError('');
-    setRunActionError('');
     setRoute((prev) => ({
       view: to,
       runId: runId !== null ? runId : prev.runId,
       tab: to === 'run-detail' ? tab : null
     }));
-    if (runId !== null) setActiveRun(null);
   }, []);
 
   const selectRunTab = useCallback((tab, { replace = false } = {}) => {
@@ -123,132 +80,11 @@ export default function App() {
       const next = routeForPath(window.location.pathname);
       const prev = routeRef.current;
       if (prev.view === next.view && prev.runId === next.runId && prev.tab === next.tab) return;
-      if (prev.runId !== next.runId) setActiveRun(null);
       setRoute(next);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
-
-  const fetchRun = useCallback(async () => {
-    if (!activeRunId) return null;
-    try {
-      const res = await fetch(apiUrl(`/runs/${activeRunId}`));
-      if (!res.ok) {
-        setRunLoadError(res.status === 404
-          ? 'Run not found. It may have been removed or belongs to another workspace.'
-          : 'Unable to load this run. Please try again.');
-        return null;
-      }
-      const data = await res.json();
-      setRunLoadError('');
-      setActiveRun(data);
-      return data;
-    } catch {
-      setRunLoadError('Unable to reach the API. Check the service health and try again.');
-      return null;
-    }
-  }, [activeRunId]);
-
-  const runTerminal = isTerminalRunStatus(activeRun?.status);
-
-  useEffect(() => {
-    if (!activeRunId) return;
-    fetchRun();
-  }, [activeRunId, fetchRun]);
-
-  const handleStreamPatch = useCallback((patch) => {
-    setActiveRun((prev) => mergeRunStreamState(prev, patch));
-  }, []);
-
-  const handleStreamRefresh = useCallback(() => {
-    fetchRun();
-  }, [fetchRun]);
-
-  const { transport: streamTransport } = useRunStream(activeRunId, {
-    enabled: view === 'run-detail' && Boolean(activeRunId),
-    terminal: runTerminal,
-    onPatch: handleStreamPatch,
-    onRefresh: handleStreamRefresh
-  });
-
-  const fetchRuns = useCallback(async () => {
-    setRunsLoading(true);
-    try {
-      const res = await fetch(apiUrl('/runs'));
-      if (!res.ok) return;
-      const d = await res.json();
-      setRuns(Array.isArray(d) ? d : d.runs || []);
-    } catch {} finally { setRunsLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchRuns(); }, [fetchRuns]);
-
-  // Keep dashboard / runs list fresh while a pipeline is active.
-  useEffect(() => {
-    const active =
-      runs.some((r) => isLiveRunStatus(r.status)) || isLiveRunStatus(activeRun?.status);
-    if (!active) return undefined;
-    const t = setInterval(fetchRuns, 4000);
-    return () => clearInterval(t);
-  }, [runs, activeRun?.status, fetchRuns]);
-
-  const handleStartRun = async (formData) => {
-    const res = await fetch(apiUrl('/runs'), { method: 'POST', body: formData });
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      throw new Error(e.error || 'Failed to start pipeline');
-    }
-    const { runId: id } = await res.json();
-    navigate('run-detail', id);
-    fetchRuns();
-  };
-
-  const handleStopRun = async (runId) => {
-    if (!runId) return;
-    setRunActionError('');
-    setRuns((prev) => prev.map((r) => (
-      (r.id === runId || r.runId === runId) ? { ...r, status: 'stopping' } : r
-    )));
-    setActiveRun((prev) => (prev && (prev.id === runId || prev.runId === runId)
-      ? { ...prev, status: 'stopping' }
-      : prev));
-    try {
-      const res = await fetch(apiUrl(`/runs/${runId}/stop`), { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setRunActionError(body.error || 'Unable to stop this run.');
-        fetchRuns();
-        if (activeRunId === runId) fetchRun();
-        return;
-      }
-    } catch {
-      setRunActionError('Unable to reach the API while stopping this run.');
-      fetchRuns();
-      if (activeRunId === runId) fetchRun();
-      return;
-    }
-    fetchRuns();
-    if (activeRunId === runId) fetchRun();
-  };
-
-  const handleRerunFailed = async () => {
-    if (!activeRunId) return;
-    setRunActionError('');
-    try {
-      const res = await fetch(apiUrl(`/runs/${activeRunId}/rerun-failed`), { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setRunActionError(body.error || 'Unable to re-run failed checks.');
-        return;
-      }
-      setActiveRun(null);
-      await fetchRun();
-      fetchRuns();
-    } catch {
-      setRunActionError('Unable to reach the API while re-running failed checks.');
-    }
-  };
 
   const openRun = useCallback((runId) => {
     navigate('run-detail', runId);
@@ -267,30 +103,21 @@ export default function App() {
       case 'dashboard':
         return (
           <DashboardView
-            runs={runs}
-            loading={runsLoading}
             onOpenRun={openRun}
             onNewRun={() => navigate('new-run')}
-            onStopRun={handleStopRun}
           />
         );
       case 'runs':
-        return <RunsListView runs={runs} loading={runsLoading} onOpenRun={openRun} onRefresh={fetchRuns} onNewRun={() => navigate('new-run')} onStopRun={handleStopRun} />;
+        return <RunsListView onOpenRun={openRun} onNewRun={() => navigate('new-run')} />;
       case 'new-run':
-        return <NewRunView onSubmit={handleStartRun} />;
+        return <NewRunView onCreated={(id) => navigate('run-detail', id)} />;
       case 'run-detail':
         return (
           <RunDetailView
-            run={activeRun}
             runId={activeRunId}
             activeTab={activeTab}
             onTabChange={selectRunTab}
-            onRerunFailed={handleRerunFailed}
-            onStopRun={handleStopRun}
             onBack={() => navigate('runs')}
-            streamTransport={streamTransport}
-            loadError={runLoadError}
-            actionError={runActionError}
           />
         );
       case 'locators':
@@ -310,7 +137,7 @@ export default function App() {
     <AppShell
       activeView={view}
       onNavigate={navigate}
-      topbarProps={getTopbarProps(view, activeRun, streamTransport, clock)}
+      topbarProps={getTopbarProps(view)}
     >
       {renderView()}
     </AppShell>

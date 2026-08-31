@@ -28,11 +28,11 @@ export interface GeneratedLld {
 }
 
 export const GENERATED_LLD: GeneratedLld = {
-  "generatedAt": "2026-08-30T16:27:34.636Z",
+  "generatedAt": "2026-08-30T19:04:58.181Z",
   "totals": {
     "modules": 10,
-    "fileCount": 236,
-    "loc": 39505
+    "fileCount": 259,
+    "loc": 38949
   },
   "modules": [
     {
@@ -78,7 +78,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 19,
-      "loc": 4706,
+      "loc": 4726,
       "filesByExt": {
         ".js": 19
       },
@@ -112,7 +112,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 14,
-      "loc": 3423,
+      "loc": 3427,
       "filesByExt": {
         ".js": 14
       },
@@ -146,7 +146,7 @@ export const GENERATED_LLD: GeneratedLld = {
       ],
       "devDeps": [],
       "fileCount": 5,
-      "loc": 3058,
+      "loc": 3060,
       "filesByExt": {
         ".js": 5
       },
@@ -168,8 +168,10 @@ export const GENERATED_LLD: GeneratedLld = {
         "preview"
       ],
       "runtimeDeps": [
+        "@reduxjs/toolkit",
         "react",
-        "react-dom"
+        "react-dom",
+        "react-redux"
       ],
       "workspaceDeps": [],
       "devDeps": [
@@ -177,12 +179,12 @@ export const GENERATED_LLD: GeneratedLld = {
         "sass",
         "vite"
       ],
-      "fileCount": 71,
-      "loc": 17027,
+      "fileCount": 94,
+      "loc": 16445,
       "filesByExt": {
-        ".jsx": 27,
-        ".scss": 31,
-        ".js": 13
+        ".jsx": 44,
+        ".scss": 30,
+        ".js": 20
       },
       "hasDockerfile": true,
       "hasTests": false,
@@ -359,8 +361,8 @@ export interface GeneratedWorkflow {
 }
 
 export const GENERATED_WORKFLOW: GeneratedWorkflow = {
-  "generatedAt": "2026-08-30T16:27:34.636Z",
-  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
+  "generatedAt": "2026-08-30T19:04:58.181Z",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U3 · packaging S0–S7 · capability M1–M7",
   "currentTrack": "product",
   "current": "Q5",
   "acceptanceFloor": "M4",
@@ -729,6 +731,25 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
         "web",
         "domain"
       ]
+    },
+    {
+      "id": "U3",
+      "name": "Redux Toolkit store (RTK Query)",
+      "track": "ux",
+      "order": 2,
+      "status": "done",
+      "spec": "support/agent-workflow/milestones/U3-redux-store.md",
+      "summary": "**Status:** Done (2026-08-30)",
+      "dependsOn": [
+        "U1",
+        "U2",
+        "S7",
+        "Q5"
+      ],
+      "workspaces": [
+        "web",
+        "domain"
+      ]
     }
   ],
   "byWorkspace": {
@@ -762,7 +783,8 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "Q2",
       "Q4",
       "U1",
-      "U2"
+      "U2",
+      "U3"
     ],
     "cloud": [
       "M2",
@@ -777,7 +799,8 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "S5",
       "Q1",
       "Q3",
-      "U2"
+      "U2",
+      "U3"
     ],
     "db": [
       "M1",
@@ -796,5 +819,5 @@ export const GENERATED_WORKFLOW: GeneratedWorkflow = {
       "Q2"
     ]
   },
-  "latestNote": "docs_runtime_sync: zero-docs + workflow prompts synced to runtime: host-scoped agent_memory (002), llm/ split, pathname SPA routes, Run Detail FlowDiagram. Q5 still current; classification keys remain uncached."
+  "latestNote": "milestone_done: U3 complete: RTK Query owns runs/settings/ops server state; SSE patches the run cache; App only routes lazy views; elapsed time remains leaf-local; Run Detail is split into stable-key tab modules. Product current remains Q5."
 };

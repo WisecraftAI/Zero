@@ -1031,9 +1031,11 @@ function generateManagerReport(requirements, manualCases, automationBundle, exec
     rootCauses.push("General: selector drift, timing, or environment variability");
   }
 
-  const failCount = executionReport.totals.failed || 0;
-  const decision = failCount === 0 ? "Go" : failCount <= 2 ? "Conditional Go" : "Hold";
-  const riskLevel = failCount === 0 ? "Low" : failCount <= 3 ? "Medium" : "High";
+  // A skipped check leaves its journey unverified, so it weighs on the decision
+  // exactly like a failure.
+  const openCount = (executionReport.totals.failed || 0) + (executionReport.totals.skipped || 0);
+  const decision = openCount === 0 ? "Go" : openCount <= 2 ? "Conditional Go" : "Hold";
+  const riskLevel = openCount === 0 ? "Low" : openCount <= 3 ? "Medium" : "High";
 
   const byFeature = {};
   (manualCases.testCases || []).forEach((tc) => {
@@ -1156,7 +1158,9 @@ function generateDeliveryReport(requirements, managerReport, executionReport) {
       skipped: totals.skipped || 0
     },
     forStakeholder: {
-      headline: totals.failed === 0 ? "All automated checks passed." : `${totals.failed} check(s) failed; review required.`,
+      headline: (totals.failed || 0) + (totals.skipped || 0) === 0
+        ? "All automated checks passed."
+        : `${(totals.failed || 0) + (totals.skipped || 0)} check(s) failed or were skipped; review required.`,
       recommendation: es.verdict === "Go" ? "Ready for release from QA automation perspective." : es.verdict === "Conditional Go" ? "Proceed with caution; address failures before release." : "Do not release until critical failures are fixed.",
       nextSteps: (managerReport.actionPlan || []).slice(0, 5)
     },

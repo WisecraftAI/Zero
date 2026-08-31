@@ -1,239 +1,30 @@
-import { useState, useEffect, useRef } from 'react';
-import PipelineFlow from '../components/PipelineFlow';
-import FlowDiagram from '../components/FlowDiagram';
-import RunProgressPanel from '../components/RunProgressPanel';
+import { useEffect, useRef } from 'react';
 import AgentRunLine from '../components/AgentRunLine';
-import { apiUrl, artifactUrl } from '../apiBase';
-import { isTerminalRunStatus } from '../lib/runControl';
-import { currentThemeId } from '../lib/themes';
-import './RunDetailView.scss';
+import PipelineFlow from '../components/PipelineFlow';
+import RunProgressPanel from '../components/RunProgressPanel';
 import StopRunButton from '../components/StopRunButton';
+import { apiUrl } from '../apiBase';
+import { currentThemeId } from '../lib/themes';
+import RunStreamBridge from '../store/RunStreamBridge';
+import { useGetRunQuery, useRerunFailedMutation, useStopRunMutation } from '../store/runsApi';
+import ActualFlowContent from './runDetail/ActualFlowContent';
+import RunDetailTabPanel from './runDetail/RunDetailTabPanel';
+import { Spinner } from './runDetail/shared';
+import { getVisibleTabs } from './runDetail/tabSources';
+import './RunDetailView.scss';
 
-/* ─── Tab definitions ─────────────────────────────────────── */
-const ALL_TABS = [
-  { id: 'webAnalysis',  label: 'Web Analysis',  optional: true },
-  { id: 'requirements', label: 'Requirements' },
-  { id: 'manual',       label: 'Manual TC' },
-  { id: 'automation',   label: 'Automation' },
-  { id: 'execution',    label: 'Execution' },
-  { id: 'accessibility',label: 'Accessibility', optional: true },
-  { id: 'performance',  label: 'Performance',   optional: true },
-  { id: 'security',     label: 'Security',      optional: true },
-  { id: 'manager',      label: 'Manager Report' },
-  { id: 'recording',    label: 'Recording',     optional: true },
-  { id: 'element-log',  label: 'Element Log' },
-  { id: 'flow',         label: 'Flow Diagram' },
-];
-
-/* Each tab is fed by one pipeline stage and one artifact, so a tab can tell the
-   difference between "still being produced" and "this run never produced it". */
-const TAB_SOURCES = {
-  webAnalysis:   { stage: 'webAnalyzer',  artifact: 'webAnalysis',         label: 'Web Analyzer' },
-  requirements:  { stage: 'ba',           artifact: 'requirements',        label: 'BA Agent' },
-  manual:        { stage: 'manualQa',     artifact: 'manualTestCases',     label: 'Manual QA Agent' },
-  automation:    { stage: 'automationQa', artifact: 'automationBundle',    label: 'Automation QA Agent' },
-  execution:     { stage: 'execution',    artifact: 'executionReport',     label: 'Execution' },
-  accessibility: { stage: 'accessibility',artifact: 'accessibilityReport', label: 'Accessibility Agent' },
-  performance:   { stage: 'performance',  artifact: 'performanceReport',   label: 'Performance Agent' },
-  security:      { stage: 'security',     artifact: 'securityReport',      label: 'Security Agent' },
-  manager:       { stage: 'manager',      artifact: 'managerReport',       label: 'Manager Agent' },
-};
-
-function getVisibleTabs(run) {
-  return ALL_TABS.filter(t => {
-    if (!t.optional) return true;
-    if (t.id === 'webAnalysis')   return !!run?.stages?.webAnalyzer;
-    if (t.id === 'accessibility') return !!run?.stages?.accessibility;
-    if (t.id === 'performance')   return !!run?.stages?.performance;
-    if (t.id === 'security')      return !!run?.stages?.security;
-    if (t.id === 'recording')     return !!(run?.artifacts?.recording || run?.input?.recording);
-    return false;
-  });
-}
-
-function fmtDate(ts) {
-  if (!ts) return '—';
-  try { return new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-  catch { return String(ts).slice(0, 16); }
-}
-
-function fmtConfidence(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return null;
-  return `${Math.round(num * 100)}% confidence`;
-}
-
-/* ─── Main component ─────────────────────────────────────── */
-export default function RunDetailView({
-  run,
-  runId,
-  activeTab,
-  onTabChange,
-  onRerunFailed,
-  onStopRun,
-  onBack,
-  streamTransport,
-  loadError,
-  actionError
-}) {
-  const [tick, setTick] = useState(() => Date.now());
-
-  const visibleTabs = getVisibleTabs(run);
-  const defaultTabId = visibleTabs[0]?.id || 'requirements';
-  const tabIsValid = visibleTabs.some(t => t.id === activeTab);
-  // Optional tabs only appear once the run is loaded, so a deep link keeps its
-  // tab while the fetch is in flight instead of snapping to the default.
-  const currentTabId = tabIsValid || (!run && activeTab) ? activeTab : defaultTabId;
-
-  // A tab the operator picked (or deep-linked) wins over the execution auto-jump.
-  const followPipeline = useRef(!activeTab);
-
-  useEffect(() => {
-    if (run?.status !== 'running' && run?.status !== 'stopping') return undefined;
-    const t = setInterval(() => setTick(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [run?.status]);
-
-  useEffect(() => {
-    followPipeline.current = !activeTab;
-  }, [runId]);
-
-  // Put the resolved tab in the address bar so the view is linkable and reloadable.
-  useEffect(() => {
-    if (!run || tabIsValid) return;
-    onTabChange?.(defaultTabId, { replace: true });
-  }, [run, tabIsValid, defaultTabId, onTabChange]);
-
-  // While execution runs, surface the execution tab so results appear as they land.
-  useEffect(() => {
-    if (run?.stages?.execution?.status !== 'running' || !followPipeline.current) return;
-    onTabChange?.('execution', { replace: true });
-  }, [run?.stages?.execution?.status, onTabChange]);
-
-  const selectTab = (tabId) => {
-    followPipeline.current = false;
-    onTabChange?.(tabId);
-  };
-
-  const hasFailures = run?.artifacts?.executionReport?.totals?.failed > 0;
-  const canDownload = run?.status === 'completed';
-
-  const es = run?.artifacts?.managerReport?.executiveSummary || {};
-  const verdictKey = (es.verdict || '').toLowerCase() === 'go' ? 'go'
-    : (es.verdict || '').toLowerCase().includes('conditional') ? 'conditional'
-    : 'hold';
-
-  const idStr = String(runId || '').slice(0, 20);
-  const runStatus = run?.status;
-  // No run at all reads as `idle`; a run id with no payload yet is `pending`.
-  const headerState = runStatus || (runId ? 'pending' : 'idle');
-
-
-  return (
-    <div className="run-detail-view">
-
-      {actionError && (
-        <div className="rdt-error-banner" role="alert">{actionError}</div>
-      )}
-      {!run && (
-        <div
-          className={loadError || !runId ? 'empty-state empty-state--error' : 'empty-state'}
-          role={loadError ? 'alert' : undefined}
-        >
-          <p>
-            {loadError
-              || (runId
-              ? <span className="rdt-loading-inline"><Spinner /> Loading run…</span>
-              : 'No run selected. Open a run from the list.')}
-          </p>
-          {loadError && (
-            <button className="btn btn-secondary btn-sm" onClick={onBack}>Back to runs</button>
-          )}
-        </div>
-      )}
-      <div className={`rdt-header rdt-header--${headerState}`}>
-        <div className="rdt-header-left">
-          <div className="rdt-url">
-            {run?.input?.ottUrl
-              ? <a href={run.input.ottUrl} target="_blank" rel="noreferrer">{run.input.ottUrl}</a>
-              : <span className="text-muted">{runId ? 'Loading…' : 'No run active'}</span>
-            }
-          </div>
-          <div className="rdt-meta-row">
-            <code className="rdt-run-id">{idStr}{idStr.length === 20 ? '…' : ''}</code>
-            {runStatus && <span className={`chip ${runStatus}`}>{runStatus}</span>}
-            {es.verdict && <span className={`verdict ${verdictKey}`}>{es.verdict}</span>}
-            {es.passRate && <span className="rdt-passrate">Pass rate: <strong>{es.passRate}</strong></span>}
-            {run && <span className="rdt-date">Started {fmtDate(run.startedAt || run.createdAt)}</span>}
-          </div>
-        </div>
-        <div className="rdt-header-right">
-          <StopRunButton run={run} onStop={onStopRun} />
-          <button className="btn btn-secondary btn-sm" disabled={!runId || !hasFailures} onClick={onRerunFailed}>
-            Re-run Failed
-          </button>
-          <button className="btn btn-secondary btn-sm" disabled={!canDownload}
-            title="Download the report in the current theme"
-            onClick={() => window.open(
-              apiUrl(`/runs/${runId}/download?theme=${encodeURIComponent(currentThemeId())}`),
-              '_blank',
-            )}>
-            <DownloadIcon /> PDF
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={onBack}>
-            ← Runs
-          </button>
-        </div>
-        <AgentRunLine run={run} />
-      </div>
-
-      {/* Pipeline flow */}
-      <div className="rdt-pipeline-panel">
-        <RunProgressPanel run={run} streamTransport={streamTransport} />
-        <div className="rdt-section-label">Pipeline stages</div>
-        <PipelineFlow run={run} tick={tick} />
-      </div>
-
-      {/* Main body — tabs + optional side panel */}
-      <div className="rdt-body">
-
-        {/* Tabs */}
-        <div className="rdt-tab-panel">
-          <div className="rdt-tabs">
-            {visibleTabs.map(tab => (
-              <button
-                key={tab.id}
-                className={`rdt-tab${currentTabId === tab.id ? ' rdt-tab--active' : ''}`}
-                onClick={() => selectTab(tab.id)}
-              >
-                {tab.label}
-                {tab.id === 'execution' && run?.artifacts?.executionReport?.totals && (
-                  <TabBadge
-                    passed={run.artifacts.executionReport.totals.passed}
-                    failed={run.artifacts.executionReport.totals.failed}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="rdt-tab-content">
-            <TabContent run={run} tab={currentTabId} runId={runId} />
-          </div>
-        </div>
-        
-        {/* Actual Flow Side Panel */}
-        <div className="rdt-actual-flow-panel">
-          <div className="rdt-side-label">
-            {runStatus === 'running' && <span className="rdt-side-live-dot" />}
-            Actual Flow
-          </div>
-          <ActualFlowContent run={run} />
-        </div>
-
-
-      </div>
-    </div>
-  );
+function formatDate(timestamp) {
+  if (!timestamp) return '—';
+  try {
+    return new Date(timestamp).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return String(timestamp).slice(0, 16);
+  }
 }
 
 function TabBadge({ passed, failed }) {
@@ -242,828 +33,127 @@ function TabBadge({ passed, failed }) {
     <span className="rdt-tab-badge">
       {failed > 0
         ? <span style={{ color: 'var(--red)' }}>{failed}✕</span>
-        : <span style={{ color: 'var(--green)' }}>{passed}✓</span>
-      }
+        : <span style={{ color: 'var(--green)' }}>{passed}✓</span>}
     </span>
   );
 }
 
-/* ─── Tab content switch ─────────────────────────────────── */
-function TabContent({ run, tab, runId }) {
-  if (!run) {
-    if (!runId) return <div className="tab-empty">No active run. Start one from New Run.</div>;
-    return <TabLoading title="Loading run…" detail="Fetching pipeline state." />;
-  }
+function RunDetailContent({ run, runId, activeTab, onTabChange, onBack, transport, actions }) {
+  const tabs = getVisibleTabs(run);
+  const defaultTab = tabs[0]?.id || 'requirements';
+  const tabIsValid = tabs.some((tab) => tab.id === activeTab);
+  const currentTab = tabIsValid || (!run && activeTab) ? activeTab : defaultTab;
+  const followPipeline = useRef(!activeTab);
+  const summary = run?.artifacts?.managerReport?.executiveSummary || {};
+  const hasFailures = run?.artifacts?.executionReport?.totals?.failed > 0;
+  const loadError = actions.loadError;
 
-  const pending = pendingStage(run, tab);
-  if (pending) {
-    return pending.status === 'running'
-      ? <TabLoading title={`${pending.label} is running…`} detail="Output appears here as the agent reports it." />
-      : <TabLoading title={`${pending.label} is queued`} detail="Waiting for earlier pipeline stages." queued />;
-  }
+  useEffect(() => {
+    followPipeline.current = !activeTab;
+  }, [runId, activeTab]);
 
-  switch (tab) {
-    case 'webAnalysis':   return <WebAnalysisTab run={run} />;
-    case 'requirements':  return <RequirementsTab run={run} />;
-    case 'manual':        return <ManualTab run={run} />;
-    case 'automation':    return <AutomationTab run={run} />;
-    case 'execution':     return <ExecutionTab run={run} />;
-    case 'accessibility': return <AccessibilityTab run={run} />;
-    case 'performance':   return <PerformanceTab run={run} />;
-    case 'security':      return <SecurityTab run={run} />;
-    case 'manager':       return <ManagerTab run={run} />;
-    case 'recording':     return <RecordingTab run={run} />;
-    case 'element-log':   return <ElementLogTab />;
-    case 'flow':          return <FlowTab run={run} />;
-    default:              return null;
-  }
-}
+  useEffect(() => {
+    if (run && !tabIsValid) onTabChange?.(defaultTab, { replace: true });
+  }, [defaultTab, onTabChange, run, tabIsValid]);
 
-/* ─── Tab panels ─────────────────────────────────────────── */
-
-function RequirementsTab({ run }) {
-  const d = run.artifacts?.requirements;
-  if (!d) return <Awaiting />;
-  const items = d.requirements || d.items || (Array.isArray(d) ? d : null);
-  if (items) {
-    return (
-      <div className="req-list">
-        {items.map((req, i) => (
-          <div key={i} className="req-item">
-            <span className="req-num">R{String(i + 1).padStart(2, '0')}</span>
-            <span className="req-text">{typeof req === 'string' ? req : req.requirement || req.text || JSON.stringify(req)}</span>
-          </div>
-        ))}
-        <JsonToggle data={d} />
-      </div>
-    );
-  }
-  return <JsonBlock data={d} />;
-}
-
-function ManualTab({ run }) {
-  const d = run.artifacts?.manualTestCases;
-  if (!d) return <Awaiting />;
-  const cases = d.testCases || d.cases || (Array.isArray(d) ? d : null);
-  if (cases) {
-    return (
-      <div className="tc-list">
-        {cases.map((tc, i) => (
-          <div key={i} className="tc-card">
-            <div className="tc-header">
-              <span className="tc-id">{tc.id || `TC-${i + 1}`}</span>
-              <span className="tc-feature">{tc.feature || tc.Feature || ''}</span>
-              {tc.priority && <PriorityBadge p={tc.priority} />}
-            </div>
-            <div className="tc-scenario">{tc.scenario || tc.Scenario || tc.title || ''}</div>
-            {tc.steps?.length > 0 && (
-              <ol className="tc-steps">
-                {tc.steps.map((s, j) => <li key={j}>{typeof s === 'string' ? s : s.action || JSON.stringify(s)}</li>)}
-              </ol>
-            )}
-            {tc.expectedResult && (
-              <div className="tc-expected">
-                <span className="tc-expected-label">Expected</span>
-                {tc.expectedResult}
-              </div>
-            )}
-          </div>
-        ))}
-        <JsonToggle data={d} />
-      </div>
-    );
-  }
-  return <JsonBlock data={d} />;
-}
-
-function AutomationTab({ run }) {
-  const d = run.artifacts?.automationBundle;
-  if (!d) return <Awaiting />;
-  const lang = d.metadata?.scriptingLanguage || 'Java';
-  const framework = d.metadata?.framework || 'Selenium';
-  return (
-    <div className="automation-panel">
-      <div className="automation-meta">
-        <span className="lang-tag">{lang}</span>
-        <span className="framework-tag">{framework}</span>
-      </div>
-      {d.generatedSeleniumJava && <CodeSection title="Java / Selenium" code={d.generatedSeleniumJava} />}
-      {d.generatedPlaywrightScript && (
-        <CollapsibleCodeSection title="Playwright (runtime)" code={d.generatedPlaywrightScript} />
-      )}
-      <JsonToggle data={d} />
-    </div>
-  );
-}
-
-function ExecutionTab({ run }) {
-  const data = run.artifacts?.executionReport;
-  if (!data) return <Awaiting />;
-  const tests = data.tests || [];
-  const totals = data.totals || {};
-  const healed = data.metadata?.healing?.healed || 0;
-  return (
-    <div className="exec-panel">
-      <div className="exec-summary">
-        <span className="exec-stat"><strong>{totals.total ?? 0}</strong> run</span>
-        <span className="exec-stat status-passed"><strong>{totals.passed ?? 0}</strong> passed</span>
-        <span className="exec-stat status-failed"><strong>{totals.failed ?? 0}</strong> failed</span>
-        {healed > 0 ? <span className="exec-stat status-healed"><strong>{healed}</strong> healed</span> : null}
-        <span className="exec-stat">Pass rate: <strong>{totals.passRate ?? '0%'}</strong></span>
-      </div>
-      <table className="data-table exec-table">
-        <thead>
-          <tr><th>ID</th><th>Title</th><th>Status</th><th>Error</th><th>Evidence</th></tr>
-        </thead>
-        <tbody>
-          {tests.map(t => (
-            <tr key={t.id}>
-              <td><span className="tc-id-small">{t.id}</span></td>
-              <td className="exec-title">{(t.title || '').slice(0, 70)}{(t.title || '').length > 70 ? '…' : ''}</td>
-              <td><span className={`status-${t.status}`}>{t.status}</span></td>
-              <td className="exec-error">{t.error ? String(t.error).slice(0, 90) + (String(t.error).length > 90 ? '…' : '') : '—'}</td>
-              <td>
-                <div className="exec-evidence">
-                  {t.screenshot
-                    ? <a href={artifactUrl(t.screenshot)} target="_blank" rel="noreferrer" className="screenshot-link">Screenshot ↗</a>
-                    : null}
-                  {t.steps?.some(step => step.healing) ? (
-                    <span
-                      className="healed-badge"
-                      title={t.steps.filter(step => step.healing).map(step => step.healing.selector || step.healing.evidence).join(', ')}
-                    >
-                      Locator healed
-                    </span>
-                  ) : null}
-                  {!t.screenshot && !t.steps?.some(step => step.healing) ? '—' : null}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function AccessibilityTab({ run }) {
-  const data = run.artifacts?.accessibilityReport;
-  if (!data) return <Awaiting msg="Accessibility Agent not enabled or awaiting…" />;
-  const summary = data.summary || {};
-  const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
-  return (
-    <div className="agent-report">
-      <div className="agent-score-row">
-        <span className={`score-badge ${scoreClass}`}>{summary.score ?? '—'}<small>/100</small></span>
-        <div>
-          <div className="agent-verdict">{summary.verdict || '—'}</div>
-          <div className="agent-counts">
-            {summary.checksRun} checks · {summary.passed} passed · {summary.errors} errors · {summary.warnings} warnings
-          </div>
-        </div>
-      </div>
-      {data.checks?.length > 0 && (
-        <Section title="Checks">
-          <table className="data-table">
-            <thead><tr><th>Check</th><th>Status</th><th>Count</th></tr></thead>
-            <tbody>
-              {data.checks.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.name}</td>
-                  <td><span className={c.status === 'pass' ? 'status-passed' : c.status === 'fail' ? 'status-failed' : 'status-skipped'}>{c.status}</span></td>
-                  <td>{c.count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.issues?.length > 0 && (
-        <Section title="Issues">
-          <ul className="issue-list">
-            {data.issues.map((issue, i) => (
-              <li key={i} className={`issue issue--${issue.type}`}>
-                <strong>[{issue.category}]</strong> {issue.message}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      {data.recommendations?.length > 0 && (
-        <Section title="Recommendations">
-          <ol className="reco-list">{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
-        </Section>
-      )}
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function PerformanceTab({ run }) {
-  const data = run.artifacts?.performanceReport;
-  if (!data) return <Awaiting msg="Performance Agent not enabled or awaiting…" />;
-  const summary = data.summary || {};
-  const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
-  return (
-    <div className="agent-report">
-      <div className="agent-score-row">
-        <span className={`score-badge ${scoreClass}`}>{summary.score ?? '—'}<small>/100</small></span>
-        <div>
-          <div className="agent-verdict">{summary.verdict || '—'}</div>
-          <div className="agent-counts">
-            Load: <strong>{summary.loadTime}</strong> · Resources: {summary.resourceCount} · Size: {summary.totalSize}
-          </div>
-        </div>
-      </div>
-      {data.coreWebVitals && (
-        <Section title="Core Web Vitals">
-          <div className="vitals-grid">
-            <VitalCard label="FCP" value={data.coreWebVitals.fcp} />
-            <VitalCard label="DCL" value={data.coreWebVitals.domContentLoaded} />
-            <VitalCard label="Load" value={data.coreWebVitals.loadComplete} />
-          </div>
-        </Section>
-      )}
-      {data.metrics?.length > 0 && (
-        <Section title="Metrics">
-          <table className="data-table">
-            <thead><tr><th>Metric</th><th>Value</th><th>Score</th></tr></thead>
-            <tbody>
-              {data.metrics.map((m, i) => <tr key={i}><td>{m.name}</td><td>{m.value}</td><td>{m.score}</td></tr>)}
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.recommendations?.length > 0 && (
-        <Section title="Recommendations">
-          <ol className="reco-list">{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
-        </Section>
-      )}
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function WebAnalysisTab({ run }) {
-  const data = run.artifacts?.webAnalysis;
-  if (!data) return <Awaiting msg="Web Analyzer runs automatically when no test document is provided." />;
-
-  const classification = data.domainClassification || {};
-  const domainLabel = classification.domain || data.metadata?.domainName || data.siteOverview?.type || null;
-  const subDomainLabel = classification.subDomain || data.metadata?.subDomain || null;
-  const domainConfidence = fmtConfidence(classification.domainConfidence ?? data.metadata?.websiteTypeConfidence);
-  const subDomainConfidence = fmtConfidence(classification.subDomainConfidence ?? data.metadata?.subDomainConfidence);
-  const classificationSource = classification.source || data.metadata?.classificationSource || null;
-  const analysisFailed = Boolean(data.analysisFailed || data.error);
-  const warnings = data.warnings || [];
-  const focusAreas = data.subDomainTestPriorities || [];
-  const focusFlows = data.subDomainCriticalFlows || [];
-
-  return (
-    <div className="agent-report">
-      {analysisFailed && (
-        <Section title="Analysis Failed">
-          <ul className="issue-list">
-            <li className="issue issue--error">{data.error || 'Web analysis could not load the target URL.'}</li>
-          </ul>
-          <p className="signoff-text">
-            No site data was collected, so the domain could not be determined and test cases fall back to
-            generic templates. Confirm the URL is reachable from the executor, then re-run.
-          </p>
-        </Section>
-      )}
-      <Section title="Site Overview">
-        <div className="site-overview">
-          <p><strong>Title:</strong> {data.siteOverview?.title || '—'}</p>
-          <p><strong>URL:</strong> {data.siteOverview?.url || data.metadata?.url || '—'}</p>
-        </div>
-        <div className="vitals-grid">
-          <div className="vital-card">
-            <div className="vital-label">Domain</div>
-            <div className="vital-value">{domainLabel || 'Not determined'}</div>
-            {domainConfidence && <div className="agent-counts">{domainConfidence}</div>}
-          </div>
-          <div className="vital-card">
-            <div className="vital-label">Sub-domain</div>
-            <div className="vital-value">{subDomainLabel || 'Not determined'}</div>
-            {subDomainLabel && (
-              <div className="agent-counts">
-                {[subDomainConfidence, classificationSource && `via ${classificationSource}`]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
-            )}
-          </div>
-          <div className="vital-card">
-            <div className="vital-label">Pages Discovered</div>
-            <div className="vital-value">{data.siteOverview?.pagesDiscovered || 0}</div>
-          </div>
-        </div>
-      </Section>
-      {!analysisFailed && warnings.length > 0 && (
-        <Section title="Analyzer Warnings">
-          <ul className="issue-list">
-            {warnings.slice(0, 8).map((w, i) => (
-              <li key={i} className="issue issue--warning">{w}</li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      {(focusAreas.length > 0 || focusFlows.length > 0) && (
-        <Section title="Sub-domain Test Focus">
-          {focusAreas.length > 0 && (
-            <>
-              <h4>Priority Areas</h4>
-              <ul className="feature-list">{focusAreas.map((a, i) => <li key={i}>{a}</li>)}</ul>
-            </>
-          )}
-          {focusFlows.length > 0 && (
-            <>
-              <h4>Critical Flows</h4>
-              <ul className="critical-list">{focusFlows.map((f, i) => <li key={i}>{f}</li>)}</ul>
-            </>
-          )}
-        </Section>
-      )}
-      {data.baInsights && (
-        <Section title="BA Insights">
-          <p className="insight-summary">{data.baInsights.summary}</p>
-          {data.baInsights.keyFunctionalities?.length > 0 && (
-            <>
-              <h4>Key Functionalities</h4>
-              <ul className="feature-list">
-                {data.baInsights.keyFunctionalities.map((f, i) => (
-                  <li key={i}><strong>{f.name}</strong> - Priority: <span className={`priority-${f.priority?.toLowerCase()}`}>{f.priority}</span></li>
-                ))}
-              </ul>
-            </>
-          )}
-          {data.baInsights.userJourneys?.length > 0 && (
-            <>
-              <h4>Suggested User Journeys</h4>
-              <ol className="journey-list">{data.baInsights.userJourneys.map((j, i) => <li key={i}>{j}</li>)}</ol>
-            </>
-          )}
-          {data.baInsights.criticalPaths?.length > 0 && (
-            <>
-              <h4>Critical Paths</h4>
-              <ul className="critical-list">{data.baInsights.criticalPaths.map((p, i) => <li key={i}>{p}</li>)}</ul>
-            </>
-          )}
-        </Section>
-      )}
-      {data.features?.length > 0 && (
-        <Section title="Discovered Features">
-          <table className="data-table">
-            <thead><tr><th>Feature</th><th>Type</th><th>Description</th></tr></thead>
-            <tbody>
-              {data.features.map((f, i) => (
-                <tr key={i}><td>{f.name}</td><td>{f.type}</td><td>{f.description}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.discoveredPages?.length > 0 && (
-        <Section title="Discovered Pages">
-          <ul className="page-list">
-            {data.discoveredPages.map((p, i) => (
-              <li key={i}><strong>{p.linkText}</strong>: {p.title} <a href={p.url} target="_blank" rel="noreferrer">→</a></li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      {data.suggestedTestAreas?.length > 0 && (
-        <Section title="Suggested Test Areas">
-          {data.suggestedTestAreas.map((area, i) => (
-            <div key={i} className="test-area-block">
-              <h4>{area.area} <span className={`priority-badge priority-${area.priority?.toLowerCase()}`}>{area.priority}</span></h4>
-              <ul>{area.tests?.map((t, j) => <li key={j}>{t}</li>)}</ul>
-            </div>
-          ))}
-        </Section>
-      )}
-      {data.suggestedRequirements?.length > 0 && (
-        <Section title="Auto-Generated Requirements">
-          <ul className="req-list">{data.suggestedRequirements.map((r, i) => <li key={i}>{r}</li>)}</ul>
-        </Section>
-      )}
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function SecurityTab({ run }) {
-  const data = run.artifacts?.securityReport;
-  if (!data) return <Awaiting msg="Security Agent not enabled or awaiting…" />;
-  const summary = data.summary || {};
-  const scoreClass = summary.score >= 80 ? 'good' : summary.score >= 50 ? 'moderate' : 'poor';
-  return (
-    <div className="agent-report">
-      <div className="agent-score-row">
-        <span className={`score-badge ${scoreClass}`}>{summary.score ?? '—'}<small>/100</small></span>
-        <div>
-          <div className="agent-verdict">{summary.verdict || '—'}</div>
-          <div className="agent-counts">
-            {summary.checksRun} checks · {summary.passed} passed · {summary.failed} failed · {summary.warnings} warnings
-          </div>
-        </div>
-      </div>
-      {data.securityHeaders && (
-        <Section title="Security Headers">
-          <table className="data-table">
-            <thead><tr><th>Header</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td>Content-Security-Policy</td><td className={data.securityHeaders.contentSecurityPolicy ? 'status-passed' : 'status-failed'}>{data.securityHeaders.contentSecurityPolicy ? '✓ Present' : '✗ Missing'}</td></tr>
-              <tr><td>X-Frame-Options</td><td className={data.securityHeaders.xFrameOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xFrameOptions || '✗ Missing'}</td></tr>
-              <tr><td>X-Content-Type-Options</td><td className={data.securityHeaders.xContentTypeOptions ? 'status-passed' : 'status-failed'}>{data.securityHeaders.xContentTypeOptions || '✗ Missing'}</td></tr>
-              <tr><td>Strict-Transport-Security</td><td className={data.securityHeaders.strictTransportSecurity ? 'status-passed' : 'status-failed'}>{data.securityHeaders.strictTransportSecurity ? '✓ Present' : '✗ Missing'}</td></tr>
-              <tr><td>Referrer-Policy</td><td className={data.securityHeaders.referrerPolicy ? 'status-passed' : 'status-skipped'}>{data.securityHeaders.referrerPolicy || '—'}</td></tr>
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.checks?.length > 0 && (
-        <Section title="Security Checks">
-          <table className="data-table">
-            <thead><tr><th>Check</th><th>Status</th><th>Severity</th><th>Description</th></tr></thead>
-            <tbody>
-              {data.checks.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.name}</td>
-                  <td><span className={c.status === 'pass' ? 'status-passed' : c.status === 'fail' ? 'status-failed' : 'status-skipped'}>{c.status}</span></td>
-                  <td><span className={`severity-${c.severity}`}>{c.severity}</span></td>
-                  <td>{c.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.vulnerabilities?.length > 0 && (
-        <Section title="⚠️ Vulnerabilities Found">
-          <ul className="issue-list">
-            {data.vulnerabilities.map((v, i) => (
-              <li key={i} className={`issue issue--${v.type}`}>
-                <strong>[{v.type?.toUpperCase()}]</strong> {v.name}: {v.description}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      {data.recommendations?.length > 0 && (
-        <Section title="Recommendations">
-          <ol className="reco-list">{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ol>
-        </Section>
-      )}
-      {data.complianceNotes?.length > 0 && (
-        <Section title="Compliance Notes">
-          <ul className="compliance-list">{data.complianceNotes.map((n, i) => <li key={i}>{n}</li>)}</ul>
-        </Section>
-      )}
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function ManagerTab({ run }) {
-  const data = run.artifacts?.managerReport;
-  if (!data) return <Awaiting />;
-  const es = data.executiveSummary || {};
-  const verdictKey = es.verdict?.toLowerCase() === 'go' ? 'go'
-    : es.verdict?.toLowerCase().includes('conditional') ? 'conditional' : 'hold';
-  return (
-    <div className="manager-panel">
-      <div className="manager-verdict-row">
-        {es.verdict && <span className={`verdict ${verdictKey}`}>{es.verdict}</span>}
-        <div className="manager-stats">
-          <span>Risk: <strong>{es.riskLevel || '—'}</strong></span>
-          <span>Pass rate: <strong>{es.passRate || '0%'}</strong></span>
-          <span>{es.executed ?? 0}/{es.totalTestCases ?? 0} executed</span>
-          <span className="status-passed">{es.passed ?? 0} passed</span>
-          <span className="status-failed">{es.failed ?? 0} failed</span>
-        </div>
-      </div>
-      {data.traceabilityMatrix?.length > 0 && (
-        <Section title="Traceability Matrix">
-          <table className="data-table">
-            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Error</th></tr></thead>
-            <tbody>
-              {data.traceabilityMatrix.slice(0, 30).map(t => (
-                <tr key={t.id}>
-                  <td><span className="tc-id-small">{t.id}</span></td>
-                  <td>{(t.title || '').slice(0, 55)}</td>
-                  <td><span className={`status-${t.status}`}>{t.status}</span></td>
-                  <td className="exec-error">{t.error ? String(t.error).slice(0, 60) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
-      {data.analysis?.rootCauses?.length > 0 && (
-        <Section title="Root Causes">
-          <ul className="rca-list">{data.analysis.rootCauses.map((r, i) => <li key={i}>{r}</li>)}</ul>
-        </Section>
-      )}
-      {data.actionPlan?.length > 0 && (
-        <Section title="Action Plan">
-          <ol className="reco-list">{data.actionPlan.map((a, i) => <li key={i}>{a}</li>)}</ol>
-        </Section>
-      )}
-      {data.signOff?.recommendation && (
-        <Section title="Sign-off">
-          <p className="signoff-text">{data.signOff.recommendation}</p>
-        </Section>
-      )}
-      <JsonToggle data={data} />
-    </div>
-  );
-}
-
-function RecordingTab({ run }) {
-  const rec = run.artifacts?.recording || run.input?.recording;
-  if (!rec) return <Awaiting msg="No recording attached to this run." />;
-  const events = rec.events || [];
-  return (
-    <div className="recording-panel">
-      <div className="recording-meta">
-        Source: <strong>{rec.source || 'session'}</strong> · {events.length} events
-        {rec.ottUrl && <> · URL: <a href={rec.ottUrl} target="_blank" rel="noreferrer">{rec.ottUrl}</a></>}
-      </div>
-      {events.length > 0 && (
-        <CollapsibleCodeSection title={`Events (${events.length})`} code={JSON.stringify(events, null, 2)} />
-      )}
-      <JsonToggle data={rec} />
-    </div>
-  );
-}
-
-function ElementLogTab() {
-  return (
-    <div className="element-log-info">
-      <p>To submit element logs, use the <strong>Locators</strong> section in the sidebar.</p>
-      <p style={{ color: 'var(--text-3)', fontSize: '0.82rem', marginTop: 8 }}>
-        Element logs improve selector accuracy across runs by building a persistent locator registry.
-      </p>
-    </div>
-  );
-}
-
-function FlowTab({ run }) {
-  return <FlowDiagram run={run} />;
-}
-
-function ActualFlowContent({ run }) {
-  const manual = run?.artifacts?.manualTestCases;
-  const basePlan = manual?.testCases || manual?.cases || (Array.isArray(manual) ? manual : []);
-  const report = run?.artifacts?.executionReport;
-  const execTests = report?.tests || [];
-  const runStatus = run?.status;
-  const isExecuting = runStatus === 'running';
-
-  let finalNodes = [];
-  if (basePlan.length > 0) {
-    // Create lookup map normalized to uppercase keys to prevent mismatch
-    const execMap = {};
-    execTests.forEach(t => {
-      if (t.id) execMap[String(t.id).toUpperCase()] = t;
-    });
-
-    finalNodes = basePlan.map(item => {
-      const match = item.id ? execMap[String(item.id).toUpperCase()] : null;
-      return {
-        id: item.id || '',
-        title: item.scenario || item.title || 'Untitled Step',
-        status: match ? match.status : 'queued',
-        screenshot: match?.screenshot || null,
-        original: match || item
-      };
-    });
-  } else if (execTests.length > 0) {
-    finalNodes = execTests.map(t => ({
-      id: t.id || '',
-      title: t.title || 'Untitled Step',
-      status: t.status,
-      screenshot: t.screenshot,
-      original: t
-    }));
-  }
-
-  // If entire process is executing, let's highlight the current executing task
-  const executionStage = run?.stages?.execution?.status;
-  const isSpecificallyExecuting = executionStage === 'running' || (isExecuting && !executionStage);
-  
-  if (isSpecificallyExecuting && finalNodes.length > 0) {
-    const anyActuallyRunning = finalNodes.some(n => {
-      const s = String(n.status || '').toLowerCase();
-      return s === 'running' || s === 'in-progress';
-    });
-    // If nothing is explicitly marked running, implicitly assume the first queued one is active
-    if (!anyActuallyRunning) {
-      const firstQueued = finalNodes.find(n => {
-        const s = String(n.status || '').toLowerCase();
-        return s !== 'pass' && s !== 'passed' && s !== 'fail' && s !== 'failed' && s !== 'skipped';
-      });
-      if (firstQueued) {
-        firstQueued.status = 'running';
-      }
+  useEffect(() => {
+    if (run?.stages?.execution?.status === 'running' && followPipeline.current) {
+      onTabChange?.('execution', { replace: true });
     }
-  }
+  }, [onTabChange, run?.stages?.execution?.status]);
 
-  if (finalNodes.length === 0) {
-    const msg = isExecuting ? 'Preparation step...' : 'No plan or execution flow available yet.';
-    return <div className="af-empty">{msg}</div>;
-  }
+  const verdictKey = summary.verdict?.toLowerCase() === 'go'
+    ? 'go'
+    : summary.verdict?.toLowerCase().includes('conditional')
+      ? 'conditional'
+      : 'hold';
+  const selectTab = (tab) => {
+    followPipeline.current = false;
+    onTabChange?.(tab);
+  };
 
   return (
-    <div className="af-sidebar-list">
-      {finalNodes.map((n, i) => {
-        const status = normalizeStatus(n.status);
-        return (
-          <div key={n.id || i} className="af-sidebar-step">
-            <div className={`af-sb-node af-sb-node--${status}`}>
-              <div className="af-sb-node-head">
-                <StatusGlyph status={status} />
-                <span className="af-sb-node-id">{n.id || `ST-${i + 1}`}</span>
-              </div>
-              <div className="af-sb-node-title" title={n.title}>{n.title}</div>
-              {n.screenshot && (
-                <a href={artifactUrl(n.screenshot)} target="_blank" rel="noreferrer" className="af-sb-thumb">
-                  <img src={artifactUrl(n.screenshot)} alt="Step Screenshot" loading="lazy" />
-                </a>
-              )}
-            </div>
-            {i < finalNodes.length - 1 && (
-              <div className="af-sb-connector">
-                <div className="af-sb-line" />
-              </div>
-            )}
+    <div className="run-detail-view">
+      {actions.actionError && <div className="rdt-error-banner" role="alert">{actions.actionError}</div>}
+      {!run && (
+        <div className={loadError || !runId ? 'empty-state empty-state--error' : 'empty-state'} role={loadError ? 'alert' : undefined}>
+          <p>{loadError || (runId ? <span className="rdt-loading-inline"><Spinner /> Loading run…</span> : 'No run selected. Open a run from the list.')}</p>
+          {loadError && <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>Back to runs</button>}
+        </div>
+      )}
+      <div className={`rdt-header rdt-header--${run?.status || (runId ? 'pending' : 'idle')}`}>
+        <div className="rdt-header-left">
+          <div className="rdt-url">
+            {run?.input?.ottUrl
+              ? <a href={run.input.ottUrl} target="_blank" rel="noreferrer">{run.input.ottUrl}</a>
+              : <span className="text-muted">{runId ? 'Loading…' : 'No run active'}</span>}
           </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function normalizeStatus(s) {
-  const v = String(s || '').toLowerCase();
-  if (v === 'pass' || v === 'passed' || v === 'success') return 'passed';
-  if (v === 'fail' || v === 'failed' || v === 'error')   return 'failed';
-  if (v === 'running' || v === 'in-progress' || v === 'in_progress') return 'running';
-  if (v === 'skipped' || v === 'skip') return 'skipped';
-  return 'queued';
-}
-
-function statusLabel(s) {
-  return { passed: 'Passed', failed: 'Failed', running: 'Running', queued: 'Queued', skipped: 'Skipped' }[s] || s;
-}
-
-function StatusGlyph({ status }) {
-  if (status === 'passed') {
-    return (
-      <span className="af-glyph af-glyph--pass" title="Passed">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3 7.2l2.7 2.7L11 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    );
-  }
-  if (status === 'failed') {
-    return (
-      <span className="af-glyph af-glyph--fail" title="Failed">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </span>
-    );
-  }
-  if (status === 'running') {
-    return (
-      <span className="af-glyph af-glyph--running" title="Running">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: 'nrv-spin 0.9s linear infinite' }}>
-          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="2" strokeDasharray="22 12" />
-        </svg>
-      </span>
-    );
-  }
-  if (status === 'skipped') {
-    return (
-      <span className="af-glyph af-glyph--skipped" title="Skipped">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    );
-  }
-  return (
-    <span className="af-glyph af-glyph--queued" title="Queued">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <circle cx="3.5" cy="7" r="1.2" fill="currentColor" />
-        <circle cx="7"   cy="7" r="1.2" fill="currentColor" />
-        <circle cx="10.5" cy="7" r="1.2" fill="currentColor" />
-      </svg>
-    </span>
-  );
-}
-
-/* ─── Shared sub-components ─────────────────────────────── */
-
-/* Returns the stage a tab is still waiting on, or null when there is something
-   to render (artifact landed, or the run finished without producing one). */
-function pendingStage(run, tab) {
-  const source = TAB_SOURCES[tab];
-  if (!source) return null;
-  if (run.artifacts?.[source.artifact]) return null;
-  if (isTerminalRunStatus(run.status)) return null;
-  const status = run.stages?.[source.stage]?.status;
-  if (status === 'done' || status === 'failed' || status === 'stopped') return null;
-  return { label: source.label, status: status || 'pending' };
-}
-
-function TabLoading({ title, detail, queued = false }) {
-  return (
-    <div className={`tab-loading${queued ? ' tab-loading--queued' : ''}`} role="status" aria-live="polite">
-      <div className="tab-loading-head">
-        {queued ? <span className="tab-loading-dots"><i /><i /><i /></span> : <Spinner />}
-        <div>
-          <div className="tab-loading-title">{title}</div>
-          {detail && <div className="tab-loading-detail">{detail}</div>}
+          <div className="rdt-meta-row">
+            <code className="rdt-run-id">{String(runId || '').slice(0, 20)}</code>
+            {run?.status && <span className={`chip ${run.status}`}>{run.status}</span>}
+            {summary.verdict && <span className={`verdict ${verdictKey}`}>{summary.verdict}</span>}
+            {summary.passRate && <span className="rdt-passrate">Pass rate: <strong>{summary.passRate}</strong></span>}
+            {run && <span className="rdt-date">Started {formatDate(run.startedAt || run.createdAt)}</span>}
+          </div>
+        </div>
+        <div className="rdt-header-right">
+          <StopRunButton run={run} onStop={actions.stop} />
+          <button type="button" className="btn btn-secondary btn-sm" disabled={!runId || !hasFailures} onClick={actions.rerun}>Re-run Failed</button>
+          <button type="button" className="btn btn-secondary btn-sm" disabled={run?.status !== 'completed'} onClick={() => window.open(apiUrl(`/runs/${runId}/download?theme=${encodeURIComponent(currentThemeId())}`), '_blank')}>PDF</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>← Runs</button>
+        </div>
+        <AgentRunLine run={run} />
+      </div>
+      <div className="rdt-pipeline-panel">
+        <RunProgressPanel run={run} streamTransport={transport} />
+        <div className="rdt-section-label">Pipeline stages</div>
+        <PipelineFlow run={run} />
+      </div>
+      <div className="rdt-body">
+        <div className="rdt-tab-panel">
+          <div className="rdt-tabs">
+            {tabs.map((tab) => (
+              <button type="button" key={tab.id} className={`rdt-tab${currentTab === tab.id ? ' rdt-tab--active' : ''}`} onClick={() => selectTab(tab.id)}>
+                {tab.label}
+                {tab.id === 'execution' && run?.artifacts?.executionReport?.totals && <TabBadge {...run.artifacts.executionReport.totals} />}
+              </button>
+            ))}
+          </div>
+          <div className="rdt-tab-content"><RunDetailTabPanel run={run} tab={currentTab} runId={runId} /></div>
+        </div>
+        <div className="rdt-actual-flow-panel">
+          <div className="rdt-side-label">{run?.status === 'running' && <span className="rdt-side-live-dot" />}Actual Flow</div>
+          <ActualFlowContent run={run} />
         </div>
       </div>
-      <div className="tab-skeleton">
-        <span className="tab-skeleton-line" />
-        <span className="tab-skeleton-line" />
-        <span className="tab-skeleton-line" />
-      </div>
     </div>
   );
 }
 
-function Spinner({ size = 16 }) {
-  return (
-    <svg className="rdt-spinner" width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.2" />
-      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
+export default function RunDetailView({ runId, ...props }) {
+  const { data: run, isError, error } = useGetRunQuery(runId, { skip: !runId });
+  const [stopRun, stopState] = useStopRunMutation();
+  const [rerunFailed, rerunState] = useRerunFailedMutation();
+  const actions = {
+    stop: (id) => void stopRun(id),
+    rerun: () => {
+      if (runId) void rerunFailed(runId);
+    },
+    loadError: isError
+      ? error?.status === 404
+        ? 'Run not found. It may have been removed or belongs to another workspace.'
+        : 'Unable to load this run. Please try again.'
+      : '',
+    actionError: stopState.isError
+      ? 'Unable to stop this run.'
+      : rerunState.isError
+        ? 'Unable to re-run failed checks.'
+        : '',
+  };
 
-function Awaiting({ msg = 'Awaiting…' }) {
-  return <div className="tab-awaiting">{msg}</div>;
-}
-function Section({ title, children }) {
   return (
-    <div className="report-section">
-      <div className="report-section-title">{title}</div>
-      {children}
-    </div>
+    <RunStreamBridge runId={runId} run={run}>
+      {(transport) => <RunDetailContent {...props} run={run} runId={runId} transport={transport} actions={actions} />}
+    </RunStreamBridge>
   );
 }
-function JsonBlock({ data }) {
-  return <pre className="code-block json-block">{JSON.stringify(data, null, 2)}</pre>;
-}
-function JsonToggle({ data }) {
-  return (
-    <details className="json-toggle">
-      <summary>Raw JSON</summary>
-      <pre className="code-block json-block">{JSON.stringify(data, null, 2)}</pre>
-    </details>
-  );
-}
-function CodeSection({ title, code }) {
-  return (
-    <div className="code-section">
-      <div className="code-section-title">{title}</div>
-      <pre className="code-block">{code}</pre>
-    </div>
-  );
-}
-function CollapsibleCodeSection({ title, code }) {
-  return (
-    <details className="json-toggle">
-      <summary>{title}</summary>
-      <pre className="code-block">{code}</pre>
-    </details>
-  );
-}
-function PriorityBadge({ p }) {
-  const cls = p === 'High' || p === 'Critical' ? 'priority-high'
-    : p === 'Medium' ? 'priority-med' : 'priority-low';
-  return <span className={`priority-badge ${cls}`}>{p}</span>;
-}
-function VitalCard({ label, value }) {
-  return (
-    <div className="vital-card">
-      <div className="vital-label">{label}</div>
-      <div className="vital-value">{value || '—'}</div>
-    </div>
-  );
-}
-
-const DownloadIcon = () => (
-  <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-    <path d="M5.5 1v7M3 6l2.5 2.5L8 6M1 9.5h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);

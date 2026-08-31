@@ -40,7 +40,7 @@ function startExecutionWorker({
   let active = 0;
   const waiters = [];
 
-  function acquire() {
+  function acquireExecutionSlot() {
     if (active < limit) {
       active += 1;
       return Promise.resolve();
@@ -50,13 +50,13 @@ function startExecutionWorker({
     });
   }
 
-  function release() {
+  function releaseExecutionSlot() {
     active = Math.max(0, active - 1);
     const next = waiters.shift();
     if (next) next();
   }
 
-  async function handle(job) {
+  async function handleExecutionRequest(job) {
     const batchId = job && job.batchId;
     const runId = job && job.runId;
     if (!runId || !batchId) {
@@ -64,7 +64,7 @@ function startExecutionWorker({
       return;
     }
 
-    await acquire();
+    await acquireExecutionSlot();
     let lastErr = null;
     try {
       for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -100,17 +100,17 @@ function startExecutionWorker({
         error: lastErr ? lastErr.message : "execution failed"
       });
     } finally {
-      release();
+      releaseExecutionSlot();
     }
   }
 
-  const unsubscribe = queue.subscribe(REQUESTED, handle);
+  const unsubscribe = queue.subscribe(REQUESTED, handleExecutionRequest);
   logger.log(`[execution] subscribed to ${REQUESTED} (maxConcurrent=${limit}, maxAttempts=${attempts})`);
 
   return {
     topic: REQUESTED,
     completedTopic: COMPLETED,
-    handle,
+    handle: handleExecutionRequest,
     unsubscribe,
     stats: () => ({ active, waiting: waiters.length, maxConcurrent: limit, maxAttempts: attempts })
   };

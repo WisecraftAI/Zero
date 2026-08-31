@@ -8,7 +8,7 @@ This is **what ships today**. For the IDE-style target and production gaps, see 
 
 **Day-0 onboarding:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) §2. **Compose:** [DOCKER.md](./DOCKER.md). **Postgres ER:** [DATABASE.md](./DATABASE.md). **Cost floors:** [COST.md](./COST.md).
 
-**Autonomous packaging / status:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status`). Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5** (trustworthy site understanding and test-plan quality) is reopened (`progress.json` `current: "Q5"`). UX **U1** (professional operator console) and **U2** (ultra-low-friction canvas) are **done**.
+**Autonomous packaging / status:** `support/agent-workflow/` + `/zero-target-arch` (`npm run workflow:status`). Capability M1–M7, packaging S0–S7, and product Q1–Q4 are **done**; product **Q5** (trustworthy site understanding and test-plan quality) is reopened (`progress.json` `current: "Q5"`). UX **U1–U3** (operator console, low-friction canvas, and RTK Query store) are **done**.
 
 ---
 
@@ -98,7 +98,7 @@ Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like,
 | **`uploaded_tc_only`** | CSV upload | Checks derived from uploaded cases |
 | **`full`** (`EXECUTION_MODE=full`) | Selector tuning only | Keyword/selector navigation — brittle on real sites |
 
-The downloadable PDF (`GET /runs/:id/download`) sets the **release gate** from automated pass rate in `releaseGate` (`services/api/src/reports/runPdfReport.js`): **≥ 95%** Full pass (manual spot check), **85–94%** Conditional pass, **< 85%** or unscored Manual check. The Manager agent's Go / Conditional Go / Hold label is printed alongside as a secondary signal. Neither is full product E2E proof — export Java/Playwright for real CI. Optional query params: `?theme=<data-theme id>` (operator palette) and `?paper=light` (dark-theme accents on white).
+The downloadable PDF (`GET /runs/:id/download`) sets the **release gate** from automated pass rate in `releaseGate` (`services/api/src/reports/runPdfReport.js`): **≥ 95%** Full pass (manual spot check), **85–94%** Conditional pass, **< 85%** or unscored Manual check. A **skipped check scores as a failure** — it leaves its journey unverified, so it stays in the denominator (`gateScore`) instead of being dropped from it. The Manager agent's Go / Conditional Go / Hold label, which counts failed plus skipped checks, is printed alongside as a secondary signal. Neither is full product E2E proof — export Java/Playwright for real CI. Optional query params: `?theme=<data-theme id>` (operator palette) and `?paper=light` (dark-theme accents on white).
 
 ---
 
