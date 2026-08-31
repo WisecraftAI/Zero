@@ -44,4 +44,4 @@ npm run workflow:verify -- --milestone Q1
 
 Update `support/agent-workflow/progress.json` `product` section only after verify exits 0.
 
-Operator console work is a separate track (**U1–U2**). See `prompts/ui-ux.md`.
+Operator console work is a separate track (**U1–U3**) and is complete. See `prompts/ui-ux.md`.

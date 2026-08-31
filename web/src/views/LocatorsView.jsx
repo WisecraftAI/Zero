@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { apiUrl } from '../apiBase';
+import { useLazyGetLocatorsQuery, useSubmitElementLogMutation } from '../store/opsApi';
 import './LocatorsView.scss';
 
 export default function LocatorsView() {
   const [logUrl, setLogUrl] = useState('');
   const [logJson, setLogJson] = useState('');
   const [logResult, setLogResult] = useState(null);
-  const [logSubmitting, setLogSubmitting] = useState(false);
-
   const [queryHost, setQueryHost] = useState('');
-  const [locators, setLocators] = useState(null);
-  const [queryLoading, setQueryLoading] = useState(false);
+  const [submitElementLog, { isLoading: logSubmitting }] = useSubmitElementLogMutation();
+  const [getLocators, {
+    data: locators,
+    isFetching: queryLoading,
+    isError: queryFailed,
+    error: queryError,
+  }] = useLazyGetLocatorsQuery();
 
   const submitLog = async () => {
     if (!logUrl.trim()) { setLogResult({ error: 'Enter a page URL.' }); return; }
@@ -22,34 +25,18 @@ export default function LocatorsView() {
     if (!payload.elements && !payload.snapshot?.elements) {
       setLogResult({ error: "JSON must contain an 'elements' array." }); return;
     }
-    setLogSubmitting(true);
     setLogResult(null);
     try {
-      const res = await fetch(apiUrl('/element-log'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      setLogResult(res.ok
-        ? { ok: `Saved — host: ${data.host}, selectors stored: ${data.count}` }
-        : { error: data.error || 'Failed to save.' });
+      const data = await submitElementLog(payload).unwrap();
+      setLogResult({ ok: `Saved — host: ${data.host}, selectors stored: ${data.count}` });
     } catch (e) {
-      setLogResult({ error: e.message });
-    } finally { setLogSubmitting(false); }
+      setLogResult({ error: e.data?.error || e.message || 'Failed to save.' });
+    }
   };
 
   const loadLocators = async () => {
     if (!queryHost.trim()) { setLocators({ error: 'Enter a host.' }); return; }
-    setQueryLoading(true);
-    setLocators(null);
-    try {
-      const res = await fetch(apiUrl(`/locators?host=${encodeURIComponent(queryHost)}`));
-      const data = await res.json();
-      setLocators(data);
-    } catch (e) {
-      setLocators({ error: e.message });
-    } finally { setQueryLoading(false); }
+    getLocators(queryHost.trim());
   };
 
   return (
@@ -129,11 +116,12 @@ export default function LocatorsView() {
                 </button>
               </div>
             </div>
-            {locators !== null && (
-              locators.error
-                ? <div className="log-result log-result--err">{locators.error}</div>
-                : <LocatorTable data={locators} />
+            {queryFailed && (
+              <div className="log-result log-result--err">
+                {queryError?.data?.error || 'Unable to load locators.'}
+              </div>
             )}
+            {locators !== undefined && <LocatorTable data={locators} />}
           </div>
         </div>
 
@@ -164,8 +152,8 @@ function LocatorTable({ data }) {
     <table className="data-table loc-table">
       <thead><tr><th>Key</th><th>Selector</th></tr></thead>
       <tbody>
-        {entries.map((e, i) => (
-          <tr key={i}>
+        {entries.map((e) => (
+          <tr key={`${e.key || e.name || 'locator'}:${e.selector || e.value || ''}`}>
             <td><code className="loc-key">{e.key || e.name || '—'}</code></td>
             <td><code className="loc-selector">{e.selector || e.value || '—'}</code></td>
           </tr>

@@ -3,7 +3,7 @@
 
 /**
  * Probe the repo for Target-architecture milestone completion.
- * Capability track M1–M7, packaging track S0–S7, product track Q1–Q5, UX track U1–U2.
+ * Capability track M1–M7, packaging track S0–S7, product track Q1–Q5, UX track U1–U3.
  * When M* is green, earliest unfinished is the first failing S*, then Q*, then U*.
  *
  * Usage: node support/agent-workflow/scripts/detect-milestone.js [--json]
@@ -16,7 +16,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 const ORDER = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
 const PACKAGING_ORDER = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
 const PRODUCT_ORDER = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'];
-const UX_ORDER = ['U1', 'U2'];
+const UX_ORDER = ['U1', 'U2', 'U3'];
 
 function read(rel) {
   try {
@@ -540,6 +540,81 @@ const checks = {
       details: { canvasClass, disclose, hoverRail, alwaysSubmit, overlayNarrow, hasTest },
     };
   },
+
+  U3() {
+    const webPkg = readJson('web/package.json') || {};
+    const deps = { ...(webPkg.dependencies || {}), ...(webPkg.devDependencies || {}) };
+    const rootPkg = readJson('package.json') || {};
+    const rootDev = rootPkg.devDependencies || {};
+    const eslintCfg = read('eslint.config.js');
+    const main = read('web/src/main.jsx');
+    const app = read('web/src/App.jsx');
+    const shell = read('web/src/layouts/AppShell.jsx');
+    const storeIndex = read('web/src/store/index.js');
+    const runsApi = read('web/src/store/runsApi.js');
+    const settingsApi = read('web/src/store/settingsApi.js');
+    const opsApi = read('web/src/store/opsApi.js');
+    const bridge = readAny(
+      'web/src/store/RunStreamBridge.jsx',
+      'web/src/store/RunStreamBridge.js'
+    );
+    const testFile = read('test/ui-ux-store.test.js');
+
+    const hasToolkit = Boolean(deps['@reduxjs/toolkit'] && deps['react-redux']);
+    const hasProvider = /Provider/.test(main) && /store/.test(main);
+    const hasConfigureStore = /configureStore/.test(storeIndex);
+    const hasRunsApi =
+      /createApi|injectEndpoints/.test(runsApi) &&
+      /getRuns|getRun/.test(runsApi) &&
+      /stop|rerun/i.test(runsApi);
+    const hasSettingsApi = /agent-settings|provider-keys/.test(settingsApi);
+    const hasOpsApi = /locators|element-log|recordings/.test(opsApi);
+    const hasBridge = /updateQueryData/.test(bridge) && /mergeRunStreamState|getRun/.test(bridge);
+    const appNoRunsState =
+      app.length > 0 &&
+      !/useState\(\[\]\)/.test(app) &&
+      !/const \[runs,/.test(app) &&
+      !/const \[activeRun,/.test(app) &&
+      !/const \[clock,/.test(app);
+    const hasBoundary =
+      /ErrorBoundary|componentDidCatch|getDerivedStateFromError/.test(shell) ||
+      existsAny(
+        'web/src/components/ErrorBoundary.jsx',
+        'web/src/components/ErrorBoundary.js'
+      );
+    const hooksLint =
+      /eslint-plugin-react-hooks|react-hooks/.test(eslintCfg) &&
+      (/react-hooks\/rules-of-hooks/.test(eslintCfg) || Boolean(rootDev['eslint-plugin-react-hooks']));
+    const hasTest = testFile.length > 0 && /runsApi|configureStore|Provider/.test(testFile);
+
+    return {
+      pass:
+        hasToolkit &&
+        hasProvider &&
+        hasConfigureStore &&
+        hasRunsApi &&
+        hasSettingsApi &&
+        hasOpsApi &&
+        hasBridge &&
+        appNoRunsState &&
+        hasBoundary &&
+        hooksLint &&
+        hasTest,
+      details: {
+        hasToolkit,
+        hasProvider,
+        hasConfigureStore,
+        hasRunsApi,
+        hasSettingsApi,
+        hasOpsApi,
+        hasBridge,
+        appNoRunsState,
+        hasBoundary,
+        hooksLint,
+        hasTest,
+      },
+    };
+  },
 };
 
 function loadProgress() {
@@ -631,7 +706,7 @@ function main() {
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);
     }
     console.log('');
-    console.log('UX track · U1–U2 (operator console)');
+    console.log('UX track · U1–U3 (operator console + store)');
     for (const id of UX_ORDER) {
       const r = results[id];
       console.log(`  ${id}  ${(r.pass ? 'DONE' : 'TODO').padEnd(4)}  ${JSON.stringify(r.details)}`);

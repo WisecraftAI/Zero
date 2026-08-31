@@ -134,12 +134,12 @@ async function setRunSecret(runId, secret) {
   }
 }
 
-function databaseConfigured() {
+function isDatabaseConfigured() {
   return dbHelpers.isDatabaseConfigured();
 }
 
 async function initDatabase() {
-  if (!databaseConfigured()) return;
+  if (!isDatabaseConfigured()) return;
 
   try {
     dbPool = new Pool({
@@ -167,7 +167,7 @@ async function initDatabase() {
 if (process.env.VERCEL) {
   auth.assertProductionSecrets();
   app.use((req, res, next) => {
-    if (!dbPool && databaseConfigured()) {
+    if (!dbPool && isDatabaseConfigured()) {
       initDatabase().catch((e) => console.error("Lazy DB init failed:", e));
     }
     next();
@@ -452,7 +452,7 @@ if (!process.env.VERCEL) {
       await initDatabase();
       if (dbEnabled) {
         console.log("Postgres persistence enabled");
-      } else if (databaseConfigured()) {
+      } else if (isDatabaseConfigured()) {
         console.log("Postgres configured but unavailable; using memory/file persistence");
       } else {
         console.log("Postgres not configured. Running with memory/file persistence");

@@ -7,6 +7,7 @@ description: >-
 
 # @zero/db
 
+0. Read `.cursor/skills/javascript/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/db.md`
 2. Never store login passwords
 3. Do not hard-disable `databaseConfigured()`

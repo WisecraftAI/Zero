@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
-import { apiUrl } from '../apiBase';
+import { useState } from 'react';
+import {
+  useDeleteProviderKeyMutation,
+  useGetProviderKeysQuery,
+  useSaveProviderKeyMutation,
+} from '../store/settingsApi';
 import './ApiKeysView.scss';
 
 const PROVIDERS = [
@@ -57,27 +61,18 @@ function fmtDate(ts) {
 }
 
 export default function ApiKeysView() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState({});         // { provider: typed-value }
   const [editing, setEditing] = useState({});       // { provider: bool }
   const [saving, setSaving] = useState({});         // { provider: bool }
-
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(apiUrl('/provider-keys'));
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load.');
-      setItems(data.items || []);
-    } catch (e) {
-      setError(e.message);
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
+  const {
+    data,
+    isLoading: loading,
+    isError: loadFailed,
+  } = useGetProviderKeysQuery();
+  const [saveProviderKey] = useSaveProviderKeyMutation();
+  const [deleteProviderKey] = useDeleteProviderKeyMutation();
+  const items = data?.items || [];
 
   const saveKey = async (provider) => {
     const key = (drafts[provider] || '').trim();
@@ -85,18 +80,11 @@ export default function ApiKeysView() {
     setSaving(s => ({ ...s, [provider]: true }));
     setError('');
     try {
-      const res = await fetch(apiUrl(`/provider-keys/${provider}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save.');
+      await saveProviderKey({ provider, key }).unwrap();
       setDrafts(d => ({ ...d, [provider]: '' }));
       setEditing(e => ({ ...e, [provider]: false }));
-      await load();
     } catch (e) {
-      setError(e.message);
+      setError(e.data?.error || e.message || 'Failed to save.');
     } finally { setSaving(s => ({ ...s, [provider]: false })); }
   };
 
@@ -104,12 +92,9 @@ export default function ApiKeysView() {
     if (!window.confirm(`Remove the saved key for ${provider}?`)) return;
     setSaving(s => ({ ...s, [provider]: true }));
     try {
-      const res = await fetch(apiUrl(`/provider-keys/${provider}`), { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to remove.');
-      await load();
+      await deleteProviderKey(provider).unwrap();
     } catch (e) {
-      setError(e.message);
+      setError(e.data?.error || e.message || 'Failed to remove.');
     } finally { setSaving(s => ({ ...s, [provider]: false })); }
   };
 
@@ -179,7 +164,9 @@ export default function ApiKeysView() {
         </p>
       </div>
 
-      {error && <div className="apk-error">{error}</div>}
+      {(error || loadFailed) && (
+        <div className="apk-error">{error || 'Failed to load provider keys.'}</div>
+      )}
 
       {/* Provider list */}
       <div className="apk-list">

@@ -1,0 +1,28 @@
+---
+description: React 18 + Vite UI — apply react-pro; no Next.js/RSC in this SPA.
+globs: web/src/**/*.{js,jsx,scss}
+alwaysApply: false
+---
+
+# Web UI (`web/`)
+
+1. Read `.cursor/skills/react-pro/SKILL.md` before changing components or hooks.
+2. Read `.cursor/skills/zero-web/SKILL.md` for repo scope (`web/src/**` only).
+3. For visual work, follow `design-foundations` and `dark-mode` (CSS variables + `data-theme`).
+4. For Next/RSC performance ideas, do **not** copy them here unless they apply to a client SPA. This app is React 18.2 + Vite + JSX.
+
+## Must
+
+- Function components; colocated sibling `.scss`
+- State colocated; lift only when siblings share; Context only for rare writes
+- Effects synchronize with external systems and clean up; user actions live in handlers
+- `React.lazy` for heavy panels; no habit-memo (`useMemo`/`useCallback`/`memo` only for real cost or stable identity)
+- Semantic HTML; `type="button"` on non-submit buttons; labeled inputs
+- After UI changes, rebuild with `npm run build` when the operator needs `dist/web/`
+
+## Must not
+
+- Class components, mixins, `findDOMNode`, index keys on dynamic lists
+- Copying props into state without `key={id}` reset
+- Fetch waterfalls of sequential `await` when work is independent
+- Polling when EventSource / `useRunStream` already exists

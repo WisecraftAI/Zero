@@ -7,3 +7,4 @@ npm-debug.log*
 dist/
 test-results/
 playwright-report/
+support/zero-docs/public/api/

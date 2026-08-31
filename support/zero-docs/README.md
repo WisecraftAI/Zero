@@ -14,7 +14,7 @@ Markdown lead briefings (moved from the old root `docs/` folder):
 | [`docs/v2/`](./docs/v2/) | V2 | Target vision + production gaps — `ARCHITECTURE.md` |
 | [`docs/README.md`](./docs/README.md) | — | Index |
 
-V3 packaging (workspaces, Docker, S0–S7), product Q1–Q5 (Q5 open), and UX U1–U2 live in the React Architecture tab (`src/pages/v3/`, `migration.ts`), not as markdown.
+V3 packaging (workspaces, Docker, S0–S7), product Q1–Q5 (Q5 open), and UX U1–U3 live in the React Architecture tab (`src/pages/v3/`, `migration.ts`), not as markdown.
 
 ## Run
 
@@ -41,6 +41,14 @@ npm run verify       # typecheck · lint · lint:styles · test · build
 npm run preview      # serve the built bundle from dist/
 ```
 
+Generate the source-level API reference from the repository root before running
+the docs site when module and function documentation is needed:
+
+```bash
+npm run docs:api
+# API reference: http://localhost:5174/api/ while the docs dev server is running
+```
+
 ## What's inside
 
 | Path                         | Owns                                                                                          |
@@ -53,7 +61,7 @@ npm run preview      # serve the built bundle from dist/
 | `src/components/layout/`     | Hero, Tabs, SubTabs, JumpNav, Footer — the shell.                                             |
 | `src/components/ui/`         | Card, Note, Diagram, Mermaid, FlawItem, PipelineStage, Honesty, ProvidersTable, CodeBlock — primitives. |
 | `src/pages/`                 | One page per top-level tab. `v3/` splits into sections + LLD sub-tabs.                        |
-| `src/data/`                  | Repo catalog + M1–M7 / S0–S7 / Q1–Q5 / U1–U2 scores. Q5 is open.            |
+| `src/data/`                  | Repo catalog + M1–M7 / S0–S7 / Q1–Q5 / U1–U3 scores. Q5 is open.            |
 | `src/hooks/`                 | `useHashTab`, `useMediaQuery`.                                                                |
 | `test/`                      | Vitest + Testing Library + jsdom.                                                             |
 
@@ -101,6 +109,7 @@ Regenerate live package docs from disk (run before `npm run build` or via `prebu
 npm run docs            # LLD workspace facts → src/data/generated.ts
 npm run analyser-doc    # packages/analyzer → src/data/analyzerDoc.generated.ts
 npm run packages-doc    # domain · db · locators · builders · cloud → src/data/packagesDoc.generated.ts
+npm run docs:api        # root command: JSDoc HTML → public/api/
 ```
 
 The **Packages** tab renders `analyzerDoc` + `packagesDoc` so facade re-exports and `lib/` modules stay in sync with the repo.

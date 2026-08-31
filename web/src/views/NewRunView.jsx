@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { apiUrl, API_BASE } from '../apiBase';
+import { API_BASE } from '../apiBase';
 import { normalizeTargetUrl } from '../lib/websiteTypeHint';
+import { useStartRecordingMutation } from '../store/opsApi';
+import { useCreateRunMutation } from '../store/runsApi';
 import './NewRunView.scss';
 
 const emptyTestCase = () => ({ id: Date.now(), feature: '', scenario: '', expectedResult: '' });
@@ -39,7 +41,7 @@ const TC_MODE_LABEL = {
   manual: 'Written by hand',
 };
 
-export default function NewRunView({ onSubmit }) {
+export default function NewRunView({ onCreated }) {
   const formRef = useRef(null);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +51,8 @@ export default function NewRunView({ onSubmit }) {
   const [ottUrl, setOttUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [hasFile, setHasFile] = useState(false);
+  const [createRun] = useCreateRunMutation();
+  const [startRecording] = useStartRecordingMutation();
 
   const [testCaseMode, setTestCaseMode] = useState('auto');
   const [manualTestCases, setManualTestCases] = useState([emptyTestCase()]);
@@ -101,12 +105,7 @@ export default function NewRunView({ onSubmit }) {
     if (!url) { setError('Enter a target URL before recording.'); return; }
     setError('');
     try {
-      const res = await fetch(apiUrl('/recordings/start'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ottUrl: url }),
-      });
-      const data = await res.json();
+      const data = await startRecording({ ottUrl: url }).unwrap();
       if (data.sessionId) {
         setRecordingSessionId(data.sessionId);
         setRecordingId(null);
@@ -169,7 +168,8 @@ export default function NewRunView({ onSubmit }) {
     if (recFile) fd.set('recordingFile', recFile);
 
     try {
-      await onSubmit(fd);
+      const result = await createRun(fd).unwrap();
+      onCreated?.(result.runId);
     } catch (err) {
       setError(err.message || 'Failed to start pipeline.');
       setSubmitting(false);

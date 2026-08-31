@@ -18,6 +18,7 @@ Markdown lead briefings live next to the interactive docs site under `support/ze
 | [v1/COST.md](./v1/COST.md) | V1 | **Deployment cost** — demo tier vs production floors, LLM caps, executor sizing |
 | [v1/PRODUCTION_AWS.md](./v1/PRODUCTION_AWS.md) | V1 | **Cost-optimized production on AWS** — decision doc: scale-to-zero vs single node, daily batch trigger, blockers |
 | [v1/OPEN_SOURCE.md](./v1/OPEN_SOURCE.md) | V1 | MIT license + dependency inventory |
+| [API_REFERENCE.md](./API_REFERENCE.md) | Live source | Generated module and symbol reference (`npm run docs:api`) |
 | [v2/ARCHITECTURE.md](./v2/ARCHITECTURE.md) | V2 | **Target vision** + production gaps |
 | [../README.md](../README.md) | — | How to run the React docs site (`:5174`) |
 | [../../../README.md](../../../README.md) | — | How to run the product / APIs / execution modes |
@@ -26,9 +27,14 @@ Markdown lead briefings live next to the interactive docs site under `support/ze
 
 ## Versions
 
-- **V1** — shipped runtime: S7 four-image deploy (`:3000` web / `:3001` API), Q1–Q4 autonomous pipeline, U1–U2 operator console, host-scoped `agent_memory`, persistence, auth, LLM, HTTP surface (`docs/v1/ARCHITECTURE.md`).
+- **V1** — shipped runtime: S7 four-image deploy (`:3000` web / `:3001` API), Q1–Q4 autonomous pipeline, U1–U3 operator console and RTK Query store, host-scoped `agent_memory`, persistence, auth, LLM, HTTP surface (`docs/v1/ARCHITECTURE.md`).
 - **V2** — IDE-style target + remaining ops/product gaps (pairs with `web/public/architectureV2.html` and the Architecture tab on this site).
 - **V3** — packaging / workspaces / Docker / S0–S7 + product Q1–Q4 (React sections under `src/pages/v3/` and `migration.ts`, not markdown; all tracks done).
 
 Live HTML after `npm run build` + `npm start`: `/architecture.html` (V1), `/architectureV2.html` (V2).  
 Source: `web/public/` — do not hand-edit the generated `dist/web/` copies.
+
+Generated developer API documentation is available at `/api/` on the docs site
+after running `npm run docs:api`. Its source is the checked-in JavaScript/JSX;
+the generated HTML under `support/zero-docs/public/api/` is reproducible and
+intentionally ignored by Git.

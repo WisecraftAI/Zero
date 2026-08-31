@@ -7,6 +7,7 @@ description: >-
 
 # @zero/web
 
+0. Read `.cursor/skills/react-pro/SKILL.md` and apply it. Then `design-foundations` / `dark-mode` if the change is visual.
 1. Read `support/agent-workflow/prompts/repos/web.md`
 2. Edit `web/src/**` only (rebuild with `npm run build`)
 3. Presentation only — no Playwright, pg, or cloud SDKs

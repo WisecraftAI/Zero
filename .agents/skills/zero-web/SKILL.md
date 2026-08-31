@@ -7,7 +7,8 @@ description: >-
 
 # @zero/web
 
+0. Read `.cursor/skills/react-pro/SKILL.md` and apply it. Then `design-foundations` / `dark-mode` if the change is visual.
 1. Read `support/agent-workflow/prompts/repos/web.md`
 2. Edit `web/src/**` only (rebuild with `npm run build`)
 3. Presentation only — no Playwright, pg, or cloud SDKs
-4. Prefer EventSource on `/api/runs/:id/stream`; do not add more polling
+4. EventSource on `/runs/:id/stream` via `web/src/data/useRunStream.js`; poll fallback only after two SSE failures

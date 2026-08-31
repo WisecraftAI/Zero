@@ -18,7 +18,7 @@ project so agents can discover them locally.
 | Area | Path / tech | Pro skill |
 |------|-------------|-----------|
 | Server | `services/*` (`@zero/api` · `@zero/orchestrator` · `@zero/executor`) + `packages/*` — Node CommonJS + Express | `javascript` |
-| Client | `web/` (`@zero/web`) — React 18 + Vite (JSX) | `react` |
+| Client | `web/` (`@zero/web`) — React 18 + Vite (JSX) | `react` + `react-pro` |
 | ML (optional) | `support/ml-training/` — Python | `python-pro` |
 | TC uploads | `.xlsx` / `.xls` / CSV | `xlsx` |
 | Reports / PDFs | `pdfkit`, PDF artifacts | `pdf` |
@@ -66,11 +66,11 @@ If a skill’s source is missing, note it and continue; do not invent content.
 bash .cursor/skills/init/scripts/install-pro-skills.sh --force
 
 # Install only a subset
-bash .cursor/skills/init/scripts/install-pro-skills.sh --only javascript,react
+bash .cursor/skills/init/scripts/install-pro-skills.sh --only javascript,react,react-pro
 ```
 
 ## After install
 
-Remind the user they can invoke skills with `/javascript`, `/react`, `/python-pro`,
+Remind the user they can invoke skills with `/javascript`, `/react`, `/react-pro`, `/python-pro`,
 etc., and that Zero architecture/diagram skills remain `/zero-architecture` and
 `/zero-diagrams`.

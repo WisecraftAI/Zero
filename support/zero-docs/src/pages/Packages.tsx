@@ -232,6 +232,11 @@ export function PackagesPage() {
         <code>@zero/cloud</code>). Each sub-tab is generated from the live package tree on disk;
         run <code>npm run packages-doc</code> or <code>npm run analyser-doc</code> to refresh.
       </p>
+      <Note tone="info">
+        Browse the <a href="/api/index.html">symbol-level JSDoc reference</a>. When the API service
+        is running, request and response contracts are available in{' '}
+        <a href="http://localhost:3001/api-docs">Swagger UI</a>.
+      </Note>
 
       <SubTabs tabs={PKG_TABS} active={tab} onSelect={setTab} ariaLabel="Shared package views" />
 

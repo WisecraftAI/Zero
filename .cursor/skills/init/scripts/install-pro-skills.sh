@@ -34,6 +34,7 @@ done
 DEFAULT_SKILLS=(
   javascript
   react
+  react-pro
   python-pro
   xlsx
   pdf
@@ -125,4 +126,4 @@ done
 
 echo
 echo "Done. Present: $installed / ${#SKILLS[@]}  |  Missing source: $missing"
-echo "Invoke with /javascript /react /python-pro /xlsx /pdf /build-check /simplify /dark-mode /design-foundations"
+echo "Invoke with /javascript /react /react-pro /python-pro /xlsx /pdf /build-check /simplify /dark-mode /design-foundations"

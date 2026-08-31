@@ -7,6 +7,7 @@ description: >-
 
 # @zero/executor
 
+0. Read `.cursor/skills/javascript/SKILL.md` and `.cursor/skills/playwright-best-practices/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/executor.md`
 2. One browser context per job; close in `finally`
 3. Upload artifacts via object store — no HTTP server

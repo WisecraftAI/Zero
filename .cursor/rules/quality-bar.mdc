@@ -1,0 +1,38 @@
+---
+description: Mandatory quality bar — read the matching pro skill and refuse sloppy patterns before writing code.
+alwaysApply: true
+---
+
+# Quality bar
+
+Ship production-grade code. Match the surrounding module. Do not invent a weaker pattern.
+
+## Before writing code
+
+Read the skill for the files you will touch, then the workspace skill:
+
+| Path | Pro skill | Workspace |
+|------|-----------|-----------|
+| `web/src/**` | `react-pro` (UI craft) | `zero-web` |
+| `web/src/**/*.scss` | `design-foundations`, `dark-mode` | `zero-web` |
+| `services/api/**` | `javascript`, `nodejs-backend-patterns` | `zero-api` |
+| `services/orchestrator/**` | `javascript` | `zero-orchestrator` |
+| `services/executor/**` | `javascript`, `playwright-best-practices` | `zero-executor` |
+| `packages/**` | `javascript` | matching `zero-*` |
+| `support/ml-training/**` | `python-pro` | — |
+| `**/*.{test,spec}.js` | `javascript-typescript-jest` | — |
+
+Next.js / RSC / React 19 APIs do not belong in `web/` (React 18.2 + Vite SPA).
+
+## Non-negotiables
+
+- Render is pure. Do not derive UI state in `useEffect`. Do not mutate props/state.
+- Hooks at top level, honest dependency arrays — no `eslint-disable` for `exhaustive-deps`.
+- `const` by default; never `var`. Handle errors; do not swallow with empty `catch`.
+- Services never `require` sibling `services/*`. Vendor cloud SDKs only in `packages/cloud`.
+- No secrets in logs, artifacts, or git. Passwords stay runtime-only.
+- Loading, empty, and error are explicit. Lists use stable domain `key`s.
+- Change behavior → update or add a test. Run lint/tests for the area you touched.
+- Smallest diff that solves the request. No drive-by refactors.
+
+If a shortcut conflicts with this bar, follow the bar and say so.

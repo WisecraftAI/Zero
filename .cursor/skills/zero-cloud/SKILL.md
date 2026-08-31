@@ -7,6 +7,7 @@ description: >-
 
 # @zero/cloud
 
+0. Read `.cursor/skills/javascript/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/cloud.md`
 2. Keep `index.d.ts` contracts stable
 3. Vendor SDKs only under `packages/cloud/**`

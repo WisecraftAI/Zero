@@ -25,7 +25,7 @@ function startOrchestrator({
   let active = 0;
   const waiters = [];
 
-  function acquire() {
+  function acquireOrchestrationSlot() {
     if (active < limit) {
       active += 1;
       return Promise.resolve();
@@ -35,19 +35,19 @@ function startOrchestrator({
     });
   }
 
-  function release() {
+  function releaseOrchestrationSlot() {
     active = Math.max(0, active - 1);
     const next = waiters.shift();
     if (next) next();
   }
 
-  async function handle(msg) {
+  async function handleRunRequest(msg) {
     const runId = msg && msg.runId;
     if (!runId) {
       logger.warn("[orchestrator] runs.requested missing runId");
       return;
     }
-    await acquire();
+    await acquireOrchestrationSlot();
     try {
       if (cache && typeof cache.publish === "function") {
         await cache.publish(`state.${runId}`, {
@@ -68,16 +68,16 @@ function startOrchestrator({
         });
       }
     } finally {
-      release();
+      releaseOrchestrationSlot();
     }
   }
 
-  const unsubscribe = queue.subscribe(TOPIC, handle);
+  const unsubscribe = queue.subscribe(TOPIC, handleRunRequest);
   logger.log(`[orchestrator] subscribed to ${TOPIC} (maxConcurrent=${limit})`);
 
   return {
     topic: TOPIC,
-    handle,
+    handle: handleRunRequest,
     unsubscribe,
     stats: () => ({ active, waiting: waiters.length, maxConcurrent: limit })
   };

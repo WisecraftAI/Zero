@@ -59,11 +59,22 @@ function releaseGate(score) {
       score: null,
       scoreLabel: "n/a",
       verdict: "Manual check",
-      directive: "No automated check produced a pass or fail result, so there is no evidence to score. Complete a full manual QA pass before release."
+      directive: "No automated check was recorded, so there is no evidence to score. Complete a full manual QA pass before release."
     };
   }
   const band = GATE_BANDS.find((entry) => score >= entry.min) || GATE_BANDS[GATE_BANDS.length - 1];
   return { score, scoreLabel: `${score}%`, verdict: band.verdict, directive: band.directive };
+}
+
+/**
+ * Gate score from the executor's counts. A skipped check leaves its journey
+ * unverified, so it scores against the gate exactly like a failure instead of
+ * being dropped from the denominator. Null when nothing was recorded at all.
+ */
+function gateScore({ passed = 0, failed = 0, skipped = 0 } = {}) {
+  const passedCount = Number(passed) || 0;
+  const scored = passedCount + (Number(failed) || 0) + (Number(skipped) || 0);
+  return scored ? Math.round((passedCount / scored) * 100) : null;
 }
 
 function formatDateTime(value) {
@@ -187,9 +198,8 @@ function buildModel(run) {
 
   // Scored from the counts rather than the executor's own string, so the gate
   // band can never disagree with the pass rate printed beside it.
-  const executedTotal = passed + failed;
-  const score = executedTotal ? Math.round((passed / executedTotal) * 100) : null;
-  const gate = releaseGate(score);
+  const unverified = failed + skipped;
+  const gate = releaseGate(gateScore({ passed, failed, skipped }));
   const passRate = gate.scoreLabel;
 
   const createdAt = new Date(run.createdAt).getTime();
@@ -204,6 +214,10 @@ function buildModel(run) {
     tests,
     orderedTests,
     failedTests: orderedTests.filter((test) => test.status === "failed"),
+    unverifiedTests: orderedTests.filter((test) => test.status === "failed" || test.status === "skipped"),
+    // A skipped check screenshots the page before its journey ran, so the frame
+    // shows nothing a reviewer can act on and is left out of the evidence.
+    evidenceTests: orderedTests.filter((test) => test.status !== "skipped"),
     manager,
     summary,
     requirements,
@@ -216,7 +230,7 @@ function buildModel(run) {
     accessibility: artifacts.accessibilityReport || null,
     performance: artifacts.performanceReport || null,
     security: artifacts.securityReport || null,
-    totals: { total, passed, failed, skipped, passRate },
+    totals: { total, passed, failed, skipped, unverified, passRate },
     wallClockMs,
     gate,
     verdict: gate.verdict,
@@ -333,8 +347,11 @@ function createReporter(C, kit, logo, coverLogo) {
       tone: gateTone,
       lines: [
         gate.score === null
-          ? "Scored on passed / executed checks: nothing was executed, so no score could be awarded."
-          : `Scored on passed / executed checks: ${totals.passed} of ${totals.passed + totals.failed} passed.`,
+          ? "Scored on passed / recorded checks: nothing was recorded, so no score could be awarded."
+          : `Scored on passed / recorded checks: ${totals.passed} of ${totals.passed + totals.unverified} passed.`
+            + (totals.skipped
+              ? ` The ${totals.skipped} skipped check${totals.skipped === 1 ? "" : "s"} score as failures because ${totals.skipped === 1 ? "its journey is" : "their journeys are"} unverified.`
+              : ""),
         GATE_SCALE,
         agentHeadline
       ]
@@ -342,11 +359,11 @@ function createReporter(C, kit, logo, coverLogo) {
 
     statCardRow(doc, [
       { label: "Gate decision", value: safe(model.verdict, 20), accent: gateTone.fg, hint: `Score ${gate.scoreLabel}` },
-      { label: "Gate score", value: totals.passRate, accent: gateTone.fg, hint: "Passed / executed" },
+      { label: "Gate score", value: totals.passRate, accent: gateTone.fg, hint: "Passed / recorded" },
       { label: "Total checks", value: String(totals.total), accent: C.neutral, hint: "Automation checks run" },
       { label: "Passed", value: String(totals.passed), accent: C.pass },
       { label: "Failed", value: String(totals.failed), accent: totals.failed ? C.fail : C.neutral },
-      { label: "Skipped", value: String(totals.skipped), accent: totals.skipped ? C.skip : C.neutral },
+      { label: "Skipped", value: String(totals.skipped), accent: totals.skipped ? C.fail : C.neutral, hint: "Scored as failures" },
       { label: "Run duration", value: formatDuration(model.wallClockMs), accent: C.info, hint: "Queued to delivered" }
     ], { height: 70 });
 
@@ -362,7 +379,7 @@ function createReporter(C, kit, logo, coverLogo) {
     legend(doc, CONTENT_LEFT + 150, chartTop + 34, [
       { label: `Passed - ${totals.passed}`, color: C.pass },
       { label: `Failed - ${totals.failed}`, color: C.fail },
-      { label: `Skipped - ${totals.skipped}`, color: C.skip }
+      { label: `Skipped (scored as fail) - ${totals.skipped}`, color: C.skip }
     ]);
 
     const infoX = CONTENT_LEFT + 300;
@@ -374,7 +391,7 @@ function createReporter(C, kit, logo, coverLogo) {
       ["Execution mode", safe(model.exec.metadata && model.exec.metadata.mode, 40) || safe(model.input.executionMode, 40) || "-"],
       ["Manager agent verdict", model.managerVerdict],
       ["Manual cases planned", String(model.manualCases.length)],
-      ["Evidence captured", `${model.tests.filter((test) => test.screenshot).length} screenshots`]
+      ["Evidence captured", `${model.evidenceTests.filter((test) => test.screenshot).length} screenshots`]
     ];
     facts.forEach((fact, index) => {
       const y = chartTop + 20 + index * 16;
@@ -706,12 +723,12 @@ function createReporter(C, kit, logo, coverLogo) {
   }
 
   function renderFailureAnalysis(doc, model) {
-    const { failedTests, manager } = model;
+    const { unverifiedTests, manager } = model;
     const rootCauses = collectRootCauses(manager);
     const highImpact = (manager.analysis && manager.analysis.highImpactFailures) || [];
     const skippedReasons = (manager.analysis && manager.analysis.skippedReasons) || [];
 
-    if (!failedTests.length && !rootCauses.length && !skippedReasons.length) return;
+    if (!unverifiedTests.length && !rootCauses.length && !skippedReasons.length) return;
 
     doc.addPage();
     sectionTitle(doc, "Failure Analysis", "Root causes and per-check diagnostics for triage");
@@ -737,15 +754,20 @@ function createReporter(C, kit, logo, coverLogo) {
       });
     }
 
-    if (failedTests.length) {
-      subTitle(doc, `Failure detail (${Math.min(failedTests.length, MAX_FAILURE_CARDS)} of ${failedTests.length})`);
-      failedTests.slice(0, MAX_FAILURE_CARDS).forEach((test) => {
+    if (unverifiedTests.length) {
+      const shown = Math.min(unverifiedTests.length, MAX_FAILURE_CARDS);
+      const skippedShown = unverifiedTests.some((test) => test.status === "skipped");
+      subTitle(doc, `Failure detail (${shown} of ${unverifiedTests.length})`
+        + (skippedShown ? " - skipped checks are listed here because they score as failures" : ""));
+      unverifiedTests.slice(0, MAX_FAILURE_CARDS).forEach((test) => {
+        const wasSkipped = test.status === "skipped";
         const failedSteps = (test.steps || []).filter((step) => step.status === "failed");
         calloutBox(doc, {
-          title: `${safe(test.id, 30)} - ${safe(test.title, 110)}`,
-          body: safe(test.error || "No error message captured.", 700),
-          tone: { fg: C.fail, bg: C.failBg },
+          title: `${safe(test.id, 30)} - ${safe(test.title, 110)}${wasSkipped ? "  (skipped)" : ""}`,
+          body: safe(test.error || (wasSkipped ? "No skip reason captured." : "No error message captured."), 700),
+          tone: wasSkipped ? { fg: C.skip, bg: C.skipBg } : { fg: C.fail, bg: C.failBg },
           lines: [
+            wasSkipped ? "Skipped checks leave their journey unverified and are scored as failures by the release gate." : null,
             failedSteps.length ? `Failed step: ${safe(failedSteps[0].description || failedSteps[0].action, 160)}` : null,
             (test.trace || []).length ? `Trace: ${safe((test.trace || []).join(", "), 160)}` : null,
             test.screenshot ? `Evidence: ${safe(path.basename(String(test.screenshot)), 60)}` : null
@@ -859,10 +881,11 @@ function createReporter(C, kit, logo, coverLogo) {
       body: model.gate.directive,
       tone: C.verdictTone(model.verdict),
       lines: [
-        `Basis: ${executed} checks executed - ${passed} passed, ${failed} failed, ${skipped} skipped (${model.totals.passRate} gate score).`,
-        failed
-          ? `${failed} failing check${failed === 1 ? "" : "s"} remain open and must be triaged before the gate score can improve.`
-          : "No failing checks were open at sign-off.",
+        `Basis: ${executed} checks recorded - ${passed} passed, ${failed} failed, ${skipped} skipped (${model.totals.passRate} gate score).`
+          + (skipped ? " Skipped checks score as failures because their journeys are unverified." : ""),
+        failed + skipped
+          ? `${failed + skipped} check${failed + skipped === 1 ? "" : "s"} remain unverified and must be triaged before the gate score can improve.`
+          : "No failing or skipped checks were open at sign-off.",
         `Manager agent recorded "${model.managerVerdict}": ${signOff.recommendation || "no recommendation recorded."}`
       ]
     });
@@ -871,7 +894,7 @@ function createReporter(C, kit, logo, coverLogo) {
       { label: "Release gate", value: safe(model.verdict, 20), accent: C.verdictTone(model.verdict).fg, hint: `Score ${model.gate.scoreLabel}` },
       { label: "Risk level", value: safe(model.riskLevel, 20), accent: C.toneFor(model.riskLevel).fg },
       { label: "Open failures", value: String(failed), accent: failed ? C.fail : C.pass, hint: "Awaiting triage" },
-      { label: "Unverified", value: String(skipped), accent: skipped ? C.skip : C.neutral, hint: "Skipped checks" },
+      { label: "Unverified", value: String(skipped), accent: skipped ? C.fail : C.neutral, hint: "Skipped - scored as fail" },
       { label: "Actions queued", value: String(actions.length), accent: C.brand, hint: "In the plan below" },
       { label: "Checks traced", value: String(matrix.length), accent: C.info, hint: "Mapped to source cases" }
     ], { height: 66 });
@@ -971,22 +994,25 @@ function createReporter(C, kit, logo, coverLogo) {
   }
 
   async function renderEvidence(doc, model, resolveScreenshot) {
-    const { run, orderedTests } = model;
+    const { run, evidenceTests, orderedTests } = model;
 
     const entries = [];
-    for (const test of orderedTests) {
+    for (const test of evidenceTests) {
       if (entries.length >= MAX_SCREENSHOTS) break;
       const evidence = await resolveEvidence(run, test.screenshot, resolveScreenshot);
       if (evidence) entries.push({ test, ...evidence });
     }
 
     doc.addPage();
-    sectionTitle(doc, "Evidence Appendix", "Browser screenshots captured during execution, failures first");
+    sectionTitle(doc, "Evidence Appendix", "Browser screenshots from executed checks, failures first - skipped checks excluded");
 
     if (!entries.length) {
+      const skippedFrames = orderedTests.some((test) => test.status === "skipped" && test.screenshot);
       calloutBox(doc, {
         title: "No screenshots available",
-        body: "The executor did not capture any screenshots for this run.",
+        body: skippedFrames
+          ? "Only skipped checks captured a frame, and those show the page before their journey ran, so no evidence is attached."
+          : "The executor did not capture any screenshots for this run.",
         tone: { fg: C.neutral, bg: C.neutralBg }
       });
       return;
@@ -1183,4 +1209,4 @@ async function sendRunPdfReport(run, res, options = {}) {
   await written;
 }
 
-module.exports = { sendRunPdfReport, releaseGate };
+module.exports = { sendRunPdfReport, releaseGate, gateScore };

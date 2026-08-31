@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
 import './RunsListView.scss';
 import StopRunButton from '../components/StopRunButton';
+import { useGetRunsQuery, useStopRunMutation } from '../store/runsApi';
+import { selectLiveRunIds } from '../store/selectors';
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -15,9 +18,23 @@ function truncate(str, n = 48) {
 
 const STATUS_OPTIONS = ['all', 'running', 'stopping', 'completed', 'failed', 'stopped', 'pending'];
 
-export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNewRun, onStopRun }) {
+export default function RunsListView({ onOpenRun, onNewRun }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const liveRunIds = useSelector(selectLiveRunIds);
+  const {
+    data: runs = [],
+    isLoading: loading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetRunsQuery(undefined, {
+    pollingInterval: liveRunIds.length > 0 ? 4000 : 0,
+  });
+  const [stopRun, { isError: stopFailed }] = useStopRunMutation();
+  const handleStopRun = (id) => {
+    void stopRun(id);
+  };
 
   const filtered = runs.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
@@ -37,6 +54,11 @@ export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNe
 
   return (
     <div className="view runs-list-view">
+      {(isError || stopFailed) && (
+        <div className="rdt-error-banner" role="alert">
+          {stopFailed ? 'Unable to stop this run.' : 'Unable to load runs.'}
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="stats-grid">
@@ -84,8 +106,8 @@ export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNe
           </div>
         </div>
         <div className="runs-filter-right">
-          <button className="btn btn-secondary btn-sm" onClick={onRefresh} disabled={loading}>
-            <RefreshIcon spin={loading} /> Refresh
+          <button className="btn btn-secondary btn-sm" onClick={refetch} disabled={isFetching}>
+            <RefreshIcon spin={isFetching} /> Refresh
           </button>
           <button className="btn btn-primary btn-sm" onClick={onNewRun}>
             <PlusIcon /> New Run
@@ -155,7 +177,7 @@ export default function RunsListView({ runs, loading, onOpenRun, onRefresh, onNe
                     <td className="run-date">{fmtDate(run.startedAt || run.createdAt)}</td>
                     <td>
                       <div className="runs-row-actions">
-                        <StopRunButton run={run} onStop={onStopRun} className="runs-stop-btn" />
+                        <StopRunButton run={run} onStop={handleStopRun} className="runs-stop-btn" />
                         <button className="btn btn-ghost btn-sm runs-view-btn" onClick={(e) => { e.stopPropagation(); onOpenRun(id); }}>
                           View →
                         </button>

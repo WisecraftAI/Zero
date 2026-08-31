@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U2 · packaging S0–S7 · capability M1–M7",
+  "northStar": "Autonomous any-URL QA (Q1–Q5) · operator UI/UX U1–U3 · packaging S0–S7 · capability M1–M7",
   "track": "product",
   "current": "Q5",
   "acceptanceFloor": "M4",
@@ -116,6 +116,13 @@
       "status": "done",
       "spec": "milestones/U2-low-friction-canvas.md",
       "completedAt": "2026-08-27T13:31:00.000Z"
+    },
+    "U3": {
+      "id": "U3",
+      "name": "Redux Toolkit store (RTK Query)",
+      "status": "done",
+      "spec": "milestones/U3-redux-store.md",
+      "completedAt": "2026-08-30T19:04:00.000Z"
     }
   },
   "history": [
@@ -233,6 +240,16 @@
       "at": "2026-08-28T00:00:00.000Z",
       "event": "docs_runtime_sync",
       "note": "zero-docs + workflow prompts synced to runtime: host-scoped agent_memory (002), llm/ split, pathname SPA routes, Run Detail FlowDiagram. Q5 still current; classification keys remain uncached."
+    },
+    {
+      "at": "2026-08-30T18:00:00.000Z",
+      "event": "milestone_opened",
+      "note": "U3 Redux Toolkit store (RTK Query) opened by approved requirement: move runs/settings/locators into RTK Query, SSE cache patches via RunStreamBridge, keep route/theme/wizard/elapsed out of Redux. Parallel to Q5 — DETECT still prefers unfinished product probes; implement via /zero-web and prompts/ui-ux.md § U3. Spec: milestones/U3-redux-store.md; zero-docs mirror: src/data/uxStoreMilestone.ts."
+    },
+    {
+      "at": "2026-08-30T19:04:00.000Z",
+      "event": "milestone_done",
+      "note": "U3 complete: RTK Query owns runs/settings/ops server state; SSE patches the run cache; App only routes lazy views; elapsed time remains leaf-local; Run Detail is split into stable-key tab modules. Product current remains Q5."
     }
   ]
 }

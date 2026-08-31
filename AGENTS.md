@@ -68,7 +68,7 @@ docker compose up --build workflow
 | `dist/` | Regenerable outputs only (gitignored): `web/` UI build, `artifacts/`, `coverage/`, `logs/` |
 | `support/` | Non-runtime supporting folders: `agent-workflow/`, `zero-docs/`, `ml-training/`, `samples/` |
 | `support/zero-docs/` | Docs site (`:5174`) + markdown under `docs/v1` (runtime) and `docs/v2` (target). See `support/zero-docs/README.md`. |
-| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done), **Q5 open**, **U1–U2 UI/UX done**. Docker: `workflow` service on `:5175` |
+| `support/agent-workflow/` | Target-arch: capability M1–M7 (done) + packaging S0–S7 (done) + product Q1–Q4 (done), **Q5 open**, **U1–U3 UI/UX + RTK store done**. Docker: `workflow` service on `:5175` |
 | `support/ml-training/` | Optional Python per-agent quality models (separate from Node runtime) |
 | `support/samples/` | Example CSV test-case inputs |
 | `scripts/set-database.js` | DB helper (`npm run set-db`) |
@@ -88,7 +88,7 @@ Order in `stageKeys`: optional `webAnalyzer` → `ba` → `manualQa` → `automa
 7. **Optional** — accessibility / performance / security Playwright passes
 8. **Manager / Delivery** — executive review + stakeholder delivery report
 
-The PDF report decides the release verdict itself from the automated pass rate — `>= 95%` Full pass (manual spot check), `85–94%` Conditional pass, `< 85%` Manual check, unscored when nothing executed (`releaseGate` in `services/api/src/reports/runPdfReport.js`). The Manager agent's failure-count label (Go / Conditional Go / Hold) is printed alongside as a secondary signal, not as the headline.
+The PDF report decides the release verdict itself from the automated pass rate — `>= 95%` Full pass (manual spot check), `85–94%` Conditional pass, `< 85%` Manual check, unscored when nothing was recorded (`releaseGate` in `services/api/src/reports/runPdfReport.js`). A **skipped check scores as a failure** everywhere (`gateScore` in the report, `totals.passRate` in the executor, the Manager Go/Hold label): it leaves its journey unverified, so it stays in the denominator. The Manager agent's label (Go / Conditional Go / Hold) is printed alongside as a secondary signal, not as the headline.
 
 Channel profiles (`@zero/domain` `appProfiles`): Gray, TVNZ+, Aha, Hotstar-like, PrimeVideo-like, Generic. Rule-based types also include SAAS, MARKETPLACE, ECOMMERCE, etc. (`@zero/analyzer` `WEBSITE_TYPES`).
 
@@ -137,6 +137,7 @@ S7 dropped the `/api` prefix — the API service (`http://localhost:3001`) owns 
 
 ## Conventions for agents
 
+- **Quality bar (mandatory):** before writing code, read the matching pro skill (`react-pro` for `web/`, `javascript` + `nodejs-backend-patterns` for Node, `playwright-best-practices` for the executor, `python-pro` for `support/ml-training/`). Cursor rules in `.cursor/rules/` (`quality-bar.mdc`, `web-react.mdc`, `node-javascript.mdc`) apply the same bar. Prefer a correct small change over a clever one. Do not disable hook/lint rules to make code compile.
 - **Stack**: CommonJS Node on server (`require`); ESM React in `web/` (`"type": "module"`).
 - **UI changes**: edit `web/src/**`, then `npm run build` so `dist/web/` updates. Do not treat `dist/web/assets` as source.
 - **Styles**: SCSS (dart-sass via Vite). Each component keeps a sibling `.scss`; shared partials live in `web/src/styles/` — `_tokens.scss` (radius/type/space), `_themes.scss` (the `$themes` map that emits every `[data-theme]` palette), `_base.scss`, `_breakpoints.scss` (`bp.below($width)`), `_glass.scss` (frosted chrome for any palette that declares a `glass-blur` token). Theming stays on CSS custom properties because `ThemePicker` swaps `data-theme` at runtime; Sass variables would compile away.
@@ -182,7 +183,7 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | Skill | Use for |
 |-------|---------|
 | `init` | Install stack-matched pro skills into `.cursor/skills` + `.agents/skills` |
-| `zero-target-arch` | Verify packaging S0–S7 and product Q1–Q4 (done), **advance Q5**, or implement **U1–U2** (operator UI/UX) via `support/agent-workflow/` |
+| `zero-target-arch` | Verify packaging S0–S7 and product Q1–Q4 (done), **advance Q5**, or implement **U1–U3** (operator UI/UX + RTK store) via `support/agent-workflow/` |
 | `zero-web` / `zero-api` / `zero-orchestrator` / `zero-executor` | Code one deployable (Web UI · HTTP API · Orchestrator worker · Playwright executor) |
 | `zero-cloud` / `zero-domain` / `zero-db` / `zero-locators` / `zero-builders` / `zero-analyzer` | Code one shared package |
 | `zero-architecture` | Zero-specific architecture explain / HTML publish |
@@ -190,8 +191,10 @@ Each workspace has **three names** (not three repos): **Folder** (`services/api/
 | `architecture` | Generic layered HTML architecture diagrams |
 | `sf-diagram-mermaid` | Mermaid (Salesforce-oriented; prefer `zero-diagrams` here) |
 | `uml` / `graphviz` / `network` | UML, Graphviz, network diagrams |
-| `javascript` / `react` / `python-pro` | Stack pro skills (via `/init`) |
+| `javascript` / `react` / `react-pro` / `python-pro` | Stack pro skills (via `/init`). **Required** when coding that stack — not optional flavor. |
 | `xlsx` / `pdf` / `build-check` / `simplify` / `dark-mode` / `design-foundations` | Tooling/UI pro skills (via `/init`) |
+
+Always-on quality: `.cursor/rules/quality-bar.mdc`. Path-scoped: `web-react.mdc`, `node-javascript.mdc`.
 
 Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Production Blueprint, a `/zero-*` repo skill to change one workspace, `/zero-architecture` or `/zero-diagrams` for architecture/diagrams, or ask in chat. Prompts live in `support/agent-workflow/prompts/repos/`.
 
@@ -199,7 +202,7 @@ Invoke with `/init` to sync pro skills, `/zero-target-arch` to advance the Produ
 
 Autonomous path from runtime-today → Target architecture (`dist/web/architectureV2.html` after build, source in `web/public/`):
 
-- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: "Q5"` — trustworthy site understanding, spec `milestones/Q5-domain-subdomain.md`; **U1–U2** operator UI/UX done, specs `milestones/U1-professional-ui-ux.md` and `milestones/U2-low-friction-canvas.md`)
+- Project: `support/agent-workflow/` (capability M1–M7 done; packaging S0–S7 done; product Q1–Q4 done; `progress.json` `current: "Q5"` — trustworthy site understanding, spec `milestones/Q5-domain-subdomain.md`; **U1–U3** operator UI/UX and RTK Query store done, specs `milestones/U1-professional-ui-ux.md`, `milestones/U2-low-friction-canvas.md`, `milestones/U3-redux-store.md`)
 - Status: `npm run workflow:status` · Verify: `npm run workflow:verify -- --milestone Q5` (or any M/S/Q/U id)
 - Docker instance: `http://localhost:5175/status` (compose service `workflow`, repo mounted at `/repo`)
 - Cloud contracts: `@zero/cloud` (`ZERO_CLOUD=local` by default)

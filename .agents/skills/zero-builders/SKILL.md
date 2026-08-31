@@ -7,6 +7,7 @@ description: >-
 
 # @zero/builders
 
+0. Read `.cursor/skills/javascript/SKILL.md`.
 1. Read `support/agent-workflow/prompts/repos/builders.md`
 2. Pure text emitters — do not launch a browser
 3. Same input, same output

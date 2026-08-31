@@ -1,7 +1,7 @@
 "use strict";
 
 const { PassThrough } = require("stream");
-const { sendRunPdfReport, releaseGate } = require("../services/api/src/reports/runPdfReport");
+const { sendRunPdfReport, releaseGate, gateScore } = require("../services/api/src/reports/runPdfReport");
 const { reportPalette, PALETTES } = require("@zero/brand");
 
 function completedRun(overrides = {}) {
@@ -64,6 +64,18 @@ describe("release gate", () => {
     expect(gate.verdict).toBe("Manual check");
     expect(gate.scoreLabel).toBe("n/a");
   });
+
+  it("scores a skipped check as a failure", () => {
+    expect(gateScore({ passed: 8, failed: 0, skipped: 2 })).toBe(80);
+    expect(gateScore({ passed: 1, failed: 1, skipped: 2 })).toBe(25);
+    expect(gateScore({ passed: 0, failed: 0, skipped: 3 })).toBe(0);
+    expect(releaseGate(gateScore({ passed: 8, failed: 0, skipped: 2 })).verdict).toBe("Manual check");
+  });
+
+  it("is unscored only when no check was recorded at all", () => {
+    expect(gateScore({ passed: 0, failed: 0, skipped: 0 })).toBeNull();
+    expect(gateScore()).toBeNull();
+  });
 });
 
 describe("run PDF report", () => {
@@ -84,6 +96,28 @@ describe("run PDF report", () => {
     expect(res.headers["content-type"]).toBe("application/pdf");
     expect(res.headers["content-disposition"]).toContain("pdf-test-run.pdf");
     expect(resolveScreenshot).toHaveBeenCalledWith("home.png");
+  });
+
+  it("leaves screenshots from skipped checks out of the evidence appendix", async () => {
+    const res = responseStream();
+    const chunks = [];
+    res.on("data", (chunk) => chunks.push(chunk));
+    const resolveScreenshot = jest.fn().mockResolvedValue(null);
+
+    const run = completedRun();
+    run.artifacts.executionReport = {
+      totals: { total: 2, passed: 1, failed: 0, skipped: 1, passRate: "50%" },
+      tests: [
+        { id: "TC-1", title: "Loads home", status: "passed", screenshot: "home.png" },
+        { id: "TC-2", title: "Signs in", status: "skipped", screenshot: "signin-skipped.png" }
+      ]
+    };
+
+    await sendRunPdfReport(run, res, { resolveScreenshot });
+
+    expect(Buffer.concat(chunks).subarray(0, 4).toString()).toBe("%PDF");
+    expect(resolveScreenshot).toHaveBeenCalledWith("home.png");
+    expect(resolveScreenshot).not.toHaveBeenCalledWith("signin-skipped.png");
   });
 
   it("renders every operator theme, and an unknown id falls back", async () => {
